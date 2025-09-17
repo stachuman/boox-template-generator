@@ -49,8 +49,18 @@ const PageManager: React.FC = () => {
     duplicatePage,
     duplicatePages,
     getWidgetsForCurrentPage,
-    getWidgetsForPage
+    getWidgetsForPage,
+    currentTemplate,
+    addMaster,
+    removeMaster,
+    renameMaster,
+    assignMasterToPage,
+    getAssignedMasterForPage,
   } = useEditorStore();
+
+  const [newMasterName, setNewMasterName] = useState('Header/Footer');
+  const masters = currentTemplate?.masters || [];
+  const assignedMasterId = getAssignedMasterForPage(currentPage);
 
   const handleAddPage = () => {
     addPage();
@@ -107,7 +117,7 @@ const PageManager: React.FC = () => {
   };
 
   return (
-    <div className="w-48 border-r border-eink-pale-gray bg-eink-white flex flex-col">
+    <div className="w-64 border-r border-eink-pale-gray bg-eink-white flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-eink-pale-gray">
         <h3 className="font-semibold text-sm">Pages</h3>
@@ -256,6 +266,79 @@ const PageManager: React.FC = () => {
           <Trash2 className="w-4 h-4" />
           <span>Delete Page</span>
         </button>
+      </div>
+
+      {/* Master Assignment */}
+      <div className="p-3 border-b border-eink-pale-gray">
+        <div className="mb-2">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-sm font-medium">Master for this page</div>
+            <button
+              className="text-xs text-eink-gray hover:text-eink-black"
+              onClick={() => {
+                const id = addMaster(newMasterName.trim() || 'Master');
+                assignMasterToPage(currentPage, id);
+              }}
+              title="Quick add a master and assign to this page"
+            >
+              + New
+            </button>
+          </div>
+          <select
+            className="input-field w-full text-sm"
+            value={assignedMasterId || ''}
+            onChange={(e) => assignMasterToPage(currentPage, e.target.value || null)}
+          >
+            <option value="">None</option>
+            {masters.map(m => (
+              <option key={m.id} value={m.id}>{m.name || m.id}</option>
+            ))}
+          </select>
+        </div>
+        <div className="mt-2">
+          <div className="text-sm font-medium mb-1">Masters</div>
+          <div className="space-y-2">
+            {masters.length === 0 && (
+              <div className="text-xs text-eink-light-gray">No masters yet</div>
+            )}
+            {masters.map((m) => (
+              <div key={m.id} className="flex items-center space-x-2">
+                <input
+                  className="input-field text-xs flex-1"
+                  value={m.name || ''}
+                  onChange={(e) => renameMaster(m.id, e.target.value)}
+                />
+                <button
+                  className="text-xs text-red-600 hover:text-red-800"
+                  title="Delete master"
+                  onClick={() => {
+                    if (confirm('Delete this master? Assigned pages will revert to None.')) removeMaster(m.id);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center space-x-2 mt-2">
+            <input
+              className="input-field text-xs flex-1"
+              placeholder="New master name"
+              value={newMasterName}
+              onChange={(e) => setNewMasterName(e.target.value)}
+            />
+            <button
+              className="btn-secondary text-xs"
+              onClick={() => {
+                const id = addMaster(newMasterName.trim() || 'Master');
+                setNewMasterName('Header/Footer');
+                assignMasterToPage(currentPage, id);
+              }}
+            >
+              Add
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Page List */}

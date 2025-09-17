@@ -26,8 +26,14 @@ const TemplateEditor: React.FC = () => {
     currentTemplate,
     activeProfile,
     showGrid,
+    showWidgetPalette,
+    showPagesPanel,
+    showRightPanel,
     setActiveProfile,
     setShowGrid,
+    setShowWidgetPalette,
+    setShowPagesPanel,
+    setShowRightPanel,
     updateTemplateMetadata,
     resetEditor,
   } = useEditorStore();
@@ -214,17 +220,25 @@ const TemplateEditor: React.FC = () => {
         onToggleGrid={() => setShowGrid(!showGrid)}
         onTogglePreview={() => setShowPreview(!showPreview)}
         showPreview={showPreview}
+        showWidgetPalette={showWidgetPalette}
+        showPagesPanel={showPagesPanel}
+        showRightPanel={showRightPanel}
+        onToggleWidgetPalette={() => setShowWidgetPalette(!showWidgetPalette)}
+        onTogglePagesPanel={() => setShowPagesPanel(!showPagesPanel)}
+        onToggleRightPanel={() => setShowRightPanel(!showRightPanel)}
       />
 
       {/* Main Editor Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Widget Palette */}
-        <div className="w-64 border-r border-eink-pale-gray bg-eink-white">
-          <WidgetPalette />
-        </div>
+        {showWidgetPalette && (
+          <div className="w-64 border-r border-eink-pale-gray bg-eink-white">
+            <WidgetPalette />
+          </div>
+        )}
 
         {/* Page Management Panel */}
-        <PageManager />
+        {showPagesPanel && <PageManager />}
 
         {/* Center - Canvas Area */}
         <div className="flex-1 flex flex-col">
@@ -234,13 +248,15 @@ const TemplateEditor: React.FC = () => {
         </div>
 
         {/* Right Sidebar - Properties or Preview */}
-        <div className="w-80 border-l border-eink-pale-gray bg-eink-white">
-          {showPreview ? (
-            <PreviewPanel />
-          ) : (
-            <PropertiesPanel />
-          )}
-        </div>
+        {showRightPanel && (
+          <div className="w-80 border-l border-eink-pale-gray bg-eink-white">
+            {showPreview ? (
+              <PreviewPanel />
+            ) : (
+              <PropertiesPanel />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

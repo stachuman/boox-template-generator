@@ -12,7 +12,7 @@ import { useEditorStore } from '@/stores/editorStore';
 import { Widget } from '@/types';
 
 const PropertiesPanel: React.FC = () => {
-  const { selectedWidget, updateWidget, removeWidget, setSelectedWidget } = useEditorStore();
+  const { selectedWidget, updateWidget, removeWidget, setSelectedWidget, getAssignedMasterForPage, moveWidgetToMaster, detachWidgetFromMasterToPage, findMasterIdByWidget, currentPage } = useEditorStore() as any;
 
   const { register, handleSubmit, reset } = useForm<Widget>();
 
@@ -106,6 +106,38 @@ const PropertiesPanel: React.FC = () => {
             <Trash2 className="w-4 h-4" />
             <span>Delete</span>
           </button>
+          {/* Move between page and master */}
+          <div className="mt-2 flex items-center space-x-2">
+            {(() => {
+              const assignedMaster = getAssignedMasterForPage(currentPage);
+              const inMaster = findMasterIdByWidget(selectedWidget.id);
+              if (inMaster) {
+                return (
+                  <button
+                    type="button"
+                    className="btn-secondary text-xs"
+                    onClick={() => detachWidgetFromMasterToPage(selectedWidget.id, currentPage)}
+                    title="Detach from master to this page"
+                  >
+                    Detach to Page
+                  </button>
+                );
+              }
+              if (assignedMaster) {
+                return (
+                  <button
+                    type="button"
+                    className="btn-secondary text-xs"
+                    onClick={() => moveWidgetToMaster(selectedWidget.id, assignedMaster)}
+                    title="Move this widget into the assigned master"
+                  >
+                    Move to Master
+                  </button>
+                );
+              }
+              return null;
+            })()}
+          </div>
         </div>
       </div>
       

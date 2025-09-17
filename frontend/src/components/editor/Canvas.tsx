@@ -18,6 +18,7 @@ const Canvas: React.FC = () => {
   const {
     currentTemplate,
     selectedWidget,
+    currentPage,
     showGrid,
     snapEnabled,
     zoom,
@@ -61,12 +62,84 @@ const Canvas: React.FC = () => {
 
       const canvasPosition = getCanvasPosition(clientOffset.x, clientOffset.y);
 
+      // Helper: snap to nearby widget edges/centers
+      const snapToWidgets = (pos: { x: number; y: number; width: number; height: number }, movingId?: string) => {
+        const TOL = 6 / zoom; // tolerance in points (scaled)
+        const widgets = getWidgetsForCurrentPage().filter(w => w.id !== movingId);
+        if (widgets.length === 0) return pos;
+
+        const left = pos.x;
+        const right = pos.x + pos.width;
+        const hCenter = pos.x + pos.width / 2;
+        const top = pos.y;
+        const bottom = pos.y + pos.height;
+        const vCenter = pos.y + pos.height / 2;
+
+        let snappedX = pos.x;
+        let snappedY = pos.y;
+
+        // Collect candidate edges
+        const xTargets: number[] = [];
+        const xCenterTargets: number[] = [];
+        const yTargets: number[] = [];
+        const yCenterTargets: number[] = [];
+        widgets.forEach(w => {
+          const wx = w.position.x;
+          const wy = w.position.y;
+          const ww = w.position.width;
+          const wh = w.position.height;
+          xTargets.push(wx, wx + ww);
+          xCenterTargets.push(wx + ww / 2);
+          yTargets.push(wy, wy + wh);
+          yCenterTargets.push(wy + wh / 2);
+        });
+
+        // Snap X (left/right/center)
+        const trySnap = (val: number, targets: number[]) => {
+          let best = val;
+          let minDelta = Number.MAX_VALUE;
+          targets.forEach(t => {
+            const d = Math.abs(t - val);
+            if (d < minDelta && d <= TOL) {
+              minDelta = d;
+              best = t;
+            }
+          });
+          return best;
+        };
+
+        const newLeft = trySnap(left, xTargets);
+        if (newLeft !== left) snappedX = newLeft;
+        else {
+          const newRight = trySnap(right, xTargets);
+          if (newRight !== right) snappedX = newRight - pos.width;
+          else {
+            const newCenter = trySnap(hCenter, xCenterTargets);
+            if (newCenter !== hCenter) snappedX = newCenter - pos.width / 2;
+          }
+        }
+
+        // Snap Y (top/bottom/center)
+        const newTop = trySnap(top, yTargets);
+        if (newTop !== top) snappedY = newTop;
+        else {
+          const newBottom = trySnap(bottom, yTargets);
+          if (newBottom !== bottom) snappedY = newBottom - pos.height;
+          else {
+            const newCenterY = trySnap(vCenter, yCenterTargets);
+            if (newCenterY !== vCenter) snappedY = newCenterY - pos.height / 2;
+          }
+        }
+
+        return { ...pos, x: Math.round(snappedX), y: Math.round(snappedY) };
+      };
+
       if (item.isNew && item.widgetType) {
         // Create new widget from palette
         const newWidget: Widget = {
           id: generateWidgetId(),
           type: item.widgetType as Widget['type'],
-          page: 1,
+          page: currentPage,
           content: item.defaultProps?.content || '',
           position: {
             x: canvasPosition.x,
@@ -78,7 +151,9 @@ const Canvas: React.FC = () => {
           properties: item.defaultProps?.properties
         };
 
-        addWidget(newWidget);
+        // Snap to existing widgets if any
+        const snapped = snapToWidgets({ ...newWidget.position }, newWidget.id);
+        addWidget({ ...newWidget, position: snapped });
       } else if (!item.isNew && item.widget) {
         // Move existing widget using delta movement for smooth repositioning
         const offset = monitor.getDifferenceFromInitialOffset();
@@ -88,7 +163,8 @@ const Canvas: React.FC = () => {
             x: snapToGrid(item.widget.position.x + offset.x / zoom),
             y: snapToGrid(item.widget.position.y + offset.y / zoom)
           };
-          updateWidget(item.widget.id, { position: updatedPosition });
+          const snapped = snapToWidgets({ ...updatedPosition, width: item.widget.position.width, height: item.widget.position.height }, item.widget.id);
+          updateWidget(item.widget.id, { position: snapped });
         } else {
           // Fallback to drop position
           const updatedPosition = {
@@ -96,7 +172,8 @@ const Canvas: React.FC = () => {
             x: canvasPosition.x,
             y: canvasPosition.y
           };
-          updateWidget(item.widget.id, { position: updatedPosition });
+          const snapped = snapToWidgets({ ...updatedPosition, width: item.widget.position.width, height: item.widget.position.height }, item.widget.id);
+          updateWidget(item.widget.id, { position: snapped });
         }
       }
     },

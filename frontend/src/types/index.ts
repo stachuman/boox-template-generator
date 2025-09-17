@@ -80,6 +80,17 @@ export interface Widget {
   properties?: WidgetProperties;
 }
 
+export interface Master {
+  id: string;
+  name?: string;
+  widgets: Widget[];
+}
+
+export interface PageAssignment {
+  page: number;
+  master_id: string;
+}
+
 export interface NamedDestination {
   id: string;
   page: number;
@@ -126,6 +137,8 @@ export interface Template {
   metadata: TemplateMetadata;
   canvas: Canvas;
   widgets: Widget[];
+  masters?: Master[];
+  page_assignments?: PageAssignment[];
   navigation: Navigation;
   export?: {
     default_mode: 'interactive' | 'flattened';
@@ -171,6 +184,10 @@ export interface EditorState {
   // Multi-page support
   currentPage: number;
   totalPages: number;
+  // Panel visibility
+  showWidgetPalette: boolean;
+  showPagesPanel: boolean;
+  showRightPanel: boolean;
 }
 
 export interface DragItem {

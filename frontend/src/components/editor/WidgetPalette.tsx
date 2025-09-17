@@ -43,6 +43,36 @@ const WIDGET_TYPES: WidgetType[] = [
     }
   },
   {
+    type: 'text_block',
+    label: 'Header Text',
+    icon: Type,
+    description: 'Top banner; supports {page} token',
+    defaultProps: {
+      content: 'Header — Page {page} of {total_pages}',
+      position: { width: 400, height: 24 },
+      styling: {
+        font: 'Helvetica',
+        size: 12,
+        color: '#000000'
+      }
+    }
+  },
+  {
+    type: 'text_block',
+    label: 'Footer Text',
+    icon: Type,
+    description: 'Bottom banner; supports {page} token',
+    defaultProps: {
+      content: '© {page}/{total_pages}',
+      position: { width: 200, height: 20 },
+      styling: {
+        font: 'Helvetica',
+        size: 10,
+        color: '#000000'
+      }
+    }
+  },
+  {
     type: 'checkbox',
     label: 'Checkbox',
     icon: Square,

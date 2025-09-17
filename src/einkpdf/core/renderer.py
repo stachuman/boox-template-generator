@@ -69,6 +69,9 @@ class DeterministicPDFRenderer:
         # Track collected data for multi-pass rendering
         self.anchor_positions: Dict[str, Tuple[int, float, float]] = {}  # id -> (page, x, y)
         self.violations = []  # Track constraint violations
+        # Master page mapping and total pages for token substitution
+        self._page_master_map: Dict[int, str] = {}
+        self._total_pages: int = 1
     
     def get_page_size(self) -> Tuple[float, float]:
         """
@@ -153,6 +156,18 @@ class DeterministicPDFRenderer:
         
         # Determine total pages needed
         max_page = self._get_total_pages(widgets_by_page)
+        self._total_pages = max_page
+
+        # Build page->master map from optional page assignments
+        try:
+            assignments = getattr(self.template, 'page_assignments', []) or []
+            for pa in assignments:
+                page_no = getattr(pa, 'page', None)
+                master_id = getattr(pa, 'master_id', None)
+                if isinstance(page_no, int) and master_id:
+                    self._page_master_map[page_no] = master_id
+        except Exception:
+            self._page_master_map = {}
         
         # Render each page (ensuring all pages are created, even if empty)
         for page_num in range(1, max_page + 1):
@@ -190,9 +205,32 @@ class DeterministicPDFRenderer:
         Returns:
             Maximum page number, ensuring at least 1 page
         """
-        if not widgets_by_page:
-            return 1  # Always have at least one page
-        return max(widgets_by_page.keys())
+        max_page = 1
+        if widgets_by_page:
+            try:
+                max_page = max(max_page, max(widgets_by_page.keys()))
+            except ValueError:
+                pass
+
+        # Include pages that have master assignments even if they have no widgets
+        try:
+            assignments = getattr(self.template, 'page_assignments', []) or []
+            if assignments:
+                assign_max = max(getattr(pa, 'page', 1) for pa in assignments if hasattr(pa, 'page'))
+                max_page = max(max_page, assign_max)
+        except Exception:
+            pass
+
+        # Include pages referenced by named destinations
+        try:
+            nav = getattr(self.template, 'navigation', None)
+            if nav and getattr(nav, 'named_destinations', None):
+                dest_max = max(getattr(dest, 'page', 1) for dest in nav.named_destinations if hasattr(dest, 'page'))
+                max_page = max(max_page, dest_max)
+        except Exception:
+            pass
+
+        return max_page
     
     def _render_page_widgets(self, pdf_canvas: canvas.Canvas, widgets: List[Widget], page_num: int) -> None:
         """
@@ -203,6 +241,29 @@ class DeterministicPDFRenderer:
             widgets: Widgets to render on this page
             page_num: Current page number
         """
+        # Render master widgets first (if any assigned to this page)
+        master_id = self._page_master_map.get(page_num)
+        if master_id:
+            master = None
+            for m in getattr(self.template, 'masters', []) or []:
+                if getattr(m, 'id', None) == master_id:
+                    master = m
+                    break
+            if master:
+                for m_widget in getattr(master, 'widgets', []) or []:
+                    try:
+                        # Render a copy so we can set page number without mutating original
+                        mw = m_widget.model_copy(update={"page": page_num}) if hasattr(m_widget, 'model_copy') else m_widget
+                        self._render_widget(pdf_canvas, mw, page_num)
+                    except RenderingError as e:
+                        raise e
+                    except Exception as e:
+                        if self.strict_mode:
+                            raise RenderingError(f"Failed to render master widget {getattr(m_widget, 'id', '?')}: {e}") from e
+                        else:
+                            print(f"Warning: Skipping master widget {getattr(m_widget, 'id', '?')} due to rendering error: {e}")
+
+        # Render page widgets
         for widget in widgets:
             try:
                 self._render_widget(pdf_canvas, widget, page_num)
@@ -240,7 +301,7 @@ class DeterministicPDFRenderer:
         
         # Render based on widget type
         if widget.type == "text_block":
-            self._render_text_block(pdf_canvas, widget)
+            self._render_text_block(pdf_canvas, widget, page_num)
         elif widget.type == "checkbox":
             self._render_checkbox(pdf_canvas, widget)
         elif widget.type == "divider":
@@ -293,7 +354,7 @@ class DeterministicPDFRenderer:
         # Restore previous fill color
         pdf_canvas.setFillColor(current_fill)
 
-    def _render_text_block(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
+    def _render_text_block(self, pdf_canvas: canvas.Canvas, widget: Widget, page_num: int) -> None:
         """Render text block widget."""
         if not widget.content:
             return  # Skip empty text blocks
@@ -324,8 +385,17 @@ class DeterministicPDFRenderer:
         # Set text properties
         pdf_canvas.setFont(font_name, font_size)
         
+        # Token substitution for dynamic fields
+        content_text = widget.content
+        try:
+            content_text = (content_text
+                            .replace('{page}', str(page_num))
+                            .replace('{total_pages}', str(self._total_pages)))
+        except Exception:
+            pass
+
         # Draw text
-        pdf_canvas.drawString(text_pos['x'], text_pos['y'], widget.content)
+        pdf_canvas.drawString(text_pos['x'], text_pos['y'], content_text)
     
     def _render_checkbox(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
         """Render checkbox widget."""

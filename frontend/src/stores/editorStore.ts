@@ -40,6 +40,10 @@ interface EditorStore extends EditorState {
   setShowGrid: (showGrid: boolean) => void;
   setSnapEnabled: (snapEnabled: boolean) => void;
   setZoom: (zoom: number) => void;
+  // Panel visibility
+  setShowWidgetPalette: (show: boolean) => void;
+  setShowPagesPanel: (show: boolean) => void;
+  setShowRightPanel: (show: boolean) => void;
   
   // Multi-page operations
   setCurrentPage: (page: number) => void;
@@ -63,6 +67,16 @@ interface EditorStore extends EditorState {
   // Canvas operations
   clearCanvas: () => void;
   resetEditor: () => void;
+
+  // Masters
+  addMaster: (name?: string) => string; // returns master id
+  removeMaster: (masterId: string) => void;
+  renameMaster: (masterId: string, name: string) => void;
+  assignMasterToPage: (page: number, masterId: string | null) => void;
+  getAssignedMasterForPage: (page: number) => string | null;
+  moveWidgetToMaster: (widgetId: string, masterId: string) => void;
+  detachWidgetFromMasterToPage: (widgetId: string, page: number) => void;
+  findMasterIdByWidget: (widgetId: string) => string | null;
 }
 
 const createDefaultTemplate = (): Template => ({
@@ -92,6 +106,8 @@ const createDefaultTemplate = (): Template => ({
     named_destinations: [],
     outlines: []
   },
+  masters: [],
+  page_assignments: [],
   export: {
     default_mode: "interactive"
   }
@@ -108,6 +124,10 @@ export const useEditorStore = create<EditorStore>()(
       showGrid: true,
       snapEnabled: true,
       zoom: 1,
+      // Panel visibility
+      showWidgetPalette: true,
+      showPagesPanel: true,
+      showRightPanel: true,
       currentPage: 1,
       totalPages: 1,
 
@@ -150,6 +170,9 @@ export const useEditorStore = create<EditorStore>()(
       setCurrentTemplate: (template) => set({ currentTemplate: template }),
       setIsDragging: (isDragging) => set({ isDragging }),
       setShowGrid: (showGrid) => set({ showGrid }),
+      setShowWidgetPalette: (show) => set({ showWidgetPalette: show }),
+      setShowPagesPanel: (show) => set({ showPagesPanel: show }),
+      setShowRightPanel: (show) => set({ showRightPanel: show }),
       setSnapEnabled: (snapEnabled) => set({ snapEnabled }),
       setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(3, zoom)) }),
 
@@ -304,7 +327,15 @@ export const useEditorStore = create<EditorStore>()(
       getWidgetsForCurrentPage: () => {
         const { currentTemplate, currentPage } = get();
         if (!currentTemplate) return [];
-        return currentTemplate.widgets.filter(widget => widget.page === currentPage);
+        const pageWidgets = currentTemplate.widgets.filter(widget => widget.page === currentPage);
+        // Include master widgets assigned to this page
+        const assignment = (currentTemplate.page_assignments || []).find(pa => pa.page === currentPage) as any;
+        if (!assignment) return pageWidgets;
+        const master = (currentTemplate.masters || []).find(m => (m as any).id === assignment.master_id) as any;
+        if (!master) return pageWidgets;
+        // Clone master widgets with page set to currentPage for editor rendering
+        const masterWidgets = (master.widgets || []).map((w: any) => ({ ...w, page: currentPage }));
+        return [...masterWidgets, ...pageWidgets];
       },
 
       getWidgetsForPage: (pageNumber: number) => {
@@ -338,34 +369,49 @@ export const useEditorStore = create<EditorStore>()(
 
       updateWidget: (widgetId, updates) => {
         const currentTemplate = get().currentTemplate;
-        if (!currentTemplate) {
-          throw new Error("No template loaded");
-        }
+        if (!currentTemplate) throw new Error("No template loaded");
 
-        const updatedWidgets = currentTemplate.widgets.map(widget => {
-          if (widget.id !== widgetId) {
-            return widget;
-          }
-          
-          // Deep merge nested objects
+        let found = false;
+        // Try page widgets first
+        let pageWidgets = currentTemplate.widgets.map(widget => {
+          if (widget.id !== widgetId) return widget;
+          found = true;
           const updatedWidget = {
             ...widget,
             ...updates,
-            // Ensure nested objects are properly merged
             position: updates.position ? { ...widget.position, ...updates.position } : widget.position,
             styling: updates.styling ? { ...widget.styling, ...updates.styling } : widget.styling,
             properties: updates.properties ? { ...widget.properties, ...updates.properties } : widget.properties
-          };
-          
+          } as any;
           return updatedWidget;
         });
 
-        const updatedWidget = updatedWidgets.find(w => w.id === widgetId);
+        // If not found, try master widgets
+        let masters = (currentTemplate.masters || []).map((m: any) => {
+          if (found) return m;
+          const widgets = (m.widgets || []).map((w: any) => {
+            if (w.id !== widgetId) return w;
+            found = true;
+            return {
+              ...w,
+              ...updates,
+              position: updates.position ? { ...w.position, ...updates.position } : w.position,
+              styling: updates.styling ? { ...w.styling, ...updates.styling } : w.styling,
+              properties: updates.properties ? { ...w.properties, ...updates.properties } : w.properties
+            };
+          });
+          return { ...m, widgets };
+        });
+
+        const updatedWidget = found
+          ? (pageWidgets.find(w => w.id === widgetId) || masters.flatMap((m: any) => m.widgets || []).find((w: any) => w.id === widgetId))
+          : undefined;
 
         set({
           currentTemplate: {
             ...currentTemplate,
-            widgets: updatedWidgets
+            widgets: pageWidgets,
+            masters
           },
           selectedWidget: updatedWidget || get().selectedWidget
         });
@@ -373,16 +419,17 @@ export const useEditorStore = create<EditorStore>()(
 
       removeWidget: (widgetId) => {
         const currentTemplate = get().currentTemplate;
-        if (!currentTemplate) {
-          throw new Error("No template loaded");
-        }
-
-        const filteredWidgets = currentTemplate.widgets.filter(w => w.id !== widgetId);
-        
+        if (!currentTemplate) throw new Error("No template loaded");
+        const pageFiltered = currentTemplate.widgets.filter(w => w.id !== widgetId);
+        const masters = (currentTemplate.masters || []).map((m: any) => ({
+          ...m,
+          widgets: (m.widgets || []).filter((w: any) => w.id !== widgetId)
+        }));
         set({
           currentTemplate: {
             ...currentTemplate,
-            widgets: filteredWidgets
+            widgets: pageFiltered,
+            masters
           },
           selectedWidget: get().selectedWidget?.id === widgetId ? null : get().selectedWidget
         });
@@ -455,9 +502,96 @@ export const useEditorStore = create<EditorStore>()(
           showGrid: true,
           snapEnabled: true,
           zoom: 1,
+          showWidgetPalette: true,
+          showPagesPanel: true,
+          showRightPanel: true,
           currentPage: 1,
           totalPages: 1
         });
+      },
+
+      // Masters
+      addMaster: (name) => {
+        const state = get();
+        if (!state.currentTemplate) throw new Error('No template loaded');
+        const id = `master_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const masters = [...(state.currentTemplate.masters || []), { id, name: name || 'Master', widgets: [] } as any];
+        set({
+          currentTemplate: {
+            ...state.currentTemplate,
+            masters
+          }
+        });
+        return id;
+      },
+      removeMaster: (masterId) => {
+        const state = get();
+        if (!state.currentTemplate) throw new Error('No template loaded');
+        const masters = (state.currentTemplate.masters || []).filter(m => m.id !== masterId);
+        const page_assignments = (state.currentTemplate.page_assignments || []).filter(pa => pa.master_id !== masterId);
+        set({
+          currentTemplate: {
+            ...state.currentTemplate,
+            masters,
+            page_assignments
+          }
+        });
+      },
+      renameMaster: (masterId, name) => {
+        const state = get();
+        if (!state.currentTemplate) throw new Error('No template loaded');
+        const masters = (state.currentTemplate.masters || []).map(m => m.id === masterId ? { ...m, name } : m);
+        set({ currentTemplate: { ...state.currentTemplate, masters } });
+      },
+      assignMasterToPage: (page, masterId) => {
+        const state = get();
+        if (!state.currentTemplate) throw new Error('No template loaded');
+        let assignments = [...(state.currentTemplate.page_assignments || [])];
+        // Remove existing assignment for page
+        assignments = assignments.filter(pa => pa.page !== page);
+        if (masterId) {
+          assignments.push({ page, master_id: masterId } as any);
+        }
+        set({ currentTemplate: { ...state.currentTemplate, page_assignments: assignments } });
+      },
+      getAssignedMasterForPage: (page) => {
+        const state = get();
+        if (!state.currentTemplate) return null;
+        const pa = (state.currentTemplate.page_assignments || []).find(pa => pa.page === page);
+        return pa ? (pa as any).master_id : null;
+      },
+      moveWidgetToMaster: (widgetId, masterId) => {
+        const state = get();
+        if (!state.currentTemplate) throw new Error('No template loaded');
+        const masters = (state.currentTemplate.masters || []).map((m: any) => ({ ...m }));
+        const master = masters.find((m: any) => m.id === masterId);
+        if (!master) throw new Error('Master not found');
+        const widgets = state.currentTemplate.widgets.filter(w => w.id !== widgetId);
+        const moved = state.currentTemplate.widgets.find(w => w.id === widgetId);
+        if (!moved) return;
+        master.widgets = [...(master.widgets || []), { ...moved }];
+        set({ currentTemplate: { ...state.currentTemplate, widgets, masters } });
+      },
+      detachWidgetFromMasterToPage: (widgetId, page) => {
+        const state = get();
+        if (!state.currentTemplate) throw new Error('No template loaded');
+        const masters = (state.currentTemplate.masters || []).map((m: any) => ({
+          ...m,
+          widgets: (m.widgets || []).filter((w: any) => w.id !== widgetId)
+        }));
+        // Find the widget in original masters to copy
+        const original = (state.currentTemplate.masters || []).flatMap((m: any) => m.widgets || []).find((w: any) => w.id === widgetId);
+        if (!original) return;
+        const pageWidgets = [...state.currentTemplate.widgets, { ...original, page }];
+        set({ currentTemplate: { ...state.currentTemplate, masters, widgets: pageWidgets } });
+      },
+      findMasterIdByWidget: (widgetId) => {
+        const state = get();
+        if (!state.currentTemplate) return null;
+        for (const m of state.currentTemplate.masters || []) {
+          if ((m as any).widgets?.some((w: any) => w.id === widgetId)) return (m as any).id;
+        }
+        return null;
       }
     }),
     {

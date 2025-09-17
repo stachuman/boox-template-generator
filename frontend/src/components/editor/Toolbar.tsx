@@ -23,6 +23,13 @@ interface ToolbarProps {
   onToggleGrid: () => void;
   onTogglePreview: () => void;
   showPreview: boolean;
+  // Panels
+  showWidgetPalette: boolean;
+  showPagesPanel: boolean;
+  showRightPanel: boolean;
+  onToggleWidgetPalette: () => void;
+  onTogglePagesPanel: () => void;
+  onToggleRightPanel: () => void;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -38,6 +45,12 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onToggleGrid,
   onTogglePreview,
   showPreview,
+  showWidgetPalette,
+  showPagesPanel,
+  showRightPanel,
+  onToggleWidgetPalette,
+  onTogglePagesPanel,
+  onToggleRightPanel,
 }) => {
   const [showMetadataEditor, setShowMetadataEditor] = useState(false);
   return (
@@ -105,6 +118,40 @@ const Toolbar: React.FC<ToolbarProps> = ({
           title={showPreview ? 'Hide Preview' : 'Show Preview'}
         >
           <Eye className="w-4 h-4" />
+        </button>
+
+        <div className="w-px h-6 bg-eink-pale-gray" />
+
+        {/* Panel toggles (text buttons for reliability) */}
+        <button
+          onClick={onToggleWidgetPalette}
+          className={clsx(
+            'px-2 py-1 rounded text-sm transition-colors',
+            showWidgetPalette ? 'bg-eink-black text-eink-white' : 'text-eink-gray hover:bg-eink-pale-gray'
+          )}
+          title={showWidgetPalette ? 'Hide Widget Palette' : 'Show Widget Palette'}
+        >
+          Palette
+        </button>
+        <button
+          onClick={onTogglePagesPanel}
+          className={clsx(
+            'px-2 py-1 rounded text-sm transition-colors',
+            showPagesPanel ? 'bg-eink-black text-eink-white' : 'text-eink-gray hover:bg-eink-pale-gray'
+          )}
+          title={showPagesPanel ? 'Hide Pages Panel' : 'Show Pages Panel'}
+        >
+          Pages
+        </button>
+        <button
+          onClick={onToggleRightPanel}
+          className={clsx(
+            'px-2 py-1 rounded text-sm transition-colors',
+            showRightPanel ? 'bg-eink-black text-eink-white' : 'text-eink-gray hover:bg-eink-pale-gray'
+          )}
+          title={showRightPanel ? 'Hide Right Panel' : 'Show Right Panel'}
+        >
+          Right
         </button>
       </div>
 

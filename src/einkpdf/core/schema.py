@@ -157,6 +157,19 @@ class Widget(BaseModel):
     properties: Optional[Dict[str, Any]] = Field(None)
 
 
+class Master(BaseModel):
+    """Master page definition with reusable widgets (e.g., headers/footers)."""
+    id: str = Field(..., min_length=1, pattern=r"^[a-zA-Z0-9_-]+$")
+    name: Optional[str] = Field(None, max_length=100)
+    widgets: List[Widget] = Field(default_factory=list)
+
+
+class PageAssignment(BaseModel):
+    """Assign a master to a specific page."""
+    page: int = Field(..., ge=1, le=100)
+    master_id: str = Field(..., min_length=1, pattern=r"^[a-zA-Z0-9_-]+$")
+
+
 class NamedDestination(BaseModel):
     """PDF named destination for navigation."""
     id: str = Field(..., min_length=1, pattern=r"^[a-zA-Z0-9_-]+$")
@@ -205,6 +218,8 @@ class Template(BaseModel):
     metadata: TemplateMetadata
     canvas: Canvas
     widgets: List[Widget] = Field(default_factory=list)
+    masters: List[Master] = Field(default_factory=list)
+    page_assignments: List[PageAssignment] = Field(default_factory=list)
     navigation: Navigation = Field(default_factory=Navigation)
     export: ExportSettings = Field(default_factory=ExportSettings)
     
@@ -238,4 +253,19 @@ class Template(BaseModel):
             if link.to_dest not in dest_ids:
                 raise ValueError(f"Link references unknown destination '{link.to_dest}'")
         
+        return v
+
+    @validator("page_assignments")
+    def validate_page_assignments(cls, v, values):
+        """Ensure page assignments reference existing masters and are unique per page."""
+        if v is None:
+            return []
+        master_ids = {m.id for m in values.get("masters", [])} if "masters" in values else set()
+        pages_seen = set()
+        for pa in v:
+            if master_ids and pa.master_id not in master_ids:
+                raise ValueError(f"Page assignment references unknown master_id '{pa.master_id}'")
+            if pa.page in pages_seen:
+                raise ValueError(f"Multiple master assignments for page {pa.page}")
+            pages_seen.add(pa.page)
         return v
