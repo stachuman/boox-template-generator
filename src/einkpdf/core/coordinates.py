@@ -118,10 +118,12 @@ class CoordinateConverter:
         """
         pdf_x, top_edge_y = self.top_left_to_bottom_left(position.x, position.y)
         
-        # Position text baseline approximately 20% up from bottom of text area
-        # This is a reasonable approximation for most fonts
-        baseline_offset = font_size * 0.2
-        text_y = top_edge_y - position.height + baseline_offset
+        # Center text vertically to match UI behavior (flex items-center)
+        # ReportLab positions text at baseline, so we need to account for that
+        # Position baseline at the vertical center minus descender offset
+        vertical_center = top_edge_y - (position.height / 2)
+        descender_offset = font_size * 0.2  # Typical descender height
+        text_y = vertical_center - descender_offset
         
         return {
             "x": pdf_x,

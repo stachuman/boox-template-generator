@@ -1,11 +1,11 @@
 {
-  "447cf351-32c7-41ed-9dd7-97eb21711f15": {
-    "id": "447cf351-32c7-41ed-9dd7-97eb21711f15",
-    "name": "New Template",
+  "a7c5b29a-4210-49dd-b30f-d97ced1815d5": {
+    "id": "a7c5b29a-4210-49dd-b30f-d97ced1815d5",
+    "name": "Test1",
     "description": "",
     "profile": "Boox-Tab-Ultra-C",
-    "created_at": "2025-09-16T19:09:47.269114+00:00",
-    "updated_at": "2025-09-17T10:05:10.565705+00:00",
-    "file_path": "data/templates/447cf351-32c7-41ed-9dd7-97eb21711f15.yaml"
+    "created_at": "2025-09-17T13:41:53.421746+00:00",
+    "updated_at": "2025-09-17T13:41:53.421746+00:00",
+    "file_path": "data/templates/a7c5b29a-4210-49dd-b30f-d97ced1815d5.yaml"
   }
 }

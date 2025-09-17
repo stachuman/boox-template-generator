@@ -331,27 +331,26 @@ class DeterministicPDFRenderer:
         """Render checkbox widget."""
         # Get properties
         props = getattr(widget, 'properties', {}) or {}
-        checkbox_size = props.get('checkbox_size', 12.0)
-        
-        # Enforce touch target constraints
-        fixed_width, fixed_height = self.enforcer.check_touch_target_size(
-            checkbox_size, checkbox_size
-        )
-        
+        checkbox_size = float(props.get('checkbox_size', 12.0))
+
+        # Use exact checkbox size as specified by user
+        fixed_width, fixed_height = checkbox_size, checkbox_size
+
         # Convert position for drawing
         box_pos = self.converter.convert_position_for_drawing(widget.position)
-        
-        # Enforce stroke width
+
+        # Enforce stroke width and set stroke color
         stroke_width = self.enforcer.check_stroke_width(1.0)
         pdf_canvas.setLineWidth(stroke_width)
-        
+        pdf_canvas.setStrokeColor(black)  # Ensure checkbox border is visible
+
         # Draw checkbox rectangle
         pdf_canvas.rect(
-            box_pos['x'], 
+            box_pos['x'],
             box_pos['y'],
-            fixed_width, 
+            fixed_width,
             fixed_height,
-            stroke=1, 
+            stroke=1,
             fill=0
         )
         
@@ -739,12 +738,18 @@ class DeterministicPDFRenderer:
         weeks_needed = math.ceil((days_in_month + first_weekday) / 7)
         actual_weeks = max(4, min(6, weeks_needed))  # 4-6 weeks
         
-        # Calculate cell dimensions (7 columns for days of week)
+        # Calculate cell dimensions (7 columns for days of week) to FIT bounds
+        # Respect the widget's width/height exactly; log violations if below min touch size
+        available_height = max(0.0, available_height)
         cell_width = calendar_width / 7
-        cell_height = max(cell_min_size, available_height / actual_weeks)
+        cell_height = available_height / actual_weeks if actual_weeks > 0 else 0.0
         
-        # Enforce minimum cell size for e-ink touch targets
-        cell_width, cell_height = self.enforcer.check_touch_target_size(cell_width, cell_height)
+        # Log touch target violations without expanding beyond bounds
+        try:
+            _ = self.enforcer.check_touch_target_size(cell_width, cell_height)
+        except Exception:
+            # In strict mode this may raise; bubble up for consistent behavior
+            raise
         
         # Month and year header
         if show_month_year:
@@ -925,12 +930,18 @@ class DeterministicPDFRenderer:
         weekday_height = font_size * 1.5 if show_weekdays else 0
         available_height = calendar_height - header_height - weekday_height
         
-        # Calculate cell dimensions (7 columns for days of week)
+        # Calculate cell dimensions (7 columns for days of week) to FIT bounds
+        # Weekly view has a single row; use full available height and exact width fraction
+        available_height = max(0.0, available_height)
         cell_width = calendar_width / 7
-        cell_height = max(cell_min_size, available_height)
+        cell_height = available_height
         
-        # Enforce minimum cell size for e-ink touch targets
-        cell_width, cell_height = self.enforcer.check_touch_target_size(cell_width, cell_height)
+        # Log touch target violations without expanding beyond bounds
+        try:
+            _ = self.enforcer.check_touch_target_size(cell_width, cell_height)
+        except Exception:
+            # In strict mode this may raise; bubble up for consistent behavior
+            raise
         
         # Week header
         if show_month_year:

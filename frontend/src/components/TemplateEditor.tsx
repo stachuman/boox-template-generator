@@ -28,6 +28,8 @@ const TemplateEditor: React.FC = () => {
     showGrid,
     setActiveProfile,
     setShowGrid,
+    updateTemplateMetadata,
+    resetEditor,
   } = useEditorStore();
 
   const [profiles, setProfiles] = useState<DeviceProfile[]>([]);
@@ -38,11 +40,17 @@ const TemplateEditor: React.FC = () => {
 
   useEffect(() => {
     loadProfiles();
+    // Ensure fresh state when creating a new template or switching templates
     if (templateId) {
+      // Reset then load the requested template to avoid residual state
+      resetEditor();
       loadTemplate(templateId);
     } else {
+      // New template flow: hard reset to default empty template
+      resetEditor();
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateId]);
 
   const loadProfiles = async () => {
@@ -88,7 +96,7 @@ const TemplateEditor: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!currentTemplate || !activeProfile) {
+    if (!currentTemplate || !currentTemplate.metadata.profile) {
       alert('Please select a device profile before saving');
       return;
     }
@@ -105,7 +113,7 @@ const TemplateEditor: React.FC = () => {
         await APIClient.updateTemplate(templateId, {
           name: currentTemplate.metadata.name,
           description: currentTemplate.metadata.description,
-          profile: activeProfile.name,
+          profile: currentTemplate.metadata.profile,
           yaml_content: yamlContent,
         });
       } else {
@@ -113,7 +121,7 @@ const TemplateEditor: React.FC = () => {
         await APIClient.createTemplate({
           name: currentTemplate.metadata.name,
           description: currentTemplate.metadata.description,
-          profile: activeProfile.name,
+          profile: currentTemplate.metadata.profile,
           yaml_content: yamlContent,
         });
       }
@@ -196,7 +204,9 @@ const TemplateEditor: React.FC = () => {
       <Toolbar
         profiles={profiles}
         activeProfile={activeProfile}
+        currentTemplate={currentTemplate}
         onProfileChange={setActiveProfile}
+        onTemplateMetadataUpdate={updateTemplateMetadata}
         onSave={handleSave}
         onExportPDF={handleExportPDF}
         saving={saving}

@@ -62,13 +62,15 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         );
 
       case 'checkbox':
+        const checkboxSize = widget.properties?.checkbox_size || 12;
+
         return (
           <div className="h-full flex items-center space-x-2">
             <div
               className="border border-eink-black"
               style={{
-                width: (widget.properties?.checkbox_size || 12) / zoom,
-                height: (widget.properties?.checkbox_size || 12) / zoom
+                width: checkboxSize / zoom,
+                height: checkboxSize / zoom
               }}
             />
             <span

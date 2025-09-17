@@ -56,7 +56,10 @@ interface EditorStore extends EditorState {
   updateWidget: (widgetId: string, updates: Partial<Widget>) => void;
   removeWidget: (widgetId: string) => void;
   duplicateWidget: (widgetId: string) => void;
-  
+
+  // Template metadata operations
+  updateTemplateMetadata: (updates: Partial<Template['metadata']>) => void;
+
   // Canvas operations
   clearCanvas: () => void;
   resetEditor: () => void;
@@ -408,6 +411,24 @@ export const useEditorStore = create<EditorStore>()(
         };
 
         get().addWidget(duplicatedWidget);
+      },
+
+      // Template metadata operations
+      updateTemplateMetadata: (updates) => {
+        const currentTemplate = get().currentTemplate;
+        if (!currentTemplate) {
+          throw new Error("No template loaded");
+        }
+
+        set({
+          currentTemplate: {
+            ...currentTemplate,
+            metadata: {
+              ...currentTemplate.metadata,
+              ...updates
+            }
+          }
+        });
       },
 
       // Canvas operations

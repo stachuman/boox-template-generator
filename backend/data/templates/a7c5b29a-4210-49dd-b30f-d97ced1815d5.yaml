@@ -1,0 +1,2067 @@
+{
+  "schema_version": "1.0",
+  "metadata": {
+    "name": "Test1",
+    "description": "",
+    "category": "general",
+    "version": "1.0",
+    "author": "",
+    "created": "2025-09-17T13:37:02.291Z",
+    "profile": "Boox-Tab-Ultra-C"
+  },
+  "canvas": {
+    "dimensions": {
+      "width": 595.2,
+      "height": 841.8,
+      "margins": [
+        48,
+        48,
+        48,
+        48
+      ]
+    },
+    "coordinate_system": "top_left",
+    "background": "#FFFFFF",
+    "grid_size": 10,
+    "snap_enabled": true
+  },
+  "widgets": [
+    {
+      "id": "widget_1758116225651_2zttg16g5",
+      "type": "calendar",
+      "page": 1,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw",
+      "type": "lines",
+      "page": 1,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9",
+      "type": "lines",
+      "page": 1,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_0_pm4w3icod",
+      "type": "calendar",
+      "page": 27,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_0_96z9dlh53",
+      "type": "lines",
+      "page": 27,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_0_lxtjcawfd",
+      "type": "lines",
+      "page": 27,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_1_8g3ffvkzp",
+      "type": "calendar",
+      "page": 28,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_1_t9os095m4",
+      "type": "lines",
+      "page": 28,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_1_s4oitlpo0",
+      "type": "lines",
+      "page": 28,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_2_z0lejrzbw",
+      "type": "calendar",
+      "page": 29,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_2_cebswud36",
+      "type": "lines",
+      "page": 29,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_2_sz8d98u9d",
+      "type": "lines",
+      "page": 29,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_3_ywkrh8m5f",
+      "type": "calendar",
+      "page": 30,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_3_i3azzxntr",
+      "type": "lines",
+      "page": 30,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_3_0637gj6fp",
+      "type": "lines",
+      "page": 30,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_4_oek6ernhj",
+      "type": "calendar",
+      "page": 31,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_4_iw5754i2b",
+      "type": "lines",
+      "page": 31,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_4_t2rqnbfg7",
+      "type": "lines",
+      "page": 31,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_5_52fc0x8yi",
+      "type": "calendar",
+      "page": 32,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_5_j7vgts8n3",
+      "type": "lines",
+      "page": 32,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_5_hibtb7eeh",
+      "type": "lines",
+      "page": 32,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_6_hocpqx2l5",
+      "type": "calendar",
+      "page": 33,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_6_9o7woqx6p",
+      "type": "lines",
+      "page": 33,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_6_wdw7bfaqp",
+      "type": "lines",
+      "page": 33,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_7_xces9h5f3",
+      "type": "calendar",
+      "page": 34,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_7_jwj5w7c74",
+      "type": "lines",
+      "page": 34,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_7_kn08u9emi",
+      "type": "lines",
+      "page": 34,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_8_ju3n9oapz",
+      "type": "calendar",
+      "page": 35,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_8_srczv2adj",
+      "type": "lines",
+      "page": 35,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_8_z6melhu4j",
+      "type": "lines",
+      "page": 35,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_9_x6qmtd7vl",
+      "type": "calendar",
+      "page": 36,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_9_mredbt4b0",
+      "type": "lines",
+      "page": 36,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_9_t1k3r8kvp",
+      "type": "lines",
+      "page": 36,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_10_4h426xpg6",
+      "type": "calendar",
+      "page": 37,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_10_e9jzq7qjq",
+      "type": "lines",
+      "page": 37,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_10_l8do0hau5",
+      "type": "lines",
+      "page": 37,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_11_yd77ox4nb",
+      "type": "calendar",
+      "page": 38,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_11_uvaw5lbft",
+      "type": "lines",
+      "page": 38,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_11_0fp0vusbk",
+      "type": "lines",
+      "page": 38,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_12_htds97afz",
+      "type": "calendar",
+      "page": 39,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_12_pm6c2devg",
+      "type": "lines",
+      "page": 39,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_12_3r6lv88lh",
+      "type": "lines",
+      "page": 39,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_13_rjxcayn5l",
+      "type": "calendar",
+      "page": 40,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_13_v4jn5lpb8",
+      "type": "lines",
+      "page": 40,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_13_gxgxg07pk",
+      "type": "lines",
+      "page": 40,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_14_hupidwhj0",
+      "type": "calendar",
+      "page": 41,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_14_6u9clvpbf",
+      "type": "lines",
+      "page": 41,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_14_b7tmpsx4l",
+      "type": "lines",
+      "page": 41,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_15_0qfybzgug",
+      "type": "calendar",
+      "page": 42,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_15_n2oqdec51",
+      "type": "lines",
+      "page": 42,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_15_0w8smffy0",
+      "type": "lines",
+      "page": 42,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_16_rqsjqfeh3",
+      "type": "calendar",
+      "page": 43,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_16_wt16hn44a",
+      "type": "lines",
+      "page": 43,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_16_etaevknfp",
+      "type": "lines",
+      "page": 43,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_17_mud4xd75h",
+      "type": "calendar",
+      "page": 44,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_17_z6x8ivmof",
+      "type": "lines",
+      "page": 44,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_17_1qewpv924",
+      "type": "lines",
+      "page": 44,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_18_nju2ujqpv",
+      "type": "calendar",
+      "page": 45,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_18_1iizfncx8",
+      "type": "lines",
+      "page": 45,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_18_3zooodqfu",
+      "type": "lines",
+      "page": 45,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_19_lp8girs7b",
+      "type": "calendar",
+      "page": 46,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_19_r3ejc8szd",
+      "type": "lines",
+      "page": 46,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_19_t5soizgg0",
+      "type": "lines",
+      "page": 46,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_20_mcw2lkcjk",
+      "type": "calendar",
+      "page": 47,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_20_zkbirmuw1",
+      "type": "lines",
+      "page": 47,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_20_0wweona8n",
+      "type": "lines",
+      "page": 47,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_21_h2p6i3qhy",
+      "type": "calendar",
+      "page": 48,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_21_f5gspn3j5",
+      "type": "lines",
+      "page": 48,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_21_3lm63cg5v",
+      "type": "lines",
+      "page": 48,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_22_newmh9q6l",
+      "type": "calendar",
+      "page": 49,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_22_picypfsde",
+      "type": "lines",
+      "page": 49,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_22_3706gocl1",
+      "type": "lines",
+      "page": 49,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_24_oo139ot07",
+      "type": "calendar",
+      "page": 50,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_24_oaav0sb4v",
+      "type": "lines",
+      "page": 50,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_24_smfvjd3bf",
+      "type": "lines",
+      "page": 50,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_25_sff4yravc",
+      "type": "calendar",
+      "page": 51,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_25_1z1rib7zq",
+      "type": "lines",
+      "page": 51,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_25_a1t66m61w",
+      "type": "lines",
+      "page": 51,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_26_e80kesupz",
+      "type": "calendar",
+      "page": 52,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_26_r0u7rdxy1",
+      "type": "lines",
+      "page": 52,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_26_fk2qt0u59",
+      "type": "lines",
+      "page": 52,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_27_vzaaoswjz",
+      "type": "calendar",
+      "page": 53,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_27_ksljrmid3",
+      "type": "lines",
+      "page": 53,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_27_qtikvxb4v",
+      "type": "lines",
+      "page": 53,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116225651_2zttg16g5_copy_1758116410014_28_n5nv567ir",
+      "type": "calendar",
+      "page": 54,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "width": 250,
+        "height": 256
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      },
+      "background_color": "#deddda"
+    },
+    {
+      "id": "widget_1758116273626_iwlcw9lxw_copy_1758116410014_28_3ssygf8of",
+      "type": "lines",
+      "page": 54,
+      "content": "",
+      "position": {
+        "x": 250,
+        "y": 30,
+        "width": 342,
+        "height": 260
+      },
+      "properties": {
+        "line_style": "solid",
+        "line_spacing": 30,
+        "line_count": 8,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    },
+    {
+      "id": "widget_1758116317695_ufxe0sjo9_copy_1758116410014_28_qz678dchs",
+      "type": "lines",
+      "page": 54,
+      "content": "",
+      "position": {
+        "x": 0,
+        "y": 280,
+        "width": 588,
+        "height": 560
+      },
+      "properties": {
+        "line_style": "dashed",
+        "line_spacing": 30,
+        "line_count": 18,
+        "line_thickness": 0.75,
+        "margin_left": 0,
+        "margin_right": 0
+      }
+    }
+  ],
+  "navigation": {
+    "named_destinations": [],
+    "outlines": []
+  },
+  "export": {
+    "default_mode": "interactive"
+  }
+}

@@ -7,12 +7,12 @@
 
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { Settings, Type, Square, Minus, AlignJustify, Anchor } from 'lucide-react';
+import { Settings, Type, Square, Minus, AlignJustify, Anchor, Trash2 } from 'lucide-react';
 import { useEditorStore } from '@/stores/editorStore';
 import { Widget } from '@/types';
 
 const PropertiesPanel: React.FC = () => {
-  const { selectedWidget, updateWidget } = useEditorStore();
+  const { selectedWidget, updateWidget, removeWidget, setSelectedWidget } = useEditorStore();
 
   const { register, handleSubmit, reset } = useForm<Widget>();
 
@@ -90,6 +90,23 @@ const PropertiesPanel: React.FC = () => {
           <span>{selectedWidget.type.replace('_', ' ')}</span>
         </h3>
         <p className="text-xs text-eink-gray">Widget ID: {selectedWidget.id}</p>
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (!selectedWidget) return;
+              const ok = confirm('Delete this widget?');
+              if (!ok) return;
+              removeWidget(selectedWidget.id);
+              setSelectedWidget(null);
+            }}
+            className="btn-secondary flex items-center space-x-2 text-red-700 border-red-200 hover:bg-red-50"
+            title="Delete widget"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete</span>
+          </button>
+        </div>
       </div>
       
       <div className="flex-1 overflow-auto p-4">
@@ -270,11 +287,14 @@ const PropertiesPanel: React.FC = () => {
                   <label className="block text-sm font-medium mb-1">Checkbox Size (pt)</label>
                   <input
                     type="number"
-                    min="8"
-                    max="24"
-                    {...register('properties.checkbox_size', { min: 8, max: 24 })}
+                    min="4"
+                    max="100"
+                    {...register('properties.checkbox_size', { min: 4, max: 100 })}
                     className="input-field w-full"
                   />
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Checkbox size in points. Size shown in preview matches PDF output exactly.
+                  </p>
                 </div>
               </div>
             </div>

@@ -23,6 +23,7 @@ const Canvas: React.FC = () => {
     zoom,
     addWidget,
     updateWidget,
+    removeWidget,
     setSelectedWidget,
     getWidgetsForCurrentPage,
   } = useEditorStore();
@@ -113,11 +114,17 @@ const Canvas: React.FC = () => {
   }, [setSelectedWidget]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
-    if (event.key === 'Delete' && selectedWidget) {
-      // TODO: Implement widget deletion
-      console.log('Delete widget:', selectedWidget.id);
+    if (!selectedWidget) return;
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      event.preventDefault();
+      try {
+        removeWidget(selectedWidget.id);
+        setSelectedWidget(null);
+      } catch (e) {
+        console.error('Failed to remove widget', e);
+      }
     }
-  }, [selectedWidget]);
+  }, [removeWidget, selectedWidget, setSelectedWidget]);
 
   if (!currentTemplate) {
     return (
