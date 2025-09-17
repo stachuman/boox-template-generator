@@ -11,7 +11,7 @@ import { Type, Square, Minus, AlignJustify, Anchor, Calendar } from 'lucide-reac
 import clsx from 'clsx';
 
 interface WidgetType {
-  type: 'text_block' | 'checkbox' | 'divider' | 'lines' | 'anchor' | 'calendar';
+  type: 'text_block' | 'checkbox' | 'divider' | 'lines' | 'anchor' | 'calendar' | 'tap_zone' | 'image';
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
@@ -39,6 +39,35 @@ const WIDGET_TYPES: WidgetType[] = [
         font: 'Helvetica',
         size: 12,
         color: '#000000'
+      }
+    }
+  },
+  {
+    type: 'image',
+    label: 'Image',
+    icon: Square,
+    description: 'Place PNG/JPEG (fit/stretch/actual size)',
+    defaultProps: {
+      content: '',
+      position: { width: 200, height: 120 },
+      properties: {
+        image_src: '',
+        image_fit: 'fit'
+      }
+    }
+  },
+  {
+    type: 'tap_zone',
+    label: 'Tap Zone',
+    icon: Anchor,
+    description: 'Invisible link area (prev/next/page/destination)',
+    defaultProps: {
+      content: '',
+      position: { width: 120, height: 48 },
+      properties: {
+        tap_action: 'page_link',
+        target_page: 2,
+        outline: true
       }
     }
   },

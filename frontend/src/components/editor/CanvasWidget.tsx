@@ -13,7 +13,7 @@ import { Widget } from '@/types';
 interface CanvasWidgetProps {
   widget: Widget;
   isSelected: boolean;
-  onSelect: (widget: Widget) => void;
+  onSelect: (widget: Widget, additive?: boolean) => void;
   zoom: number;
 }
 
@@ -41,7 +41,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
     // Only select if not dragging
     if (!isDragging) {
       event.stopPropagation();
-      onSelect(widget);
+      onSelect(widget, event.shiftKey || event.metaKey || event.ctrlKey);
     }
   }, [widget, onSelect, isDragging]);
 
@@ -102,12 +102,19 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         const marginLeft = properties.margin_left || 0;
         const marginRight = properties.margin_right || 0;
         const lineStyle = properties.line_style || 'solid';
+        const topPadding = properties.top_padding || 0;
+        const gridSpacing = properties.grid_spacing || 20;
+        const columns = properties.columns || 0;
         
-        const elements = [];
+        const elements = [] as JSX.Element[];
         
         // Horizontal lines
+        const heightPt = widget.position.height;
+        const bottomPad = (properties.bottom_padding || 0);
         for (let i = 0; i < lineCount; i++) {
-          const yPosition = (i * lineSpacing) / zoom;
+          const yAbs = topPadding + i * lineSpacing;
+          if (yAbs > heightPt - bottomPad) break;
+          const yPosition = yAbs / zoom;
           
           let lineClass = 'absolute bg-eink-black';
           let borderStyle = '';
@@ -136,26 +143,48 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         }
         
         // Grid vertical lines (if grid style)
-        if (lineStyle === 'grid') {
-          const gridSpacing = 20; // pts
+        if (lineStyle === 'grid' && gridSpacing > 0) {
           const availableWidth = widget.position.width - marginLeft - marginRight;
           const verticalLineCount = Math.floor(availableWidth / gridSpacing);
-          
           for (let i = 0; i <= verticalLineCount; i++) {
             const xPosition = (marginLeft + i * gridSpacing) / zoom;
             elements.push(
               <div
                 key={`v-${i}`}
                 className="absolute bg-eink-black"
-                style={{
-                  left: xPosition,
-                  top: 0,
-                  width: lineThickness / zoom,
-                  height: '100%',
-                }}
+                style={{ left: xPosition, top: 0, width: lineThickness / zoom, height: '100%' }}
               />
             );
           }
+        } else if (columns && columns > 1) {
+          const availableWidth = widget.position.width - marginLeft - marginRight;
+          const colWidth = availableWidth / columns;
+          for (let c = 1; c < columns; c++) {
+            const xPosition = (marginLeft + c * colWidth) / zoom;
+            elements.push(
+              <div
+                key={`col-${c}`}
+                className="absolute bg-eink-black"
+                style={{ left: xPosition, top: 0, width: lineThickness / zoom, height: '100%' }}
+              />
+            );
+          }
+        }
+        // Custom vertical guides by ratio
+        if (Array.isArray(properties.vertical_guides)) {
+          const availableWidth = widget.position.width - marginLeft - marginRight;
+          properties.vertical_guides.forEach((ratio: number, idx: number) => {
+            const r = Math.max(0, Math.min(1, ratio || 0));
+            if (r <= 0 || r >= 1) return;
+            const xPosition = (marginLeft + availableWidth * r) / zoom;
+            elements.push(
+              <div
+                key={`vg-${idx}`}
+                className="absolute bg-eink-black"
+                style={{ left: xPosition, top: 0, width: lineThickness / zoom, height: '100%' }}
+              />
+            );
+          });
         }
         
         return (
@@ -183,6 +212,38 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
             }}
           >
             <span className="truncate">{anchorContent}</span>
+          </div>
+        );
+
+      case 'tap_zone':
+        // Visualize tap zone with dashed outline in editor (if enabled)
+        const showOutline = widget.properties?.outline !== false; // default true
+        return (
+          <div
+            className={clsx('w-full h-full flex items-center justify-center text-xs text-eink-gray', showOutline ? 'border-2 border-dashed border-blue-400 bg-blue-50 bg-opacity-10' : '')}
+            style={{ minHeight: 44 / zoom }}
+          >
+            {showOutline && 'Tap Zone'}
+          </div>
+        );
+
+      case 'image':
+        const src = widget.properties?.image_src || '';
+        const fit = widget.properties?.image_fit || 'fit';
+        const objectFit = fit === 'fit' ? 'contain' : fit === 'stretch' ? 'fill' : 'none';
+        return (
+          <div className="w-full h-full bg-white overflow-hidden">
+            {src ? (
+              <img
+                src={src}
+                alt=""
+                style={{ width: '100%', height: '100%', objectFit, imageRendering: 'auto' }}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs text-eink-light-gray border border-dashed border-eink-pale-gray">
+                Set image source
+              </div>
+            )}
           </div>
         );
 
@@ -237,7 +298,14 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
           }
           
           // Calculate dimensions
-          const gridWidth = widget.position.width / zoom;
+          const showTimeGrid = !!calendarProps.show_time_grid;
+          const showTimeGutter = !!calendarProps.show_time_gutter;
+          const timeStart = Math.max(0, Math.min(23, calendarProps.time_start_hour || 8));
+          const timeEnd = Math.max(timeStart + 1, Math.min(24, calendarProps.time_end_hour || 20));
+          const slotMinutes = Math.max(5, Math.min(120, calendarProps.time_slot_minutes || 60));
+          const labelEvery = Math.max(slotMinutes, Math.min(240, calendarProps.time_label_interval || 60));
+          const gutterWidth = showTimeGutter ? calendarFontSize * 2.2 : 0;
+          const gridWidth = widget.position.width / zoom - gutterWidth;
           const gridHeight = widget.position.height / zoom;
           
           const headerHeight = showMonthYear ? calendarFontSize * 2 : 0;
@@ -276,10 +344,8 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
               
               {/* Weekday Headers */}
               {showWeekdays && (
-                <div 
-                  className="flex"
-                  style={{ height: weekdayHeight }}
-                >
+                <div className="flex" style={{ height: weekdayHeight }}>
+                  {showTimeGutter && (<div style={{ width: gutterWidth }} />)}
                   {weekdays.map((day, index) => (
                     <div 
                       key={index}
@@ -298,30 +364,50 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
               
               {/* Week Days Grid */}
               <div className="flex" style={{ height: availableHeight }}>
+                {showTimeGutter && (
+                  <div style={{ width: gutterWidth }}>
+                    {showTimeGrid && (() => {
+                      const totalMinutes = (timeEnd - timeStart) * 60;
+                      const slots = Math.floor(totalMinutes / slotMinutes);
+                      const slotHeight = cellHeight / Math.max(1, slots);
+                      const labels = [] as JSX.Element[];
+                      for (let s = 0; s <= slots; s++) {
+                        const minutes = s * slotMinutes;
+                        if (minutes > totalMinutes) break;
+                        if (minutes % labelEvery !== 0) continue;
+                        const hour = timeStart + Math.floor(minutes / 60);
+                        const minute = minutes % 60;
+                        const label = `${hour.toString().padStart(2,'0')}:${minute.toString().padStart(2,'0')}`;
+                        labels.push(
+                          <div key={s} className="text-xs text-eink-gray" style={{ height: slotHeight, lineHeight: `${slotHeight}px` }}>
+                            {label}
+                          </div>
+                        );
+                      }
+                      return <div className="h-full">{labels}</div>;
+                    })()}
+                  </div>
+                )}
                 {weekDays.map((day, index) => {
                   const isClickable = calendarProps.link_strategy !== 'no_links';
                   const dayNumber = day.getDate();
-                  
                   return (
-                    <div
-                      key={index}
-                      className={`flex flex-col items-center justify-start pt-2 ${isClickable ? 'cursor-pointer hover:bg-blue-50' : ''}`}
-                      style={{
-                        width: cellWidth,
-                        height: cellHeight,
-                        border: showGridLines ? '1px solid #ccc' : 'none',
-                        backgroundColor: 'transparent'
-                      }}
+                    <div key={index} className={`relative ${isClickable ? 'cursor-pointer hover:bg-blue-50' : ''}`}
+                      style={{ width: cellWidth, height: cellHeight, border: showGridLines ? '1px solid #ccc' : 'none', backgroundColor: 'transparent', padding: `${Math.max(0,(calendarProps.cell_padding||4)/zoom)}px` }}
                     >
-                      <span 
-                        className={`font-semibold ${isClickable ? 'underline text-blue-600' : ''}`}
-                        style={{ fontSize: calendarFontSize }}
-                      >
-                        {dayNumber}
-                      </span>
-                      <div className="flex-1 w-full mt-1" style={{ fontSize: calendarFontSize * 0.8 }}>
-                        {/* Space for events/content */}
-                      </div>
+                      <div className="font-semibold" style={{ fontSize: calendarFontSize }}>{dayNumber}</div>
+                      {showTimeGrid && (() => {
+                        const totalMinutes = (timeEnd - timeStart) * 60;
+                        const slots = Math.floor(totalMinutes / slotMinutes);
+                        const slotHeight = cellHeight / Math.max(1, slots);
+                        const lines = [] as JSX.Element[];
+                        for (let s = 1; s < slots; s++) {
+                          lines.push(
+                            <div key={s} className="absolute left-0 right-0 border-t border-eink-pale-gray" style={{ top: s * slotHeight }} />
+                          );
+                        }
+                        return <>{lines}</>;
+                      })()}
                     </div>
                   );
                 })}
@@ -349,7 +435,9 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
             const daysInMonth = lastDay.getDate();
             
             // Calculate grid dimensions
-            const gridWidth = widget.position.width / zoom;
+            const weekNumbers = !!calendarProps.week_numbers;
+            const weekColWidth = weekNumbers ? calendarFontSize * 2.2 : 0;
+            const gridWidth = widget.position.width / zoom - weekColWidth;
             const gridHeight = widget.position.height / zoom;
             
             // Reserve space for headers
@@ -367,9 +455,12 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
             // Height validation is already done above in the outer scope
             
             // Configure weekdays based on locale
-            const weekdays = weekStartDay === 'monday' 
-              ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']  // European
-              : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; // US
+            const dayLabelStyle = calendarProps.weekday_label_style || 'short';
+            const baseWeekdays = weekStartDay === 'monday'
+              ? [['Mon','M','Monday'], ['Tue','T','Tuesday'], ['Wed','W','Wednesday'], ['Thu','T','Thursday'], ['Fri','F','Friday'], ['Sat','S','Saturday'], ['Sun','S','Sunday']]
+              : [['Sun','S','Sunday'], ['Mon','M','Monday'], ['Tue','T','Tuesday'], ['Wed','W','Wednesday'], ['Thu','T','Thursday'], ['Fri','F','Friday'], ['Sat','S','Saturday']];
+            const labelIdx = dayLabelStyle === 'narrow' ? 1 : dayLabelStyle === 'full' ? 2 : 0;
+            const weekdays = baseWeekdays.map(d => d[labelIdx]);
             const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                               'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             
@@ -398,56 +489,91 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
                 
                 {/* Weekday Headers */}
                 {showWeekdays && (
-                  <div 
-                    className="flex"
-                    style={{ height: weekdayHeight }}
-                  >
-                    {weekdays.map((day, index) => (
-                      <div 
-                        key={index}
-                        className="text-center text-xs font-medium flex items-center justify-center"
-                        style={{
-                          width: cellWidth,
-                          borderRight: showGridLines && index < 6 ? '1px solid #ccc' : 'none',
-                          borderBottom: showGridLines ? '1px solid #ccc' : 'none'
-                        }}
-                      >
-                        {day}
-                      </div>
-                    ))}
+                <div className="flex" style={{ height: weekdayHeight }}>
+                  {weekNumbers && (
+                    <div style={{ width: weekColWidth }} />
+                  )}
+                  {weekdays.map((day, index) => (
+                    <div 
+                      key={index}
+                      className="text-center text-xs font-medium flex items-center justify-center"
+                      style={{
+                        width: cellWidth,
+                        borderRight: showGridLines && index < 6 ? '1px solid #ccc' : 'none',
+                        borderBottom: showGridLines ? '1px solid #ccc' : 'none'
+                      }}
+                    >
+                      {day}
+                    </div>
+                  ))}
+                </div>
+              )}
+                
+              {/* Calendar Days with Week Numbers */}
+              <div className="flex" style={{ height: availableHeight }}>
+                {weekNumbers && (
+                  <div style={{ width: weekColWidth }}>
+                    {Array.from({ length: actualWeeks }, (_, w) => {
+                      // Compute first date of this row similar to backend
+                      const firstDayNum = (w * 7 + 0) - firstDayOfWeek + 1;
+                      let firstDate = new Date(year, month, 1);
+                      if (firstDayNum < 1) {
+                        const pm = month - 1;
+                        const py = pm >= 0 ? year : year - 1;
+                        const pMonth = (pm + 12) % 12;
+                        const pDays = new Date(py, pMonth + 1, 0).getDate();
+                        firstDate = new Date(py, pMonth, pDays + firstDayNum);
+                      } else if (firstDayNum > daysInMonth) {
+                        const nm = month + 1;
+                        const ny = nm <= 11 ? year : year + 1;
+                        const nMonth = nm % 12;
+                        firstDate = new Date(ny, nMonth, firstDayNum - daysInMonth);
+                      } else {
+                        firstDate = new Date(year, month, firstDayNum);
+                      }
+                      // ISO week number
+                      const temp = new Date(firstDate.getTime());
+                      // Thursday in current week decides the year
+                      temp.setDate(firstDate.getDate() + 3 - ((firstDate.getDay() + 6) % 7));
+                      const week1 = new Date(temp.getFullYear(), 0, 4);
+                      const weekNum = Math.round(1 + ((temp.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+                      return (
+                        <div key={w} className="flex items-center justify-center text-xs text-eink-gray" style={{ height: cellHeight }}>
+                          {weekNum}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
-                
-                {/* Calendar Days Grid */}
                 <div 
                   className="grid grid-cols-7"
                   style={{ 
+                    width: gridWidth,
                     height: availableHeight,
                     gridTemplateRows: `repeat(${actualWeeks}, ${cellHeight}px)`
                   }}
                 >
-                  {/* Generate calendar cells */}
                   {Array.from({ length: actualWeeks * 7 }, (_, index) => {
                     const dayNumber = index - firstDayOfWeek + 1;
                     const isCurrentMonth = dayNumber > 0 && dayNumber <= daysInMonth;
                     const isClickable = isCurrentMonth && calendarProps.link_strategy !== 'no_links';
-                    
                     return (
                       <div
                         key={index}
-                        className={`flex items-center justify-center ${isClickable ? 'cursor-pointer hover:bg-blue-50' : ''}`}
+                        className={`flex items-start justify-start ${isClickable ? 'cursor-pointer hover:bg-blue-50' : ''}`}
                         style={{
                           width: cellWidth,
                           height: cellHeight,
                           minHeight: isClickable ? cellMinSize : 'auto',
                           border: showGridLines ? '1px solid #ccc' : 'none',
                           backgroundColor: isCurrentMonth ? 'transparent' : '#f9f9f9',
-                          color: isCurrentMonth ? (calendarStyling.color || '#000000') : '#ccc'
+                          color: isCurrentMonth ? (calendarStyling.color || '#000000') : '#ccc',
+                          padding: `${Math.max(0, (calendarProps.cell_padding || 4) / zoom)}px`
                         }}
                       >
                         {isCurrentMonth && (
                           <span 
-                            className={isClickable ? 'underline text-blue-600' : ''}
+                            className={`font-semibold ${isClickable ? 'underline text-blue-600' : ''}`}
                             style={{ fontSize: calendarFontSize }}
                           >
                             {dayNumber}
@@ -457,6 +583,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
                     );
                   })}
                 </div>
+              </div>
               </div>
             );
           } else if (calendarType === 'weekly') {

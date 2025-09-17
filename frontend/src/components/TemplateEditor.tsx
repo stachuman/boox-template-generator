@@ -29,6 +29,7 @@ const TemplateEditor: React.FC = () => {
     showWidgetPalette,
     showPagesPanel,
     showRightPanel,
+    selectedIds,
     setActiveProfile,
     setShowGrid,
     setShowWidgetPalette,
@@ -36,6 +37,9 @@ const TemplateEditor: React.FC = () => {
     setShowRightPanel,
     updateTemplateMetadata,
     resetEditor,
+    alignSelected,
+    distributeSelected,
+    equalizeSizeSelected,
   } = useEditorStore();
 
   const [profiles, setProfiles] = useState<DeviceProfile[]>([]);
@@ -226,6 +230,17 @@ const TemplateEditor: React.FC = () => {
         onToggleWidgetPalette={() => setShowWidgetPalette(!showWidgetPalette)}
         onTogglePagesPanel={() => setShowPagesPanel(!showPagesPanel)}
         onToggleRightPanel={() => setShowRightPanel(!showRightPanel)}
+        selectedCount={selectedIds?.length || 0}
+        onAlignLeft={() => alignSelected('left')}
+        onAlignCenter={() => alignSelected('center')}
+        onAlignRight={() => alignSelected('right')}
+        onAlignTop={() => alignSelected('top')}
+        onAlignMiddle={() => alignSelected('middle')}
+        onAlignBottom={() => alignSelected('bottom')}
+        onDistributeH={() => distributeSelected('horizontal')}
+        onDistributeV={() => distributeSelected('vertical')}
+        onEqualizeW={() => equalizeSizeSelected('width')}
+        onEqualizeH={() => equalizeSizeSelected('height')}
       />
 
       {/* Main Editor Layout */}

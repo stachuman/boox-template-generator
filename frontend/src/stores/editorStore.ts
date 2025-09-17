@@ -34,6 +34,8 @@ const getPageDimensions = (pageSize: string, orientation: string = 'portrait'): 
 interface EditorStore extends EditorState {
   // Actions
   setSelectedWidget: (widget: Widget | null) => void;
+  toggleSelectWidget: (widgetId: string) => void;
+  clearSelection: () => void;
   setActiveProfile: (profile: DeviceProfile | null) => void;
   setCurrentTemplate: (template: Template | null) => void;
   setIsDragging: (isDragging: boolean) => void;
@@ -118,6 +120,7 @@ export const useEditorStore = create<EditorStore>()(
     (set, get) => ({
       // Initial state
       selectedWidget: null,
+      selectedIds: [],
       activeProfile: null,
       currentTemplate: createDefaultTemplate(),
       isDragging: false,
@@ -132,7 +135,13 @@ export const useEditorStore = create<EditorStore>()(
       totalPages: 1,
 
       // Basic setters
-      setSelectedWidget: (widget) => set({ selectedWidget: widget }),
+      setSelectedWidget: (widget) => set({ selectedWidget: widget, selectedIds: widget ? [widget.id] : [] }),
+      toggleSelectWidget: (widgetId) => set((state) => {
+        const setIds = new Set(state.selectedIds || []);
+        if (setIds.has(widgetId)) setIds.delete(widgetId); else setIds.add(widgetId);
+        return { selectedIds: Array.from(setIds), selectedWidget: state.currentTemplate?.widgets.find(w => w.id === widgetId) || state.selectedWidget } as any;
+      }),
+      clearSelection: () => set({ selectedWidget: null, selectedIds: [] }),
       setActiveProfile: (profile) => {
         set({ activeProfile: profile });
         
@@ -182,7 +191,8 @@ export const useEditorStore = create<EditorStore>()(
         const clampedPage = Math.max(1, Math.min(totalPages, page));
         set({ 
           currentPage: clampedPage,
-          selectedWidget: null // Deselect widget when changing pages
+          selectedWidget: null,
+          selectedIds: []
         });
       },
 
@@ -231,14 +241,16 @@ export const useEditorStore = create<EditorStore>()(
             totalPages: totalPages - 1,
             currentPage: currentPage > pageNumber ? currentPage - 1 : 
                         currentPage === pageNumber ? Math.min(currentPage, totalPages - 1) : currentPage,
-            selectedWidget: null
+            selectedWidget: null,
+            selectedIds: []
           });
         } else {
           set({
             totalPages: totalPages - 1,
             currentPage: currentPage > pageNumber ? currentPage - 1 : 
                         currentPage === pageNumber ? Math.min(currentPage, totalPages - 1) : currentPage,
-            selectedWidget: null
+            selectedWidget: null,
+            selectedIds: []
           });
         }
       },
@@ -267,13 +279,15 @@ export const useEditorStore = create<EditorStore>()(
             },
             totalPages: totalPages + 1,
             currentPage: totalPages + 1,
-            selectedWidget: null
+            selectedWidget: null,
+            selectedIds: []
           });
         } else {
           set({
             totalPages: totalPages + 1,
             currentPage: totalPages + 1,
-            selectedWidget: null
+            selectedWidget: null,
+            selectedIds: []
           });
         }
       },
@@ -313,13 +327,15 @@ export const useEditorStore = create<EditorStore>()(
             },
             totalPages: totalPages + count,
             currentPage: totalPages + 1, // Go to first newly created page
-            selectedWidget: null
+            selectedWidget: null,
+            selectedIds: []
           });
         } else {
           set({
             totalPages: totalPages + count,
             currentPage: totalPages + 1,
-            selectedWidget: null
+            selectedWidget: null,
+            selectedIds: []
           });
         }
       },
@@ -363,7 +379,8 @@ export const useEditorStore = create<EditorStore>()(
             ...currentTemplate,
             widgets: [...currentTemplate.widgets, widgetWithPage]
           },
-          selectedWidget: widgetWithPage
+          selectedWidget: widgetWithPage,
+          selectedIds: [widgetWithPage.id]
         });
       },
 
@@ -490,13 +507,15 @@ export const useEditorStore = create<EditorStore>()(
             ...currentTemplate,
             widgets: []
           },
-          selectedWidget: null
+          selectedWidget: null,
+          selectedIds: []
         });
       },
 
       resetEditor: () => {
         set({
           selectedWidget: null,
+          selectedIds: [],
           currentTemplate: createDefaultTemplate(),
           isDragging: false,
           showGrid: true,
@@ -592,7 +611,80 @@ export const useEditorStore = create<EditorStore>()(
           if ((m as any).widgets?.some((w: any) => w.id === widgetId)) return (m as any).id;
         }
         return null;
-      }
+      },
+
+      // Alignment & distribution
+      alignSelected: (mode) => {
+        const state = get();
+        const { currentTemplate, currentPage, selectedIds } = state as any;
+        if (!currentTemplate || !selectedIds || selectedIds.length < 2) return;
+        const masterIds = (currentTemplate.masters || []).flatMap((m: any) => (m.widgets || []).map((w: any) => w.id));
+        const ids = selectedIds.filter((id: string) => !masterIds.includes(id));
+        const widgets = currentTemplate.widgets.filter((w: any) => ids.includes(w.id) && w.page === currentPage);
+        if (widgets.length < 2) return;
+        const left = Math.min(...widgets.map((w: any) => w.position.x));
+        const right = Math.max(...widgets.map((w: any) => w.position.x + w.position.width));
+        const top = Math.min(...widgets.map((w: any) => w.position.y));
+        const bottom = Math.max(...widgets.map((w: any) => w.position.y + w.position.height));
+        const centerX = (left + right) / 2;
+        const centerY = (top + bottom) / 2;
+        const updated = currentTemplate.widgets.map((w: any) => {
+          if (!ids.includes(w.id) || w.page !== currentPage) return w;
+          const pos = { ...w.position };
+          switch (mode) {
+            case 'left': pos.x = left; break;
+            case 'right': pos.x = right - pos.width; break;
+            case 'center': pos.x = centerX - pos.width / 2; break;
+            case 'top': pos.y = top; break;
+            case 'bottom': pos.y = bottom - pos.height; break;
+            case 'middle': pos.y = centerY - pos.height / 2; break;
+          }
+          return { ...w, position: pos };
+        });
+        set({ currentTemplate: { ...currentTemplate, widgets: updated } });
+      },
+      distributeSelected: (axis) => {
+        const state = get();
+        const { currentTemplate, currentPage, selectedIds } = state as any;
+        if (!currentTemplate || !selectedIds || selectedIds.length < 3) return;
+        const masterIds = (currentTemplate.masters || []).flatMap((m: any) => (m.widgets || []).map((w: any) => w.id));
+        const ids = selectedIds.filter((id: string) => !masterIds.includes(id));
+        const widgets = currentTemplate.widgets.filter((w: any) => ids.includes(w.id) && w.page === currentPage);
+        if (widgets.length < 3) return;
+        const sorted = widgets.slice().sort((a: any, b: any) => axis === 'horizontal' ? a.position.x - b.position.x : a.position.y - b.position.y);
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
+        const totalSpace = axis === 'horizontal' ? (last.position.x - first.position.x) : (last.position.y - first.position.y);
+        const gap = totalSpace / (sorted.length - 1);
+        const mapPos: Record<string, any> = {};
+        sorted.forEach((w: any, idx: number) => {
+          if (w.id === first.id || w.id === last.id) return;
+          const pos = { ...w.position };
+          if (axis === 'horizontal') pos.x = Math.round(first.position.x + gap * idx);
+          else pos.y = Math.round(first.position.y + gap * idx);
+          mapPos[w.id] = pos;
+        });
+        const updated = currentTemplate.widgets.map((w: any) => mapPos[w.id] ? { ...w, position: mapPos[w.id] } : w);
+        set({ currentTemplate: { ...currentTemplate, widgets: updated } });
+      },
+      equalizeSizeSelected: (mode) => {
+        const state = get();
+        const { currentTemplate, currentPage, selectedIds } = state as any;
+        if (!currentTemplate || !selectedIds || selectedIds.length < 2) return;
+        const masterIds = (currentTemplate.masters || []).flatMap((m: any) => (m.widgets || []).map((w: any) => w.id));
+        const ids = selectedIds.filter((id: string) => !masterIds.includes(id));
+        const widgets = currentTemplate.widgets.filter((w: any) => ids.includes(w.id) && w.page === currentPage);
+        if (widgets.length < 2) return;
+        const ref = widgets[0].position;
+        const updated = currentTemplate.widgets.map((w: any) => {
+          if (!ids.includes(w.id) || w.page !== currentPage) return w;
+          const pos = { ...w.position };
+          if (mode === 'width' || mode === 'both') pos.width = ref.width;
+          if (mode === 'height' || mode === 'both') pos.height = ref.height;
+          return { ...w, position: pos };
+        });
+        set({ currentTemplate: { ...currentTemplate, widgets: updated } });
+      },
     }),
     {
       name: 'editor-store',

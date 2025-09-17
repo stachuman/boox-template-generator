@@ -49,10 +49,25 @@ export interface WidgetProperties {
   margin_left?: number;
   margin_right?: number;
   line_style?: 'solid' | 'dotted' | 'dashed' | 'grid';
+  top_padding?: number;        // extra space before first line (pt)
+  bottom_padding?: number;     // reserved summary area (pt)
+  grid_spacing?: number;       // pt spacing for grid verticals
+  columns?: number;            // number of equal columns (guides) when not grid
+  vertical_guides?: number[];  // custom vertical guides as ratios [0..1]
   // Anchor widget properties
   destination?: string;
   anchor_type?: 'named_destination' | 'page_link' | 'outline_bookmark';
   target_page?: number;
+  // Tap zone properties
+  tap_action?: 'page_link' | 'named_destination' | 'prev_page' | 'next_page';
+  outline?: boolean; // editor-only visual aid
+  // Image properties
+  image_src?: string;             // URL or data URI
+  image_fit?: 'fit' | 'stretch' | 'actual';
+  optimize_on_import?: boolean;   // If true, downscale/compress on import
+  max_image_px?: number;          // Max width/height in px when optimizing
+  grayscale_on_import?: boolean;  // Convert to grayscale on import
+  image_quality?: number;         // JPEG quality 0.5-0.95 (default 0.8)
   // Calendar widget properties
   calendar_type?: 'monthly' | 'weekly' | 'custom_range';
   start_date?: string;        // ISO 8601 format (YYYY-MM-DD)
@@ -71,7 +86,7 @@ export interface WidgetProperties {
 
 export interface Widget {
   id: string;
-  type: 'text_block' | 'checkbox' | 'divider' | 'lines' | 'anchor' | 'calendar';
+  type: 'text_block' | 'checkbox' | 'divider' | 'lines' | 'anchor' | 'calendar' | 'tap_zone' | 'image';
   page: number;
   content?: string;
   position: Position;
@@ -175,6 +190,7 @@ export interface WebSocketMessage {
 // UI State Types
 export interface EditorState {
   selectedWidget: Widget | null;
+  selectedIds: string[];
   activeProfile: DeviceProfile | null;
   currentTemplate: Template | null;
   isDragging: boolean;

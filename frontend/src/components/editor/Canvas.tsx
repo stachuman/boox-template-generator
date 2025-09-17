@@ -5,7 +5,7 @@
  * Follows CLAUDE.md coding standards - no dummy implementations.
  */
 
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState } from 'react';
 import { useDrop } from 'react-dnd';
 import { useEditorStore } from '@/stores/editorStore';
 import { Widget, DragItem } from '@/types';
@@ -18,6 +18,7 @@ const Canvas: React.FC = () => {
   const {
     currentTemplate,
     selectedWidget,
+    selectedIds,
     currentPage,
     showGrid,
     snapEnabled,
@@ -26,8 +27,10 @@ const Canvas: React.FC = () => {
     updateWidget,
     removeWidget,
     setSelectedWidget,
+    toggleSelectWidget,
+    clearSelection,
     getWidgetsForCurrentPage,
-  } = useEditorStore();
+  } = useEditorStore() as any;
 
   const generateWidgetId = useCallback((): string => {
     return `widget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -52,8 +55,91 @@ const Canvas: React.FC = () => {
     };
   }, [zoom, snapToGrid]);
 
+  // Raw (non-snapped) canvas coordinates for precise pointer tracking
+  const getCanvasPositionRaw = useCallback((clientX: number, clientY: number, element?: Element | null) => {
+    const targetElement = element || canvasRef.current;
+    if (!targetElement) return { x: 0, y: 0 };
+    const rect = targetElement.getBoundingClientRect();
+    const x = (clientX - rect.left) / zoom;
+    const y = (clientY - rect.top) / zoom;
+    return { x, y };
+  }, [zoom]);
+
+  const [guideV, setGuideV] = useState<number | null>(null);
+  const [guideH, setGuideH] = useState<number | null>(null);
+
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: 'WIDGET',
+    hover: (item: DragItem, monitor) => {
+      const clientOffset = monitor.getClientOffset();
+      if (!clientOffset) return;
+      const canvasPosition = getCanvasPosition(clientOffset.x, clientOffset.y);
+      // item.widget may be undefined for new
+      const width = item.isNew ? (item.defaultProps?.position.width || 100) : (item.widget?.position.width || 100);
+      const height = item.isNew ? (item.defaultProps?.position.height || 30) : (item.widget?.position.height || 30);
+      const movingId = item.widget?.id;
+
+      const widgets = getWidgetsForCurrentPage().filter((w: Widget) => w.id !== movingId);
+      const TOL = 6 / zoom;
+      const xTargets: number[] = [];
+      const xCenterTargets: number[] = [];
+      const yTargets: number[] = [];
+      const yCenterTargets: number[] = [];
+      widgets.forEach((w: Widget) => {
+        const wx = w.position.x;
+        const wy = w.position.y;
+        const ww = w.position.width;
+        const wh = w.position.height;
+        xTargets.push(wx, wx + ww);
+        xCenterTargets.push(wx + ww / 2);
+        yTargets.push(wy, wy + wh);
+        yCenterTargets.push(wy + wh / 2);
+      });
+
+      const trySnap = (val: number, targets: number[]) => {
+        let best = val;
+        let minDelta = Number.MAX_VALUE;
+        targets.forEach(t => {
+          const d = Math.abs(t - val);
+          if (d < minDelta && d <= TOL) {
+            minDelta = d;
+            best = t;
+          }
+        });
+        return best;
+      };
+
+      const left = canvasPosition.x;
+      const right = canvasPosition.x + width;
+      const hCenter = canvasPosition.x + width / 2;
+      const top = canvasPosition.y;
+      const bottom = canvasPosition.y + height;
+      const vCenter = canvasPosition.y + height / 2;
+
+      let vGuide: number | null = null;
+      let hGuide: number | null = null;
+
+      const nl = trySnap(left, xTargets);
+      if (nl !== left) vGuide = nl; else {
+        const nr = trySnap(right, xTargets);
+        if (nr !== right) vGuide = nr; else {
+          const nc = trySnap(hCenter, xCenterTargets);
+          if (nc !== hCenter) vGuide = nc;
+        }
+      }
+
+      const nt = trySnap(top, yTargets);
+      if (nt !== top) hGuide = nt; else {
+        const nb = trySnap(bottom, yTargets);
+        if (nb !== bottom) hGuide = nb; else {
+          const ncy = trySnap(vCenter, yCenterTargets);
+          if (ncy !== vCenter) hGuide = ncy;
+        }
+      }
+
+      setGuideV(vGuide);
+      setGuideH(hGuide);
+    },
     drop: (item: DragItem, monitor) => {
       if (!currentTemplate) return;
 
@@ -176,6 +262,9 @@ const Canvas: React.FC = () => {
           updateWidget(item.widget.id, { position: snapped });
         }
       }
+      // Clear guides after drop
+      setGuideV(null);
+      setGuideH(null);
     },
     collect: (monitor) => ({
       isOver: monitor.isOver(),
@@ -183,12 +272,11 @@ const Canvas: React.FC = () => {
     })
   });
 
-  const handleCanvasClick = useCallback((event: React.MouseEvent) => {
-    // Only deselect if clicking directly on canvas (not on a widget)
-    if (event.target === event.currentTarget) {
-      setSelectedWidget(null);
-    }
-  }, [setSelectedWidget]);
+  const handleCanvasClick = useCallback(() => {
+    // Clear selection when clicking anywhere on the canvas area
+    // Widget clicks stop propagation, so they won't reach here
+    clearSelection();
+  }, [clearSelection]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
     if (!selectedWidget) return;
@@ -214,6 +302,52 @@ const Canvas: React.FC = () => {
   const canvasWidth = currentTemplate.canvas.dimensions.width;
   const canvasHeight = currentTemplate.canvas.dimensions.height;
 
+  // Marquee selection state
+  const [dragSelectStart, setDragSelectStart] = useState<{x:number;y:number}|null>(null);
+  const [dragSelectRect, setDragSelectRect] = useState<{x:number;y:number;width:number;height:number}|null>(null);
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    if (e.target !== e.currentTarget) return; // only on empty canvas
+    const pos = getCanvasPositionRaw(e.clientX, e.clientY);
+    setDragSelectStart(pos);
+    setDragSelectRect({ x: pos.x, y: pos.y, width: 0, height: 0 });
+  };
+
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!dragSelectStart) return;
+    const pos = getCanvasPositionRaw(e.clientX, e.clientY);
+    const x = Math.min(dragSelectStart.x, pos.x);
+    const y = Math.min(dragSelectStart.y, pos.y);
+    const width = Math.abs(pos.x - dragSelectStart.x);
+    const height = Math.abs(pos.y - dragSelectStart.y);
+    setDragSelectRect({ x, y, width, height });
+  };
+
+  const onMouseUp = () => {
+    if (!dragSelectRect) return;
+    const rect = dragSelectRect;
+    const widgets: Widget[] = getWidgetsForCurrentPage();
+    const selected = widgets.filter(w => {
+      const wx1 = w.position.x;
+      const wy1 = w.position.y;
+      const wx2 = wx1 + w.position.width;
+      const wy2 = wy1 + w.position.height;
+      const rx1 = rect.x;
+      const ry1 = rect.y;
+      const rx2 = rect.x + rect.width;
+      const ry2 = rect.y + rect.height;
+      // intersection
+      return !(wx2 < rx1 || wx1 > rx2 || wy2 < ry1 || wy1 > ry2);
+    });
+    if (selected.length) {
+      // Set first as primary, add others
+      setSelectedWidget(selected[0]);
+      for (let i = 1; i < selected.length; i++) toggleSelectWidget(selected[i].id);
+    }
+    setDragSelectStart(null);
+    setDragSelectRect(null);
+  };
+
   return (
     <div 
       className="relative flex items-center justify-center min-h-full"
@@ -236,6 +370,9 @@ const Canvas: React.FC = () => {
           transform: `scale(${zoom})`,
           transformOrigin: 'center',
         }}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
       >
         {/* Grid Overlay */}
         {showGrid && <GridOverlay />}
@@ -245,16 +382,39 @@ const Canvas: React.FC = () => {
           <div className="absolute inset-0 bg-blue-100 bg-opacity-20 border-2 border-blue-300 border-dashed" />
         )}
 
+        {/* Snap Guides */}
+        {guideV !== null && (
+          <div className="absolute top-0 w-px bg-blue-400" style={{ left: guideV, height: canvasHeight }} />
+        )}
+        {guideH !== null && (
+          <div className="absolute left-0 h-px bg-blue-400" style={{ top: guideH, width: canvasWidth }} />
+        )}
+
         {/* Widgets */}
         {getWidgetsForCurrentPage().map((widget) => (
           <CanvasWidget
             key={widget.id}
             widget={widget}
-            isSelected={selectedWidget?.id === widget.id}
-            onSelect={setSelectedWidget}
+            isSelected={selectedIds?.includes(widget.id) || selectedWidget?.id === widget.id}
+            onSelect={(w, additive) => {
+              if (additive) toggleSelectWidget(w.id); else setSelectedWidget(w);
+            }}
             zoom={zoom}
           />
         ))}
+
+        {/* Marquee Selection (inside canvas, respects transform) */}
+        {dragSelectRect && (
+          <div
+            className="absolute border-2 border-blue-300 bg-blue-100 bg-opacity-20 pointer-events-none"
+            style={{
+              left: dragSelectRect.x,
+              top: dragSelectRect.y,
+              width: dragSelectRect.width,
+              height: dragSelectRect.height,
+            }}
+          />
+        )}
       </div>
 
       {/* Canvas Info */}

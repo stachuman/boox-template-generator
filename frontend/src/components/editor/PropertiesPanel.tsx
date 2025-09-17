@@ -76,6 +76,7 @@ const PropertiesPanel: React.FC = () => {
       case 'divider': return Minus;
       case 'lines': return AlignJustify;
       case 'anchor': return Anchor;
+      case 'tap_zone': return Anchor;
       default: return Settings;
     }
   };
@@ -307,6 +308,32 @@ const PropertiesPanel: React.FC = () => {
                   />
                 </div>
               </div>
+              {/* Extra spacing and cap */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Top Padding (pt)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="200"
+                    {...register('properties.top_padding', { min: 0, max: 200 })}
+                    onChange={(e) => handleLiveUpdate('properties.top_padding', parseInt(e.target.value) || 0)}
+                    className="input-field w-full"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Line Cap</label>
+                  <select
+                    {...register('properties.line_cap')}
+                    onChange={(e) => handleLiveUpdate('properties.line_cap', e.target.value)}
+                    className="input-field w-full"
+                  >
+                    <option value="butt">Butt</option>
+                    <option value="round">Round</option>
+                  </select>
+                </div>
+              </div>
             </div>
           )}
 
@@ -337,6 +364,29 @@ const PropertiesPanel: React.FC = () => {
             <div>
               <h4 className="font-medium mb-3">Line Properties</h4>
               <div className="space-y-3">
+                <div>
+                  <button
+                    type="button"
+                    className="btn-secondary text-xs"
+                    onClick={() => {
+                      // Apply Cornell Notes preset: left cue column ~25%, summary area ~120pt
+                      const width = selectedWidget?.position?.width || 400;
+                      const height = selectedWidget?.position?.height || 300;
+                      const bottomPadding = 120;
+                      const spacing = 18;
+                      const count = Math.max(3, Math.floor((height - bottomPadding - (selectedWidget?.properties?.top_padding || 0)) / spacing));
+                      handleLiveUpdate('properties.line_style', 'solid');
+                      handleLiveUpdate('properties.vertical_guides', [0.25]);
+                      handleLiveUpdate('properties.bottom_padding', bottomPadding);
+                      handleLiveUpdate('properties.line_spacing', spacing);
+                      handleLiveUpdate('properties.line_count', count);
+                      handleLiveUpdate('properties.columns', 0);
+                    }}
+                  >
+                    Apply Cornell Notes Preset
+                  </button>
+                  <p className="text-xs text-eink-light-gray mt-1">Adds a left cue column and bottom summary area</p>
+                </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Line Spacing (pt)</label>
                   <input
@@ -459,6 +509,247 @@ const PropertiesPanel: React.FC = () => {
                     Choose pattern type - grid adds vertical lines
                   </p>
                 </div>
+                {selectedWidget.properties?.line_style === 'grid' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Grid Spacing (pt)</label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="200"
+                      {...register('properties.grid_spacing', { min: 5, max: 200 })}
+                      onChange={(e) => handleLiveUpdate('properties.grid_spacing', parseInt(e.target.value) || 20)}
+                      className="input-field w-full"
+                      placeholder="20"
+                    />
+                  </div>
+                )}
+                {selectedWidget.properties?.line_style !== 'grid' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Columns (guides)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="12"
+                      {...register('properties.columns', { min: 0, max: 12 })}
+                      onChange={(e) => handleLiveUpdate('properties.columns', parseInt(e.target.value) || 0)}
+                      className="input-field w-full"
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-eink-light-gray mt-1">Draw vertical guides splitting the area into equal columns</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Properties (for tap_zone) */}
+          {selectedWidget.type === 'tap_zone' && (
+            <div>
+              <h4 className="font-medium mb-3">Tap Zone</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Action</label>
+                  <select
+                    {...register('properties.tap_action')}
+                    onChange={(e) => handleLiveUpdate('properties.tap_action', e.target.value)}
+                    className="input-field w-full"
+                  >
+                    <option value="page_link">Go to Page</option>
+                    <option value="named_destination">Go to Destination</option>
+                    <option value="prev_page">Previous Page</option>
+                    <option value="next_page">Next Page</option>
+                  </select>
+                </div>
+                {(selectedWidget.properties?.tap_action === 'page_link' || !selectedWidget.properties?.tap_action) && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Target Page</label>
+                    <input
+                      type="number"
+                      min="1"
+                      {...register('properties.target_page', { min: 1 })}
+                      onChange={(e) => handleLiveUpdate('properties.target_page', parseInt(e.target.value) || 1)}
+                      className="input-field w-full"
+                      placeholder="2"
+                    />
+                  </div>
+                )}
+                {selectedWidget.properties?.tap_action === 'named_destination' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Destination Name</label>
+                    <input
+                      {...register('properties.destination')}
+                      onChange={(e) => handleLiveUpdate('properties.destination', e.target.value)}
+                      className="input-field w-full"
+                      placeholder="dest_id"
+                    />
+                  </div>
+                )}
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    {...register('properties.outline')}
+                    onChange={(e) => handleLiveUpdate('properties.outline', e.target.checked)}
+                    className="rounded border-eink-pale-gray"
+                  />
+                  <span className="text-sm">Show outline in editor</span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Properties (for image) */}
+          {selectedWidget.type === 'image' && (
+            <div>
+              <h4 className="font-medium mb-3">Image</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Image Source</label>
+                  <input
+                    {...register('properties.image_src')}
+                    onChange={(e) => handleLiveUpdate('properties.image_src', e.target.value)}
+                    className="input-field w-full"
+                    placeholder="/assets/logo.png or data:image/png;base64,..."
+                  />
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Supports relative/absolute URLs or data URIs
+                  </p>
+                  <div className="flex items-center space-x-2 mt-2">
+                    <input
+                      id="image-file-input"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        // Optimization options
+                        const props = selectedWidget.properties || {} as any;
+                        const optimize = props.optimize_on_import !== false; // default true
+                        const maxPx = Math.max(256, Math.min(4096, props.max_image_px || 1600));
+                        const doGray = !!props.grayscale_on_import;
+                        const quality = Math.max(0.5, Math.min(0.95, props.image_quality || 0.8));
+
+                        const process = (img: HTMLImageElement) => {
+                          const srcW = img.naturalWidth || img.width;
+                          const srcH = img.naturalHeight || img.height;
+                          let drawW = srcW;
+                          let drawH = srcH;
+                          if (optimize) {
+                            const scale = Math.min(1, maxPx / Math.max(srcW, srcH));
+                            drawW = Math.max(1, Math.round(srcW * scale));
+                            drawH = Math.max(1, Math.round(srcH * scale));
+                          }
+                          const canvas = document.createElement('canvas');
+                          canvas.width = drawW; canvas.height = drawH;
+                          const ctx = canvas.getContext('2d');
+                          if (!ctx) return;
+                          // Paint white background to avoid transparency issues in JPEG
+                          ctx.fillStyle = '#ffffff';
+                          ctx.fillRect(0, 0, drawW, drawH);
+                          ctx.drawImage(img, 0, 0, drawW, drawH);
+                          if (doGray) {
+                            const imgData = ctx.getImageData(0, 0, drawW, drawH);
+                            const data = imgData.data;
+                            for (let i = 0; i < data.length; i += 4) {
+                              const r = data[i], g = data[i+1], b = data[i+2];
+                              // Luminance (BT.601)
+                              const y = Math.round(0.299*r + 0.587*g + 0.114*b);
+                              data[i] = data[i+1] = data[i+2] = y;
+                            }
+                            ctx.putImageData(imgData, 0, 0);
+                          }
+                          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                          handleLiveUpdate('properties.image_src', dataUrl);
+                        };
+
+                        const img = new Image();
+                        img.onload = () => { URL.revokeObjectURL(img.src); process(img); };
+                        img.onerror = () => {
+                          // Fallback: read as data URL without processing
+                          const reader = new FileReader();
+                          reader.onload = () => handleLiveUpdate('properties.image_src', reader.result as string);
+                          reader.readAsDataURL(file);
+                        };
+                        img.src = URL.createObjectURL(file);
+                      }}
+                    />
+                    <label htmlFor="image-file-input" className="btn-secondary cursor-pointer text-xs">
+                      Choose Image...
+                    </label>
+                    {selectedWidget.properties?.image_src && (
+                      <button
+                        type="button"
+                        className="text-xs text-red-700 border border-red-200 px-2 py-1 rounded hover:bg-red-50"
+                        onClick={() => handleLiveUpdate('properties.image_src', '')}
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Fit</label>
+                  <select
+                    {...register('properties.image_fit')}
+                    onChange={(e) => handleLiveUpdate('properties.image_fit', e.target.value)}
+                    className="input-field w-full"
+                  >
+                    <option value="fit">Fit (contain)</option>
+                    <option value="stretch">Stretch</option>
+                    <option value="actual">Actual size (top-left)</option>
+                  </select>
+                </div>
+                <div>
+                  <h5 className="font-medium mb-2">Optimization</h5>
+                  <div className="space-y-2">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        {...register('properties.optimize_on_import')}
+                        onChange={(e) => handleLiveUpdate('properties.optimize_on_import', e.target.checked)}
+                        className="rounded border-eink-pale-gray"
+                        defaultChecked
+                      />
+                      <span className="text-sm">Optimize on import (size/quality)</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Max Size (px)</label>
+                        <input
+                          type="number"
+                          min={256}
+                          max={4096}
+                          {...register('properties.max_image_px')}
+                          onChange={(e) => handleLiveUpdate('properties.max_image_px', parseInt(e.target.value) || 1600)}
+                          className="input-field w-full"
+                          placeholder="1600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">JPEG Quality</label>
+                        <input
+                          type="number"
+                          step={0.05}
+                          min={0.5}
+                          max={0.95}
+                          {...register('properties.image_quality')}
+                          onChange={(e) => handleLiveUpdate('properties.image_quality', parseFloat(e.target.value) || 0.8)}
+                          className="input-field w-full"
+                          placeholder="0.8"
+                        />
+                      </div>
+                    </div>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        {...register('properties.grayscale_on_import')}
+                        onChange={(e) => handleLiveUpdate('properties.grayscale_on_import', e.target.checked)}
+                        className="rounded border-eink-pale-gray"
+                      />
+                      <span className="text-sm">Convert to grayscale on import</span>
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -573,6 +864,151 @@ const PropertiesPanel: React.FC = () => {
                     Text color (black recommended for e-ink)
                   </p>
                 </div>
+              </div>
+              <div className="mt-4 space-y-3">
+                <h4 className="font-medium">Calendar Options</h4>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    {...register('properties.show_trailing_days')}
+                    onChange={(e) => handleLiveUpdate('properties.show_trailing_days', e.target.checked)}
+                    className="rounded border-eink-pale-gray"
+                  />
+                  <span className="text-sm">Show trailing/leading days</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      {...register('properties.highlight_today')}
+                      onChange={(e) => handleLiveUpdate('properties.highlight_today', e.target.checked)}
+                      className="rounded border-eink-pale-gray"
+                    />
+                    <span className="text-sm">Highlight today</span>
+                  </label>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Highlight Date (YYYY-MM-DD)</label>
+                    <input
+                      {...register('properties.highlight_date')}
+                      onChange={(e) => handleLiveUpdate('properties.highlight_date', e.target.value)}
+                      className="input-field w-full"
+                      placeholder="Optional fixed date"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Weekday Labels</label>
+                    <select
+                      {...register('properties.weekday_label_style')}
+                      onChange={(e) => handleLiveUpdate('properties.weekday_label_style', e.target.value)}
+                      className="input-field w-full"
+                    >
+                      <option value="short">Mon</option>
+                      <option value="narrow">M</option>
+                      <option value="full">Monday</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Week Numbers</label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        {...register('properties.week_numbers')}
+                        onChange={(e) => handleLiveUpdate('properties.week_numbers', e.target.checked)}
+                        className="rounded border-eink-pale-gray"
+                      />
+                      <span className="text-sm">Show ISO week numbers</span>
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Cell Padding (pt)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="20"
+                    {...register('properties.cell_padding', { min: 0, max: 20 })}
+                    onChange={(e) => handleLiveUpdate('properties.cell_padding', parseFloat(e.target.value) || 4)}
+                    className="input-field w-full"
+                    placeholder="4"
+                  />
+                </div>
+                {selectedWidget.properties?.calendar_type === 'weekly' && (
+                  <div className="space-y-3">
+                    <h4 className="font-medium">Weekly Time Grid</h4>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        {...register('properties.show_time_grid')}
+                        onChange={(e) => handleLiveUpdate('properties.show_time_grid', e.target.checked)}
+                        className="rounded border-eink-pale-gray"
+                      />
+                      <span className="text-sm">Show time grid</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Start Hour</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="23"
+                          {...register('properties.time_start_hour')}
+                          onChange={(e) => handleLiveUpdate('properties.time_start_hour', parseInt(e.target.value) || 8)}
+                          className="input-field w-full"
+                          placeholder="8"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">End Hour</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="24"
+                          {...register('properties.time_end_hour')}
+                          onChange={(e) => handleLiveUpdate('properties.time_end_hour', parseInt(e.target.value) || 20)}
+                          className="input-field w-full"
+                          placeholder="20"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Slot Minutes</label>
+                        <input
+                          type="number"
+                          min="5"
+                          max="120"
+                          {...register('properties.time_slot_minutes')}
+                          onChange={(e) => handleLiveUpdate('properties.time_slot_minutes', parseInt(e.target.value) || 60)}
+                          className="input-field w-full"
+                          placeholder="60"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Label Every (min)</label>
+                        <input
+                          type="number"
+                          min="5"
+                          max="240"
+                          {...register('properties.time_label_interval')}
+                          onChange={(e) => handleLiveUpdate('properties.time_label_interval', parseInt(e.target.value) || 60)}
+                          className="input-field w-full"
+                          placeholder="60"
+                        />
+                      </div>
+                    </div>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        {...register('properties.show_time_gutter')}
+                        onChange={(e) => handleLiveUpdate('properties.show_time_gutter', e.target.checked)}
+                        className="rounded border-eink-pale-gray"
+                      />
+                      <span className="text-sm">Show time labels gutter</span>
+                    </label>
+                  </div>
+                )}
               </div>
             </div>
           )}

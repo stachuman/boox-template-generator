@@ -17,6 +17,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4, LETTER, A5, LEGAL
 from reportlab.lib.units import inch
 from reportlab.lib.colors import black, white, HexColor
+from reportlab.lib.utils import ImageReader
 
 from .schema import Template, Widget, Canvas as CanvasConfig, Position
 from .coordinates import CoordinateConverter, create_converter_for_canvas
@@ -310,8 +311,12 @@ class DeterministicPDFRenderer:
             self._render_lines(pdf_canvas, widget)
         elif widget.type == "anchor":
             self._render_anchor(pdf_canvas, widget)
+        elif widget.type == "tap_zone":
+            self._render_tap_zone(pdf_canvas, widget, page_num)
         elif widget.type == "calendar":
             self._render_calendar(pdf_canvas, widget)
+        elif widget.type == "image":
+            self._render_image(pdf_canvas, widget)
         else:
             # Following CLAUDE.md rule #4: explicit NotImplementedError
             raise UnsupportedWidgetError(
@@ -460,6 +465,12 @@ class DeterministicPDFRenderer:
         margin_left = props.get('margin_left', 0.0)
         margin_right = props.get('margin_right', 0.0)
         line_style = props.get('line_style', 'solid')
+        top_padding = max(0.0, float(props.get('top_padding', 0.0)))
+        bottom_padding = max(0.0, float(props.get('bottom_padding', 0.0)))
+        grid_spacing = float(props.get('grid_spacing', 20.0))
+        columns = int(props.get('columns', 0))
+        vertical_guides = props.get('vertical_guides') or []
+        line_cap = props.get('line_cap', 'butt')  # 'butt' | 'round'
         
         # Convert position for drawing
         lines_pos = self.converter.convert_position_for_drawing(widget.position)
@@ -467,6 +478,11 @@ class DeterministicPDFRenderer:
         # Enforce stroke width constraint
         stroke_width = self.enforcer.check_stroke_width(line_thickness)
         pdf_canvas.setLineWidth(stroke_width)
+        # Line cap style
+        try:
+            pdf_canvas.setLineCap(1 if line_cap == 'round' else 0)
+        except Exception:
+            pass
         
         # Calculate usable width for lines
         available_width = lines_pos['width'] - margin_left - margin_right
@@ -484,34 +500,58 @@ class DeterministicPDFRenderer:
             # Solid lines (default)
             pdf_canvas.setDash([])
         
-        # Draw each line
+        # Draw each horizontal line
         for i in range(line_count):
             # Calculate Y position for this line (from top of widget area)
-            line_y = lines_pos['y'] + lines_pos['height'] - (i * line_spacing)
+            line_y = lines_pos['y'] + lines_pos['height'] - top_padding - (i * line_spacing)
             
             # Skip lines that would be outside the widget bounds
-            if line_y < lines_pos['y']:
+            if line_y < lines_pos['y'] + bottom_padding:
                 break
                 
             # Draw horizontal line with margins
             start_x = lines_pos['x'] + margin_left
             end_x = start_x + available_width
             
-            if line_style == 'grid':
-                # Draw horizontal line
-                pdf_canvas.line(start_x, line_y, end_x, line_y)
-                # Draw vertical grid lines every 20pt
-                grid_spacing = 20.0
-                x = start_x
-                while x <= end_x:
+            # Draw horizontal line
+            pdf_canvas.line(start_x, line_y, end_x, line_y)
+
+        # Vertical structures
+        if line_style == 'grid':
+            # Draw vertical grid lines at specified spacing
+            if grid_spacing > 0:
+                x = lines_pos['x'] + margin_left
+                end_x = x + available_width
+                while x <= end_x + 0.1:  # include last line if aligned
                     pdf_canvas.line(x, lines_pos['y'], x, lines_pos['y'] + lines_pos['height'])
                     x += grid_spacing
-            else:
-                # Regular horizontal line
-                pdf_canvas.line(start_x, line_y, end_x, line_y)
+        elif columns and columns > 1:
+            # Draw column guides (no dash)
+            pdf_canvas.setDash([])
+            col_width = available_width / columns
+            x = lines_pos['x'] + margin_left
+            for c in range(1, columns):
+                cx = x + c * col_width
+                pdf_canvas.line(cx, lines_pos['y'], cx, lines_pos['y'] + lines_pos['height'])
+        # Custom vertical guides by ratio
+        if isinstance(vertical_guides, list) and vertical_guides:
+            pdf_canvas.setDash([])
+            for ratio in vertical_guides:
+                try:
+                    r = float(ratio)
+                except Exception:
+                    continue
+                if r <= 0 or r >= 1:
+                    continue
+                gx = lines_pos['x'] + margin_left + available_width * r
+                pdf_canvas.line(gx, lines_pos['y'], gx, lines_pos['y'] + lines_pos['height'])
         
         # Reset dash pattern
         pdf_canvas.setDash([])
+        try:
+            pdf_canvas.setLineCap(0)
+        except Exception:
+            pass
     
     def _render_anchor(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
         """Render anchor link widget."""
@@ -630,6 +670,164 @@ class DeterministicPDFRenderer:
             text_pos['x'] + text_width, 
             underline_y
         )
+
+    def _render_tap_zone(self, pdf_canvas: canvas.Canvas, widget: Widget, page_num: int) -> None:
+        """Render an invisible tap zone that creates a link rectangle."""
+        props = getattr(widget, 'properties', {}) or {}
+        action = props.get('tap_action', 'page_link')
+
+        # Compute rectangle in PDF coords
+        rect_pos = self.converter.convert_position_for_drawing(widget.position)
+        link_rect = (
+            rect_pos['x'],
+            rect_pos['y'],
+            rect_pos['x'] + rect_pos['width'],
+            rect_pos['y'] + rect_pos['height']
+        )
+
+        if rect_pos['width'] <= 0 or rect_pos['height'] <= 0:
+            return
+
+        if action == 'page_link':
+            target_page = props.get('target_page')
+            if not isinstance(target_page, int) or target_page < 1:
+                raise RenderingError(
+                    f"Tap zone '{widget.id}': page_link requires positive integer target_page"
+                )
+            total_pages = self._get_total_pages(self._group_widgets_by_page())
+            if target_page > total_pages:
+                # Clamp to last page in non-strict mode
+                if self.strict_mode:
+                    raise RenderingError(
+                        f"Tap zone '{widget.id}': target_page {target_page} exceeds total pages {total_pages}"
+                    )
+                target_page = total_pages
+            page_bookmark_name = f"Page_{target_page}"
+            pdf_canvas.linkAbsolute("", page_bookmark_name, Rect=link_rect, Border='[0 0 0]')
+
+        elif action == 'named_destination':
+            destination = props.get('destination')
+            if not destination or not isinstance(destination, str) or not destination.strip():
+                raise RenderingError(
+                    f"Tap zone '{widget.id}': named_destination requires non-empty destination string"
+                )
+            pdf_canvas.linkAbsolute("", destination.strip(), Rect=link_rect, Border='[0 0 0]')
+
+        elif action == 'prev_page':
+            target_page = max(1, page_num - 1)
+            page_bookmark_name = f"Page_{target_page}"
+            pdf_canvas.linkAbsolute("", page_bookmark_name, Rect=link_rect, Border='[0 0 0]')
+
+        elif action == 'next_page':
+            total_pages = self._get_total_pages(self._group_widgets_by_page())
+            target_page = min(total_pages, page_num + 1)
+            page_bookmark_name = f"Page_{target_page}"
+            pdf_canvas.linkAbsolute("", page_bookmark_name, Rect=link_rect, Border='[0 0 0]')
+
+        else:
+            raise RenderingError(
+                f"Tap zone '{widget.id}': unsupported tap_action '{action}'. "
+                f"Supported: page_link, named_destination, prev_page, next_page"
+            )
+
+    def _resolve_image_reader(self, src: str) -> Optional[ImageReader]:
+        """Resolve an ImageReader from a path or data URI."""
+        if not src or not isinstance(src, str):
+            return None
+        try:
+            if src.startswith('data:image/'):
+                # data URI: data:image/png;base64,...
+                import base64
+                header, b64data = src.split(',', 1)
+                raw = base64.b64decode(b64data)
+                return ImageReader(BytesIO(raw))
+            if src.startswith('http://') or src.startswith('https://'):
+                # Fetch via urllib to support remote images
+                try:
+                    import urllib.request
+                    req = urllib.request.Request(src, headers={
+                        'User-Agent': 'einkpdf/0.1 (+https://github.com/einkpdf)'
+                    })
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        data = resp.read()
+                    return ImageReader(BytesIO(data))
+                except Exception:
+                    return None
+            else:
+                # Treat as path; support absolute, CWD-relative, and package assets.
+                # 1) Absolute or CWD-relative
+                if os.path.isabs(src) and os.path.exists(src):
+                    return ImageReader(src)
+                if os.path.exists(src):
+                    return ImageReader(src)
+                # 2) Trim leading slashes/dots and try package assets directory
+                cleaned = src.lstrip('/').lstrip('./')
+                base_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), '..'))  # src/einkpdf
+                asset_path = os.path.normpath(os.path.join(base_dir, 'assets', cleaned))
+                if os.path.exists(asset_path):
+                    return ImageReader(asset_path)
+                # 3) If the given path already contains 'assets/', try relative to package root
+                if cleaned.startswith('assets/'):
+                    asset_path2 = os.path.normpath(os.path.join(base_dir, cleaned))
+                    if os.path.exists(asset_path2):
+                        return ImageReader(asset_path2)
+                # 4) Fallback: let ImageReader attempt to open it
+                return ImageReader(src)
+        except Exception:
+            return None
+
+    def _render_image(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
+        """Render an image widget (PNG/JPEG)."""
+        props = getattr(widget, 'properties', {}) or {}
+        src = props.get('image_src')
+        fit = props.get('image_fit', 'fit')
+
+        img_reader = self._resolve_image_reader(src) if src else None
+        if not img_reader:
+            if self.strict_mode:
+                raise RenderingError(f"Image widget '{widget.id}': cannot load image from '{src}'")
+            else:
+                print(f"Warning: Skipping image widget {widget.id}, source not found: {src}")
+                return
+
+        # Get image intrinsic size
+        try:
+            iw, ih = img_reader.getSize()
+        except Exception as e:
+            if self.strict_mode:
+                raise RenderingError(f"Image widget '{widget.id}': failed to read image size: {e}") from e
+            print(f"Warning: Skipping image widget {widget.id}, failed to read size: {e}")
+            return
+
+        box = self.converter.convert_position_for_drawing(widget.position)
+        x, y, w, h = box['x'], box['y'], box['width'], box['height']
+
+        # Compute draw size and position
+        draw_w, draw_h = w, h
+        draw_x, draw_y = x, y
+
+        if fit == 'fit':
+            # Preserve aspect ratio, contain within box, centered
+            scale = min(w / iw, h / ih) if iw > 0 and ih > 0 else 1.0
+            draw_w = iw * scale
+            draw_h = ih * scale
+            draw_x = x + (w - draw_w) / 2
+            draw_y = y + (h - draw_h) / 2
+        elif fit == 'actual':
+            draw_w = iw
+            draw_h = ih
+            # draw_x, draw_y already set to top-left of box for drawing (bottom-left coordinates)
+        else:
+            # 'stretch' or unknown: fill the entire box
+            draw_w = w
+            draw_h = h
+
+        try:
+            pdf_canvas.drawImage(img_reader, draw_x, draw_y, width=draw_w, height=draw_h, preserveAspectRatio=False, mask='auto')
+        except Exception as e:
+            if self.strict_mode:
+                raise RenderingError(f"Image widget '{widget.id}': failed to draw image: {e}") from e
+            print(f"Warning: Failed to draw image {widget.id}: {e}")
     
     def _render_calendar(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
         """Render calendar widget with proper layout and optional clickable dates."""
@@ -786,6 +984,14 @@ class DeterministicPDFRenderer:
         # Calculate calendar layout dimensions
         calendar_width = cal_pos['width']
         calendar_height = cal_pos['height']
+        # Extra options
+        show_trailing_days = bool(props.get('show_trailing_days', False))
+        highlight_today = bool(props.get('highlight_today', False))
+        highlight_date_str = props.get('highlight_date')
+        day_label_style = props.get('weekday_label_style', 'short')  # short|narrow|full
+        month_name_format = props.get('month_name_format', 'long')   # long|short
+        week_numbers = bool(props.get('week_numbers', False))
+        cell_padding = float(props.get('cell_padding', 4.0))
         
         # Reserve space for headers
         header_height = font_size * 2 if show_month_year else 0
@@ -811,7 +1017,8 @@ class DeterministicPDFRenderer:
         # Calculate cell dimensions (7 columns for days of week) to FIT bounds
         # Respect the widget's width/height exactly; log violations if below min touch size
         available_height = max(0.0, available_height)
-        cell_width = calendar_width / 7
+        week_col_width = (font_size * 2.2) if week_numbers else 0.0
+        cell_width = (calendar_width - week_col_width) / 7
         cell_height = available_height / actual_weeks if actual_weeks > 0 else 0.0
         
         # Log touch target violations without expanding beyond bounds
@@ -823,8 +1030,13 @@ class DeterministicPDFRenderer:
         
         # Month and year header
         if show_month_year:
-            month_names = ['January', 'February', 'March', 'April', 'May', 'June',
-                          'July', 'August', 'September', 'October', 'November', 'December']
+            month_names_long = ['January', 'February', 'March', 'April', 'May', 'June',
+                                'July', 'August', 'September', 'October', 'November', 'December']
+            month_names_short = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                                 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            # Default to long unless overridden by props
+            month_name_format = props.get('month_name_format', 'long')
+            month_names = month_names_long if month_name_format == 'long' else month_names_short
             header_text = f"{month_names[month - 1]} {year}"
             
             # Center the header text
@@ -843,14 +1055,19 @@ class DeterministicPDFRenderer:
         
         # Weekday headers
         if show_weekdays:
-            # Configure weekdays based on locale
-            weekdays = (['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] 
-                       if first_day_of_week == 'monday' 
-                       else ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'])
+            # Configure weekdays based on locale and style
+            if first_day_of_week == 'monday':
+                base = [('Mon','M','Monday'), ('Tue','T','Tuesday'), ('Wed','W','Wednesday'),
+                        ('Thu','T','Thursday'), ('Fri','F','Friday'), ('Sat','S','Saturday'), ('Sun','S','Sunday')]
+            else:
+                base = [('Sun','S','Sunday'), ('Mon','M','Monday'), ('Tue','T','Tuesday'),
+                        ('Wed','W','Wednesday'), ('Thu','T','Thursday'), ('Fri','F','Friday'), ('Sat','S','Saturday')]
+            idx = 0 if day_label_style == 'short' else (1 if day_label_style == 'narrow' else 2)
+            weekdays = [b[idx] for b in base]
             weekday_y = cal_pos['y'] + calendar_height - header_height - font_size
             
             for i, day_name in enumerate(weekdays):
-                weekday_x = cal_pos['x'] + (i * cell_width) + (cell_width / 2)
+                weekday_x = cal_pos['x'] + week_col_width + (i * cell_width) + (cell_width / 2)
                 # Center the text in the cell
                 text_width = pdf_canvas.stringWidth(day_name, font_name, font_size * 0.8)
                 weekday_x -= text_width / 2
@@ -866,39 +1083,100 @@ class DeterministicPDFRenderer:
         
         # Draw calendar grid using optimal number of weeks
         for week in range(actual_weeks):
+            # Bottom of this row
+            row_bottom_y = grid_start_y - ((week + 1) * cell_height)
             for day_col in range(7):
-                # Calculate cell position
-                cell_x = cal_pos['x'] + (day_col * cell_width)
-                cell_y = grid_start_y - ((week + 1) * cell_height)
+                # Calculate cell position (offset by week number column if present)
+                cell_x = cal_pos['x'] + week_col_width + (day_col * cell_width)
+                cell_y = row_bottom_y
                 
                 # Calculate day number
                 day_number = (week * 7 + day_col) - first_weekday + 1
                 is_current_month = 1 <= day_number <= days_in_month
-                
+                # Determine the actual date for this cell (supports trailing/leading days)
+                current_date = None
+                if is_current_month:
+                    current_date = date(year, month, day_number)
+                elif show_trailing_days:
+                    if day_number < 1:
+                        pm = month - 1 if month > 1 else 12
+                        py = year if month > 1 else year - 1
+                        pdays = calendar.monthrange(py, pm)[1]
+                        current_date = date(py, pm, pdays + day_number)
+                    else:
+                        nm = month + 1 if month < 12 else 1
+                        ny = year if month < 12 else year + 1
+                        current_date = date(ny, nm, day_number - days_in_month)
+
                 # Draw cell border if grid lines enabled
                 if show_grid_lines:
                     stroke_width = self.enforcer.check_stroke_width(0.5)
                     pdf_canvas.setLineWidth(stroke_width)
                     pdf_canvas.rect(cell_x, cell_y, cell_width, cell_height, stroke=1, fill=0)
                 
-                # Draw day number if in current month
-                if is_current_month:
-                    day_text = str(day_number)
-                    
-                    # Center the day number in the cell
-                    text_width = pdf_canvas.stringWidth(day_text, font_name, font_size)
-                    day_x = cell_x + (cell_width - text_width) / 2
-                    day_y = cell_y + (cell_height / 2) - (font_size / 2)
-                    
-                    # Create clickable link if strategy enabled
-                    if link_strategy != 'no_links':
+                # Draw day label (current month or trailing/leading if enabled)
+                if is_current_month or (show_trailing_days and current_date):
+                    day_text = str((current_date.day if current_date else day_number))
+                    day_x = cell_x + cell_padding
+                    day_y = cell_y + cell_height - font_size - cell_padding
+                    if not is_current_month:
+                        prev_fill = pdf_canvas._fillColorObj
+                        try:
+                            pdf_canvas.setFillColor(HexColor('#888888'))
+                        except Exception:
+                            pass
+                        pdf_canvas.drawString(day_x, day_y, day_text)
+                        pdf_canvas.setFillColor(prev_fill)
+                    else:
+                        pdf_canvas.drawString(day_x, day_y, day_text)
+
+                    # Link for current month days
+                    if link_strategy != 'no_links' and current_date and is_current_month:
                         self._create_calendar_date_link(
-                            pdf_canvas, widget, date(year, month, day_number),
+                            pdf_canvas, widget, current_date,
                             cell_x, cell_y, cell_width, cell_height,
                             link_strategy, props
                         )
-                    
-                    pdf_canvas.drawString(day_x, day_y, day_text)
+
+                    # Highlight today or specific date
+                    try:
+                        target_highlight = None
+                        if highlight_date_str:
+                            target_highlight = datetime.strptime(highlight_date_str, '%Y-%m-%d').date()
+                        elif highlight_today:
+                            target_highlight = datetime.utcnow().date()
+                        if target_highlight and current_date and current_date == target_highlight:
+                            stroke_width = self.enforcer.check_stroke_width(1.0)
+                            pdf_canvas.setLineWidth(stroke_width)
+                            pdf_canvas.rect(cell_x + 1.5, cell_y + 1.5, cell_width - 3, cell_height - 3, stroke=1, fill=0)
+                    except Exception:
+                        pass
+
+            # Week numbers column
+            if week_numbers:
+                # Determine first date of this calendar row
+                first_day_num = (week * 7 + 0) - first_weekday + 1
+                if first_day_num < 1:
+                    pm = month - 1 if month > 1 else 12
+                    py = year if month > 1 else year - 1
+                    pdays = calendar.monthrange(py, pm)[1]
+                    first_date = date(py, pm, pdays + first_day_num)
+                elif first_day_num > days_in_month:
+                    nm = month + 1 if month < 12 else 1
+                    ny = year if month < 12 else year + 1
+                    first_date = date(ny, nm, first_day_num - days_in_month)
+                else:
+                    first_date = date(year, month, first_day_num)
+                week_num = first_date.isocalendar()[1]
+                wn_text = str(week_num)
+                small_fs = font_size * 0.8
+                pdf_canvas.setFont(font_name, small_fs)
+                tx = cal_pos['x'] + (week_col_width - pdf_canvas.stringWidth(wn_text, font_name, small_fs)) / 2
+                # Vertical center of the row
+                row_mid_y = row_bottom_y + (cell_height / 2)
+                ty = row_mid_y - (small_fs / 2)
+                pdf_canvas.drawString(tx, ty, wn_text)
+                pdf_canvas.setFont(font_name, font_size)
     
     def _create_calendar_date_link(self, pdf_canvas: canvas.Canvas, widget: Widget,
                                  date_obj: date, cell_x: float, cell_y: float,
@@ -1000,10 +1278,20 @@ class DeterministicPDFRenderer:
         weekday_height = font_size * 1.5 if show_weekdays else 0
         available_height = calendar_height - header_height - weekday_height
         
-        # Calculate cell dimensions (7 columns for days of week) to FIT bounds
-        # Weekly view has a single row; use full available height and exact width fraction
+        # Calculate cell dimensions (7 columns for days of week), optional time gutter
         available_height = max(0.0, available_height)
-        cell_width = calendar_width / 7
+        show_time_grid = bool(props.get('show_time_grid', False))
+        show_time_gutter = bool(props.get('show_time_gutter', False))
+        time_start_hour = int(props.get('time_start_hour', 8))
+        time_end_hour = int(props.get('time_end_hour', 20))
+        time_slot_minutes = int(props.get('time_slot_minutes', 60))
+        time_label_interval = int(props.get('time_label_interval', 60))
+        time_start_hour = max(0, min(23, time_start_hour))
+        time_end_hour = max(time_start_hour + 1, min(24, time_end_hour))
+        time_slot_minutes = max(5, min(120, time_slot_minutes))
+        time_label_interval = max(time_slot_minutes, min(240, time_label_interval))
+        gutter_width = (font_size * 2.2) if show_time_gutter else 0.0
+        cell_width = (calendar_width - gutter_width) / 7
         cell_height = available_height
         
         # Log touch target violations without expanding beyond bounds
@@ -1039,7 +1327,7 @@ class DeterministicPDFRenderer:
             weekday_y = cal_pos['y'] + calendar_height - header_height - font_size
             
             for i, day_name in enumerate(weekdays):
-                weekday_x = cal_pos['x'] + (i * cell_width) + (cell_width / 2)
+                weekday_x = cal_pos['x'] + gutter_width + (i * cell_width) + (cell_width / 2)
                 # Center the text in the cell
                 text_width = pdf_canvas.stringWidth(day_name, font_name, font_size * 0.8)
                 weekday_x -= text_width / 2
@@ -1052,11 +1340,14 @@ class DeterministicPDFRenderer:
         grid_start_y = cal_pos['y'] + calendar_height - header_height - weekday_height
         
         # Draw weekly calendar grid
+        cell_padding = float(props.get('cell_padding', 4.0))
+        highlight_today = bool(props.get('highlight_today', False))
+        highlight_date_str = props.get('highlight_date')
         for day_col in range(7):
             current_day = week_days[day_col]
             
             # Calculate cell position
-            cell_x = cal_pos['x'] + (day_col * cell_width)
+            cell_x = cal_pos['x'] + gutter_width + (day_col * cell_width)
             cell_y = grid_start_y - cell_height
             
             # Draw cell border if grid lines enabled
@@ -1064,22 +1355,68 @@ class DeterministicPDFRenderer:
                 stroke_width = self.enforcer.check_stroke_width(0.5)
                 pdf_canvas.setLineWidth(stroke_width)
                 pdf_canvas.rect(cell_x, cell_y, cell_width, cell_height, stroke=1, fill=0)
-            
-            # Draw day number at top of cell
+
+            # Time grid
+            if show_time_grid:
+                total_minutes = (time_end_hour - time_start_hour) * 60
+                slots = int(total_minutes / time_slot_minutes)
+                if slots > 0:
+                    slot_height = cell_height / slots
+                    stroke_width = self.enforcer.check_stroke_width(0.5)
+                    pdf_canvas.setLineWidth(stroke_width)
+                    for s in range(1, slots):
+                        y = cell_y + s * slot_height
+                        pdf_canvas.line(cell_x, y, cell_x + cell_width, y)
+
+            # Day number at top-left with padding
             day_text = str(current_day.day)
-            text_width = pdf_canvas.stringWidth(day_text, font_name, font_size)
-            day_x = cell_x + (cell_width - text_width) / 2
-            day_y = cell_y + cell_height - font_size - 5  # 5pt margin from top
-            
-            # Create clickable link if strategy enabled
+            day_x = cell_x + cell_padding
+            day_y = cell_y + cell_height - font_size - cell_padding
+            pdf_canvas.drawString(day_x, day_y, day_text)
+
+            # Link for day cell
             if link_strategy != 'no_links':
                 self._create_calendar_date_link(
                     pdf_canvas, widget, current_day,
                     cell_x, cell_y, cell_width, cell_height,
                     link_strategy, props
                 )
-            
-            pdf_canvas.drawString(day_x, day_y, day_text)
+
+            # Highlight today
+            try:
+                target_highlight = None
+                if highlight_date_str:
+                    target_highlight = datetime.strptime(highlight_date_str, '%Y-%m-%d').date()
+                elif highlight_today:
+                    target_highlight = datetime.utcnow().date()
+                if target_highlight and current_day == target_highlight:
+                    stroke_width = self.enforcer.check_stroke_width(1.0)
+                    pdf_canvas.setLineWidth(stroke_width)
+                    pdf_canvas.rect(cell_x + 1.5, cell_y + 1.5, cell_width - 3, cell_height - 3, stroke=1, fill=0)
+            except Exception:
+                pass
+
+        # Time gutter labels on the left
+        if show_time_gutter and show_time_grid:
+            total_minutes = (time_end_hour - time_start_hour) * 60
+            slots = int(total_minutes / time_slot_minutes)
+            if slots > 0:
+                slot_height = cell_height / slots
+                pdf_canvas.setFont(font_name, font_size * 0.75)
+                for s in range(0, slots + 1):
+                    minutes_from_start = s * time_slot_minutes
+                    if minutes_from_start > total_minutes:
+                        continue
+                    if (minutes_from_start % time_label_interval) != 0:
+                        continue
+                    hour = time_start_hour + (minutes_from_start // 60)
+                    minute = minutes_from_start % 60
+                    label = f"{hour:02d}:{minute:02d}"
+                    y = (grid_start_y - cell_height) + s * slot_height
+                    tx = cal_pos['x'] + 2
+                    ty = y - (font_size * 0.3)
+                    pdf_canvas.drawString(tx, ty, label)
+                pdf_canvas.setFont(font_name, font_size)
 
     def _render_calendar_preview(self, pdf_canvas: canvas.Canvas, widget: Widget,
                                calendar_type: str, start_date: date,

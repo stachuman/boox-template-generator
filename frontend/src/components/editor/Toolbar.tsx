@@ -30,6 +30,18 @@ interface ToolbarProps {
   onToggleWidgetPalette: () => void;
   onTogglePagesPanel: () => void;
   onToggleRightPanel: () => void;
+  // Align/Distribute
+  selectedCount?: number;
+  onAlignLeft?: () => void;
+  onAlignCenter?: () => void;
+  onAlignRight?: () => void;
+  onAlignTop?: () => void;
+  onAlignMiddle?: () => void;
+  onAlignBottom?: () => void;
+  onDistributeH?: () => void;
+  onDistributeV?: () => void;
+  onEqualizeW?: () => void;
+  onEqualizeH?: () => void;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -93,6 +105,22 @@ const Toolbar: React.FC<ToolbarProps> = ({
         </button>
 
         <div className="w-px h-6 bg-eink-pale-gray" />
+
+        {/* Align / Distribute */}
+        {((typeof selectedCount !== 'undefined') && (selectedCount as number) >= 2) && (
+          <div className="flex items-center space-x-1">
+            <button onClick={onAlignLeft} className="px-2 py-1 text-xs border rounded">Align L</button>
+            <button onClick={onAlignCenter} className="px-2 py-1 text-xs border rounded">Align C</button>
+            <button onClick={onAlignRight} className="px-2 py-1 text-xs border rounded">Align R</button>
+            <button onClick={onAlignTop} className="px-2 py-1 text-xs border rounded">Align T</button>
+            <button onClick={onAlignMiddle} className="px-2 py-1 text-xs border rounded">Align M</button>
+            <button onClick={onAlignBottom} className="px-2 py-1 text-xs border rounded">Align B</button>
+            <button onClick={onDistributeH} className="px-2 py-1 text-xs border rounded">Distribute H</button>
+            <button onClick={onDistributeV} className="px-2 py-1 text-xs border rounded">Distribute V</button>
+            <button onClick={onEqualizeW} className="px-2 py-1 text-xs border rounded">=W</button>
+            <button onClick={onEqualizeH} className="px-2 py-1 text-xs border rounded">=H</button>
+          </div>
+        )}
 
         <button
           onClick={onToggleGrid}
