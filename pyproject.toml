@@ -1,0 +1,215 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "einkpdf"
+version = "0.1.0"
+description = "Interactive PDF template system optimized for Boox Onyx e-readers"
+readme = "README.md"
+license = "AGPL-3.0-or-later"
+authors = [
+    {name = "E-ink PDF Templates", email = "einkpdf@example.com"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Office/Business",
+    "Topic :: Text Processing :: Markup",
+]
+requires-python = ">=3.9"
+
+# Locked dependencies as per implementation plan
+dependencies = [
+    # Core PDF generation stack
+    "reportlab==4.0.9",              # Primary PDF generation
+    "pikepdf==8.7.1",                # Post-processing (outlines, destinations, flattening)
+    "PyMuPDF==1.23.26",              # Ground truth preview (AGPL licensed)
+    
+    # Data validation and parsing
+    "pydantic==2.5.3",               # Schema validation
+    "PyYAML==6.0.1",                 # Template parsing
+    
+    # Image processing for e-ink optimization
+    "Pillow==10.1.0",                # Image processing
+    "numpy==1.24.4",                 # Image operations and dithering
+    
+    # Web API (Phase 4)
+    "fastapi==0.108.0",              # Web API framework
+    "uvicorn[standard]==0.25.0",     # ASGI server
+    
+    # CLI interface
+    "click==8.1.7",                  # Command-line interface
+    "rich==13.7.0",                  # Rich CLI output
+    
+    # Utilities
+    "python-multipart==0.0.6",       # Form data handling
+    "python-dotenv==1.0.0",          # Environment configuration
+]
+
+[project.optional-dependencies]
+# Development dependencies
+dev = [
+    "pytest==7.4.3",
+    "pytest-cov==4.1.0",
+    "pytest-asyncio==0.21.1",
+    "black==23.12.1",
+    "isort==5.13.2",
+    "mypy==1.8.0",
+    "pre-commit==3.6.0",
+    "flake8==6.1.0",
+]
+
+# Testing dependencies
+test = [
+    "pytest==7.4.3",
+    "pytest-cov==4.1.0",
+    "pytest-asyncio==0.21.1",
+    "pytest-mock==3.12.0",
+    "hypothesis==6.88.1",            # Property-based testing
+]
+
+# Documentation dependencies
+docs = [
+    "sphinx==7.2.6",
+    "sphinx-rtd-theme==2.0.0",
+    "myst-parser==2.0.0",
+]
+
+[project.scripts]
+einkpdf = "einkpdf.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/einkpdf/einkpdf"
+Repository = "https://github.com/einkpdf/einkpdf.git"
+Issues = "https://github.com/einkpdf/einkpdf/issues"
+Documentation = "https://einkpdf.readthedocs.io"
+
+# Tool configurations
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+# Black code formatting
+[tool.black]
+line-length = 88
+target-version = ["py39", "py310", "py311", "py312"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # Exclude generated files
+  \.eggs
+  | \.git
+  | \.mypy_cache
+  | \.pytest_cache
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+# isort import sorting
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+
+# MyPy type checking
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+# Per-module mypy options
+[[tool.mypy.overrides]]
+module = [
+    "reportlab.*",
+    "pikepdf.*", 
+    "fitz.*",      # PyMuPDF
+    "yaml.*",
+]
+ignore_missing_imports = true
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "-ra",                    # Show short test summary
+    "--strict-markers",       # Treat unknown markers as errors
+    "--strict-config",        # Treat unknown config options as errors
+    "--cov=src/einkpdf",     # Coverage for src directory
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-fail-under=80",    # Minimum coverage threshold
+]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Custom markers for test categorization
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests", 
+    "golden: Golden file tests",
+    "device: Device-specific tests (requires Boox)",
+    "spike: Engineering spike tests",
+    "slow: Slow tests (> 1 second)",
+]
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["src/einkpdf"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/conftest.py",
+    "*/venv/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+# Environment variables for deterministic builds
+[tool.coverage.html]
+directory = "htmlcov"
+
+# Pre-commit hook configuration will go in .pre-commit-config.yaml
+# Development environment settings
+[tool.setuptools.dynamic]
+# Could be used for dynamic version from git tags in future

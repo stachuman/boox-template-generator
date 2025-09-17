@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0",
+  "metadata": {
+    "name": "New Template",
+    "description": "",
+    "category": "general",
+    "version": "1.0",
+    "author": "",
+    "created": "2025-09-17T10:04:21.976Z",
+    "profile": "Boox-Tab-Ultra-C"
+  },
+  "canvas": {
+    "dimensions": {
+      "width": 595.2,
+      "height": 841.8,
+      "margins": [
+        48,
+        48,
+        48,
+        48
+      ]
+    },
+    "coordinate_system": "top_left",
+    "background": "#FFFFFF",
+    "grid_size": 10,
+    "snap_enabled": true
+  },
+  "widgets": [
+    {
+      "id": "widget_1758103476485_gey1lhvsf",
+      "type": "calendar",
+      "page": 1,
+      "content": "",
+      "position": {
+        "x": 10,
+        "y": 10,
+        "width": 280,
+        "height": 200
+      },
+      "styling": {
+        "font": "Helvetica",
+        "size": 10,
+        "color": "#000000"
+      },
+      "properties": {
+        "calendar_type": "monthly",
+        "start_date": "2025-09-17",
+        "link_strategy": "sequential_pages",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": true,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday"
+      }
+    }
+  ],
+  "navigation": {
+    "named_destinations": [],
+    "outlines": []
+  },
+  "export": {
+    "default_mode": "interactive"
+  }
+}

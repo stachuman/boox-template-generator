@@ -1,0 +1,2 @@
+[console_scripts]
+einkpdf = einkpdf.cli:main

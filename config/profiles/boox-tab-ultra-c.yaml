@@ -1,0 +1,17 @@
+profile:
+  name: "Boox-Tab-Ultra-C"
+  display:
+    screen_size: [2200, 1650]  # 13.3" at 300 PPI  
+    ppi: 300
+    aspect_ratio: "4:3"
+    physical_size: "13.3 inch"
+  pdf_settings:
+    page_size: "A4"
+    orientation: "portrait"
+    safe_margins: [48, 48, 48, 48]  # 0.67" safe area for larger screen
+  constraints:
+    min_font_pt: 9.0   # Can go smaller due to higher PPI
+    min_stroke_pt: 0.5  # Thinner lines possible
+    min_touch_target_pt: 44.0
+    grayscale_levels: 16
+    max_gray_fill_area: 0.2

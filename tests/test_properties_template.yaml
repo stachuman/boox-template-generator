@@ -1,0 +1,80 @@
+schema_version: "1.0"
+
+metadata:
+  name: "Properties Test Template"
+  description: "Test template for property editing functionality"
+  category: "test"
+  version: "1.0"
+  author: "Claude"
+  created: "2024-01-15T10:30:00Z"
+  profile: "Boox-Note-Air-4C"
+
+canvas:
+  dimensions:
+    width: 595.2
+    height: 841.8
+    margins: [72, 72, 72, 72]
+  coordinate_system: "top_left"
+  background: "#FFFFFF"
+  grid_size: 10
+  snap_enabled: true
+
+widgets:
+  - id: "title_text"
+    type: "text_block"
+    page: 1
+    content: "Property Editor Test"
+    position:
+      x: 72
+      y: 50
+      width: 200
+      height: 30
+    styling:
+      font: "Helvetica-Bold"
+      size: 16
+      color: "#000000"
+
+  - id: "sample_lines"
+    type: "lines"
+    page: 1
+    position:
+      x: 72
+      y: 100
+      width: 400
+      height: 300
+    properties:
+      line_style: "solid"
+      line_spacing: 25
+      line_count: 12
+      line_thickness: 0.75
+      margin_left: 20
+      margin_right: 20
+
+  - id: "sample_checkbox"
+    type: "checkbox"
+    page: 1
+    content: "Sample Checkbox"
+    position:
+      x: 72
+      y: 420
+      width: 150
+      height: 20
+    properties:
+      checkbox_size: 12
+      bookmark: "checkbox_section"
+
+navigation:
+  named_destinations:
+    - id: "checkbox_section"
+      page: 1
+      x: 72
+      y: 420
+      fit: "FitH"
+  outlines:
+    - title: "Checkbox Section"
+      dest: "checkbox_section"
+      level: 1
+
+export:
+  modes: ["flattened"]
+  default_mode: "flattened"

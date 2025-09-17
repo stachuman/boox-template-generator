@@ -1,0 +1,107 @@
+Metadata-Version: 2.1
+Name: fastapi_cors
+Version: 0.0.6
+Summary: Simple env support of CORS settings for Fastapi applications
+License: MIT
+Author-email: Ian Cleary <github@iancleary.me>
+Requires-Python: >=3.8
+Classifier: Environment :: Web Environment
+Classifier: Framework :: FastAPI
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Internet
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Dist: environs>=9.5.0
+Requires-Dist: fastapi>=0.99.1
+Description-Content-Type: text/markdown
+
+# fastapi-cors
+
+A simply scoped abstraction to provide CORS settings via environment variables to a Fastapi application.
+
+## Usage
+
+```python
+from fastapi import FastAPI
+
+# during this next line `fastapi_cors.env` will read environment variables from .env
+from fastapi_cors import CORS 
+
+app = FastAPI()
+
+CORS(app)
+```
+
+## Opinions
+
+A health check route is optionally added that displays these (but not other) environment variables.
+
+
+*If you want to disable it, use the code below*
+
+```python
+
+from fastapi import FastAPI
+
+# during this next line `fastapi_cors.env` will read environment variables from .env
+from fastapi_cors import CORS 
+
+app = FastAPI()
+
+CORS(app, include_health_check=False)
+```
+
+## Config
+
+Configure FastAPI as usual. Extra arguments (that can be accessed from `app.extra`):
+
+| Name | Default | Description |
+| --- | --- | --- |
+| `HOST` | 0.0.0.0 | Displayed in the Swagger title, with `app.title`. |
+| `PORT` | 8000 | Where to mount the static directory. Disabled if value is falsy. |
+| `LOG_LEVEL` | info | log level. |
+| `ALLOW_ORIGINS` | ["http://localhost","http://localhost:3000"] | A list of origins that should be permitted to make cross-origin requests. E.g. ['https://example.org', 'https://www.example.org']. You can use ['*'] to allow any origin.  *These are the URLs clients can make requests from* |
+| `ALLOWED_CREDENTIALS` | True | Indicate that cookies should be supported for cross-origin requests. Also, allow_origins cannot be set to ['*'] for credentials to be allowed, origins must be specified. |
+| `ALLOWED_METHODS` | ["*"] | A list of HTTP methods that should be allowed for cross-origin requests. Defaults to ['*'] to allow all standard methods. You can use ['GET'] to reduce the list. |
+| `ALLOWED_HEADERS` | ["Access-Control-Allow-Origin"] | A list of HTTP request headers that should be supported for cross-origin requests. You can use ['*'] to allow all headers. The Accept, Accept-Language, Content-Language and Content-Type headers are always allowed for [simple CORS requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#simple_requests) |
+
+> ⚠️ `allow_origins` default is `["http://localhost","http://localhost:3000"]`, not `[]` (80 -> docs, 3000 -> frontend)
+>
+> ⚠️ `allow_methods` default is `["*"]`, not `["GET"]`
+>
+> ⚠️ `allowed_credentials` default is `True`, not `False`
+>
+> See the [FastAPI documentation on CORS](https://fastapi.tiangolo.com/tutorial/cors/?h=cors) for more information
+
+### Example Env
+
+Values will be cast into a `list` of `str`, as appropriate.
+
+```env
+HOST=0.0.0.0
+PORT=8000
+LOG_LEVEL=info
+ALLOW_ORIGINS=http://localhost,http://localhost:3000
+ALLOWED_CREDENTIALS=True
+ALLOWED_METHODS=*
+ALLOWED_HEADERS=Access-Control-Allow-Origin
+
+```
+
+*Note, this is not required unless you are changing a default or want to declare them all*

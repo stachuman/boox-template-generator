@@ -1,0 +1,19 @@
+# FastAPI backend dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+websockets==12.0
+pydantic==2.5.3
+
+# CORS and middleware
+fastapi-cors==0.0.6
+
+# File handling
+aiofiles==23.2.1
+
+# Existing einkpdf dependencies (reference)
+# These will be imported from the parent einkpdf package
+# reportlab==4.0.9
+# pikepdf==8.7.1
+# PyMuPDF==1.23.26
+# pyyaml==6.0.1

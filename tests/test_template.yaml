@@ -1,0 +1,74 @@
+schema_version: "1.0"
+
+metadata:
+  name: "Simple Test Template"
+  description: "Basic template for testing PDF generation"
+  category: "test"
+  version: "1.0"
+  author: "Test Author"
+  created: "2024-01-15T10:30:00Z"
+  profile: "Boox-Note-Air-4C"
+
+canvas:
+  dimensions:
+    width: 595.2   # A4 width
+    height: 841.8  # A4 height
+    margins: [72, 72, 72, 72]  # 1 inch margins
+  coordinate_system: "top_left"
+  background: "#FFFFFF"
+  grid_size: 10
+  snap_enabled: true
+
+widgets:
+  - id: "title"
+    type: "text_block"
+    page: 1
+    content: "Test Template Title"
+    position:
+      x: 72
+      y: 100
+      width: 400
+      height: 30
+    styling:
+      font: "Helvetica-Bold"
+      size: 18
+      color: "#000000"
+    properties:
+      bookmark: "title_section"
+
+  - id: "checkbox1"
+    type: "checkbox"
+    page: 1
+    content: "Task 1: Complete this checkbox"
+    position:
+      x: 72
+      y: 200
+      width: 300
+      height: 20
+    properties:
+      checkbox_size: 12
+
+  - id: "divider1"
+    type: "divider"
+    page: 1
+    position:
+      x: 72
+      y: 400
+      width: 400
+      height: 2
+
+navigation:
+  named_destinations:
+    - id: "title_section"
+      page: 1
+      x: 72
+      y: 100
+      fit: "FitH"
+
+  outlines:
+    - title: "Test Template Title"
+      dest: "title_section"
+      level: 1
+
+export:
+  default_mode: "flattened"

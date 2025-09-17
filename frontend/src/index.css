@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Helvetica', 'Arial', sans-serif;
+  }
+  
+  body {
+    @apply bg-eink-off-white text-eink-black;
+    @apply antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-eink-black text-eink-white px-4 py-2 rounded hover:bg-eink-dark-gray transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-eink-light-gray text-eink-black px-4 py-2 rounded hover:bg-eink-gray transition-colors;
+  }
+  
+  .input-field {
+    @apply border border-eink-light-gray rounded px-3 py-2 bg-eink-white focus:border-eink-black focus:outline-none;
+  }
+  
+  .card {
+    @apply bg-eink-white border border-eink-pale-gray rounded-lg shadow-sm;
+  }
+  
+  .toolbar {
+    @apply bg-eink-white border-b border-eink-pale-gray px-4 py-2;
+  }
+}

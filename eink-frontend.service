@@ -1,0 +1,18 @@
+[Unit]
+Description=E-ink PDF Templates Frontend Development Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/eink/frontend
+Environment=NODE_ENV=development
+Environment=PATH=/root/.nvm/versions/node/v22.16.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/root/.nvm/versions/node/v22.16.0/bin/npm run dev
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

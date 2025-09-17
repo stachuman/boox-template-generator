@@ -1,0 +1,320 @@
+"""
+Device profile management and constraint enforcement.
+
+This module handles loading device profiles, validating constraints,
+and applying auto-fix behavior as defined in the implementation plan.
+Follows the coding standards in CLAUDE.md - no dummy implementations.
+"""
+
+import os
+import yaml
+from typing import Dict, List, Optional, Tuple
+from pathlib import Path
+
+from .schema import DeviceProfile, DeviceConstraints
+from ..validation.yaml_validator import ValidationError
+
+
+class DeviceProfileError(Exception):
+    """Raised when device profile operations fail."""
+    pass
+
+
+class ProfileNotFoundError(DeviceProfileError):
+    """Raised when requested device profile cannot be found."""
+    pass
+
+
+class ConstraintViolation:
+    """Represents a constraint violation with auto-fix information."""
+    
+    def __init__(self, field: str, original_value: float, fixed_value: float, reason: str):
+        self.field = field
+        self.original_value = original_value
+        self.fixed_value = fixed_value
+        self.reason = reason
+    
+    def __str__(self) -> str:
+        return f"{self.field}: {self.original_value} → {self.fixed_value} ({self.reason})"
+
+
+class ConstraintEnforcer:
+    """Enforces device constraints with warn-and-fix or strict behavior."""
+    
+    def __init__(self, profile: DeviceProfile, strict_mode: bool = False):
+        self.profile = profile
+        self.strict_mode = strict_mode
+        self.violations: List[ConstraintViolation] = []
+    
+    def check_font_size(self, size: float) -> float:
+        """
+        Check and optionally fix font size constraint.
+        
+        Args:
+            size: Font size in points
+            
+        Returns:
+            Fixed font size
+            
+        Raises:
+            ValidationError: If strict mode and constraint violated
+        """
+        min_size = self.profile.constraints.min_font_pt
+        
+        if size < min_size:
+            if self.strict_mode:
+                raise ValidationError(
+                    f"Font size {size}pt below minimum {min_size}pt "
+                    f"for device profile '{self.profile.name}'"
+                )
+            
+            # Auto-fix: bump to minimum
+            violation = ConstraintViolation(
+                "font_size", size, min_size, 
+                f"bumped to device minimum"
+            )
+            self.violations.append(violation)
+            return min_size
+        
+        return size
+    
+    def check_stroke_width(self, width: float) -> float:
+        """
+        Check and optionally fix stroke width constraint.
+        
+        Args:
+            width: Stroke width in points
+            
+        Returns:
+            Fixed stroke width
+            
+        Raises:
+            ValidationError: If strict mode and constraint violated
+        """
+        min_width = self.profile.constraints.min_stroke_pt
+        
+        if width < min_width:
+            if self.strict_mode:
+                raise ValidationError(
+                    f"Stroke width {width}pt below minimum {min_width}pt "
+                    f"for device profile '{self.profile.name}'"
+                )
+            
+            # Auto-fix: expand to minimum
+            violation = ConstraintViolation(
+                "stroke_width", width, min_width,
+                f"expanded to device minimum"
+            )
+            self.violations.append(violation)
+            return min_width
+        
+        return width
+    
+    def check_touch_target_size(self, width: float, height: float) -> Tuple[float, float]:
+        """
+        Check and optionally fix touch target size constraint.
+        
+        Args:
+            width: Target width in points
+            height: Target height in points
+            
+        Returns:
+            Tuple of (fixed_width, fixed_height)
+            
+        Raises:
+            ValidationError: If strict mode and constraint violated
+        """
+        min_size = self.profile.constraints.min_touch_target_pt
+        
+        fixed_width = width
+        fixed_height = height
+        
+        if width < min_size:
+            if self.strict_mode:
+                raise ValidationError(
+                    f"Touch target width {width}pt below minimum {min_size}pt "
+                    f"for device profile '{self.profile.name}'"
+                )
+            
+            violation = ConstraintViolation(
+                "touch_target_width", width, min_size,
+                "expanded for touch reliability"
+            )
+            self.violations.append(violation)
+            fixed_width = min_size
+        
+        if height < min_size:
+            if self.strict_mode:
+                raise ValidationError(
+                    f"Touch target height {height}pt below minimum {min_size}pt "
+                    f"for device profile '{self.profile.name}'"
+                )
+            
+            violation = ConstraintViolation(
+                "touch_target_height", height, min_size,
+                "expanded for touch reliability"
+            )
+            self.violations.append(violation)
+            fixed_height = min_size
+        
+        return fixed_width, fixed_height
+    
+    def validate_color(self, color: str) -> str:
+        """
+        Validate color is within grayscale constraints.
+        
+        Args:
+            color: Hex color string
+            
+        Returns:
+            Validated/fixed color
+            
+        Raises:
+            ValidationError: If color is not grayscale compatible
+        """
+        if not color.startswith('#') or len(color) != 7:
+            raise ValidationError(f"Invalid color format: {color}")
+        
+        # Convert to RGB values
+        try:
+            r = int(color[1:3], 16)
+            g = int(color[3:5], 16)
+            b = int(color[5:7], 16)
+        except ValueError:
+            raise ValidationError(f"Invalid hex color: {color}")
+        
+        # Check if already grayscale (R=G=B)
+        if r == g == b:
+            return color
+        
+        # Convert to grayscale using luminance formula
+        gray_value = int(0.299 * r + 0.587 * g + 0.114 * b)
+        gray_color = f"#{gray_value:02x}{gray_value:02x}{gray_value:02x}"
+        
+        if not self.strict_mode:
+            violation = ConstraintViolation(
+                "color", color, gray_color,
+                "converted to grayscale for e-ink"
+            )
+            self.violations.append(violation)
+            return gray_color
+        else:
+            raise ValidationError(
+                f"Color {color} is not grayscale-compatible. "
+                f"Use {gray_color} for e-ink displays."
+            )
+
+
+def get_profile_directory() -> Path:
+    """Get the directory containing device profiles."""
+    # Get directory relative to this file
+    current_dir = Path(__file__).parent
+    profile_dir = current_dir.parent.parent.parent / "config" / "profiles"
+    
+    if not profile_dir.exists():
+        raise DeviceProfileError(
+            f"Device profile directory not found: {profile_dir}"
+        )
+    
+    return profile_dir
+
+
+def list_available_profiles() -> List[str]:
+    """
+    List all available device profile names.
+    
+    Returns:
+        List of profile names (without .yaml extension)
+    """
+    profile_dir = get_profile_directory()
+    profile_files = profile_dir.glob("*.yaml")
+    
+    profiles = []
+    for file_path in profile_files:
+        profile_name = file_path.stem
+        # Convert filename to profile name (e.g., "boox-note-air-4c" -> "Boox-Note-Air-4C")
+        profiles.append(profile_name)
+    
+    return sorted(profiles)
+
+
+def load_device_profile(profile_name: str) -> DeviceProfile:
+    """
+    Load device profile by name.
+    
+    Args:
+        profile_name: Profile name (e.g., "Boox-Note-Air-4C" or "boox-note-air-4c")
+        
+    Returns:
+        Validated DeviceProfile instance
+        
+    Raises:
+        ProfileNotFoundError: If profile file doesn't exist
+        DeviceProfileError: If profile YAML is invalid
+    """
+    profile_dir = get_profile_directory()
+    
+    # Validate profile name input
+    if not profile_name or not isinstance(profile_name, str):
+        raise DeviceProfileError("Profile name must be a non-empty string")
+    
+    # Sanitize profile name to prevent path traversal
+    import re
+    if not re.match(r'^[a-zA-Z0-9_-]+$', profile_name):
+        raise DeviceProfileError(
+            f"Invalid profile name '{profile_name}'. Only alphanumeric characters, "
+            f"underscores, and hyphens are allowed."
+        )
+    
+    # Normalize profile name to filename format
+    filename = profile_name.lower().replace("_", "-")
+    if not filename.endswith(".yaml"):
+        filename += ".yaml"
+    
+    profile_path = profile_dir / filename
+    
+    if not profile_path.exists():
+        available = list_available_profiles()
+        raise ProfileNotFoundError(
+            f"Device profile '{profile_name}' not found. "
+            f"Available profiles: {', '.join(available)}"
+        )
+    
+    try:
+        with open(profile_path, 'r', encoding='utf-8') as f:
+            profile_data = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        raise DeviceProfileError(f"Invalid YAML in profile {profile_path}: {e}")
+    except OSError as e:
+        raise DeviceProfileError(f"Error reading profile {profile_path}: {e}")
+    
+    if not isinstance(profile_data, dict) or "profile" not in profile_data:
+        raise DeviceProfileError(
+            f"Profile file {profile_path} must contain a 'profile' root key"
+        )
+    
+    try:
+        return DeviceProfile.model_validate(profile_data["profile"])
+    except Exception as e:
+        raise DeviceProfileError(
+            f"Invalid profile structure in {profile_path}: {e}"
+        )
+
+
+def create_constraint_enforcer(profile_name: str, strict_mode: bool = False) -> ConstraintEnforcer:
+    """
+    Create constraint enforcer for a device profile.
+    
+    Args:
+        profile_name: Device profile name
+        strict_mode: If True, fail on violations; if False, auto-fix with warnings
+        
+    Returns:
+        ConstraintEnforcer instance
+        
+    Raises:
+        ProfileNotFoundError: If profile not found
+        DeviceProfileError: If profile invalid
+    """
+    profile = load_device_profile(profile_name)
+    return ConstraintEnforcer(profile, strict_mode)

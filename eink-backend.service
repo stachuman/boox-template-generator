@@ -1,0 +1,18 @@
+[Unit]
+Description=E-ink PDF Templates Backend Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/eink/backend
+Environment=PYTHONPATH=/root/eink/src
+Environment=PATH=/root/eink/einkpdf-env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/root/eink/einkpdf-env/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
