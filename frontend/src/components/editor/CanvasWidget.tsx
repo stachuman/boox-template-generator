@@ -5,10 +5,11 @@
  * Follows CLAUDE.md coding standards - no dummy implementations.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDrag } from 'react-dnd';
 import clsx from 'clsx';
 import { Widget } from '@/types';
+import { useEditorStore } from '@/stores/editorStore';
 
 interface CanvasWidgetProps {
   widget: Widget;
@@ -23,6 +24,13 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
   onSelect,
   zoom
 }) => {
+  const { updateWidget, currentTemplate } = useEditorStore() as any;
+  const gridSize = (currentTemplate?.canvas?.grid_size) || 10;
+  const snapEnabled = currentTemplate?.canvas?.snap_enabled !== false;
+
+  const resizeEdgeRef = useRef<null | string>(null);
+  const startRef = useRef<{x:number;y:number;width:number;height:number;mouseX:number;mouseY:number}>();
+
   const [{ isDragging }, drag] = useDrag<{ type: string; widget: Widget; isNew: boolean }, void, { isDragging: boolean }>({
     type: 'WIDGET',
     item: () => {
@@ -44,6 +52,64 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
       onSelect(widget, event.shiftKey || event.metaKey || event.ctrlKey);
     }
   }, [widget, onSelect, isDragging]);
+
+  const snap = (v: number) => {
+    if (!snapEnabled) return v;
+    return Math.round(v / gridSize) * gridSize;
+  };
+
+  const onHandleMouseDown = (edge: string) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    resizeEdgeRef.current = edge;
+    startRef.current = {
+      x: widget.position.x,
+      y: widget.position.y,
+      width: widget.position.width,
+      height: widget.position.height,
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+    };
+    // Add listeners
+    window.addEventListener('mousemove', onMouseMove as any);
+    window.addEventListener('mouseup', onMouseUp as any, { once: true });
+  };
+
+  const onMouseMove = (e: MouseEvent) => {
+    if (!resizeEdgeRef.current || !startRef.current) return;
+    const dx = (e.clientX - startRef.current.mouseX) / zoom;
+    const dy = (e.clientY - startRef.current.mouseY) / zoom;
+    let { x, y, width, height } = startRef.current;
+    let newX = x, newY = y, newW = width, newH = height;
+    const edge = resizeEdgeRef.current;
+    if (edge.includes('e')) newW = Math.max(1, width + dx);
+    if (edge.includes('s')) newH = Math.max(1, height + dy);
+    if (edge.includes('w')) {
+      newW = Math.max(1, width - dx);
+      newX = x + dx;
+    }
+    if (edge.includes('n')) {
+      newH = Math.max(1, height - dy);
+      newY = y + dy;
+    }
+    // Snap
+    newX = snap(newX);
+    newY = snap(newY);
+    newW = Math.max(1, snap(newW));
+    newH = Math.max(1, snap(newH));
+    updateWidget(widget.id, { position: { x: newX, y: newY, width: newW, height: newH } });
+  };
+
+  const onMouseUp = (_e: MouseEvent) => {
+    resizeEdgeRef.current = null;
+    window.removeEventListener('mousemove', onMouseMove as any);
+  };
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove as any);
+    };
+  }, []);
 
   const renderWidgetContent = () => {
     switch (widget.type) {
@@ -642,7 +708,6 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
 
   return (
     <div
-      ref={drag}
       className={clsx(
         'absolute cursor-move select-none pointer-events-auto',
         isDragging && 'opacity-50',
@@ -656,29 +721,27 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
       }}
       onClick={handleClick}
     >
-      {/* Widget Content */}
-      <div
-        className="w-full h-full relative"
-        style={{
-          backgroundColor: widget.background_color || 'transparent'
-        }}
-      >
-        {renderWidgetContent()}
-        
+      {/* Widget Content & Handles */}
+      <div className="w-full h-full relative" style={{ backgroundColor: widget.background_color || 'transparent' }}>
+        {/* Drag handle is the content layer only */}
+        <div ref={drag} className="absolute inset-0">
+          {renderWidgetContent()}
+        </div>
+
         {/* Selection Handles */}
         {isSelected && (
           <>
             {/* Corner handles */}
-            <div className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 border border-white" />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 border border-white" />
-            <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 border border-white" />
-            <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 border border-white" />
+            <div onMouseDown={onHandleMouseDown('nw')} className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 border border-white cursor-nwse-resize z-10" />
+            <div onMouseDown={onHandleMouseDown('ne')} className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 border border-white cursor-nesw-resize z-10" />
+            <div onMouseDown={onHandleMouseDown('sw')} className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 border border-white cursor-nesw-resize z-10" />
+            <div onMouseDown={onHandleMouseDown('se')} className="absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 border border-white cursor-nwse-resize z-10" />
             
             {/* Edge handles */}
-            <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 border border-white" />
-            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 border border-white" />
-            <div className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-500 border border-white" />
-            <div className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-500 border border-white" />
+            <div onMouseDown={onHandleMouseDown('n')} className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 border border-white cursor-n-resize z-10" />
+            <div onMouseDown={onHandleMouseDown('s')} className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 border border-white cursor-s-resize z-10" />
+            <div onMouseDown={onHandleMouseDown('w')} className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-500 border border-white cursor-w-resize z-10" />
+            <div onMouseDown={onHandleMouseDown('e')} className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-500 border border-white cursor-e-resize z-10" />
           </>
         )}
       </div>

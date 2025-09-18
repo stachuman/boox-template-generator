@@ -272,10 +272,17 @@ const Canvas: React.FC = () => {
     })
   });
 
-  const handleCanvasClick = useCallback(() => {
-    // Clear selection when clicking anywhere on the canvas area
-    // Widget clicks stop propagation, so they won't reach here
-    clearSelection();
+  const justSelectedRef = useRef(false);
+  const handleCanvasClick = useCallback((e: React.MouseEvent) => {
+    // If a marquee selection was just completed, do not clear
+    if (justSelectedRef.current) {
+      justSelectedRef.current = false;
+      return;
+    }
+    // Clear only when clicking the canvas background
+    if (e.target === e.currentTarget) {
+      clearSelection();
+    }
   }, [clearSelection]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
@@ -343,6 +350,8 @@ const Canvas: React.FC = () => {
       // Set first as primary, add others
       setSelectedWidget(selected[0]);
       for (let i = 1; i < selected.length; i++) toggleSelectWidget(selected[i].id);
+      // Mark to avoid immediate clear by click bubbling
+      justSelectedRef.current = true;
     }
     setDragSelectStart(null);
     setDragSelectRect(null);

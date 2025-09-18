@@ -22,7 +22,6 @@ temp/
 # Środowisko IDE
 .idea/
 .vscode/
-*.sh
 
 # Konfiguracja lokalna
 .env
