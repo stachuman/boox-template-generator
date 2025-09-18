@@ -196,33 +196,3 @@ Place YAML files under `/config/profiles` on the host. The backend reads from `/
 
 ## License
 AGPL‑3.0‑or‑later.
-
-## 🛣️ Roadmap
-
-### Phase 2: Forms and E-ink Optimization (Next)
-- AcroForms with proper appearance streams
-- Form flattening pipeline (interactive → static graphics)
-- E-ink color optimization and dithering
-- Enhanced device-specific calibration
-
-### Phase 3: Advanced Features
-- Complex layouts and multi-column support
-- Image handling with e-ink optimization
-- Advanced typography and text flow
-- Template inheritance and composition
-
-### Phase 4: Production Deployment
-- Web UI with drag-and-drop template designer
-- REST API for PDF generation
-- Template gallery and sharing
-- Performance optimization and caching
-
-## 🤝 Contributing
-
-This project follows strict coding standards defined in `CLAUDE.md`:
-- No dummy implementations allowed
-- Explicit error handling with meaningful exceptions
-- Type hints and comprehensive documentation
-- Deterministic behavior for testing
-
-See `IMPLEMENTATION_PLAN.md` for detailed technical specifications and architecture decisions.
