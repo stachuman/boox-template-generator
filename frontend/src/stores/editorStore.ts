@@ -70,6 +70,15 @@ interface EditorStore extends EditorState {
   clearCanvas: () => void;
   resetEditor: () => void;
 
+  // Align/Distribute
+  alignSelected: (mode: 'left'|'center'|'right'|'top'|'middle'|'bottom') => void;
+  distributeSelected: (axis: 'horizontal'|'vertical') => void;
+  equalizeSizeSelected: (mode: 'width'|'height'|'both') => void;
+
+  // Clipboard
+  copySelected: () => void;
+  pasteClipboard: () => void;
+
   // Masters
   addMaster: (name?: string) => string; // returns master id
   removeMaster: (masterId: string) => void;
@@ -104,10 +113,7 @@ const createDefaultTemplate = (): Template => ({
     snap_enabled: true
   },
   widgets: [],
-  navigation: {
-    named_destinations: [],
-    outlines: []
-  },
+  navigation: {},
   masters: [],
   page_assignments: [],
   export: {
@@ -121,6 +127,7 @@ export const useEditorStore = create<EditorStore>()(
       // Initial state
       selectedWidget: null,
       selectedIds: [],
+      clipboard: [],
       activeProfile: null,
       currentTemplate: createDefaultTemplate(),
       isDragging: false,
@@ -684,6 +691,58 @@ export const useEditorStore = create<EditorStore>()(
           return { ...w, position: pos };
         });
         set({ currentTemplate: { ...currentTemplate, widgets: updated } });
+      },
+
+      // Clipboard operations
+      copySelected: () => {
+        const state = get() as any;
+        const { currentTemplate, selectedIds, currentPage } = state;
+        if (!currentTemplate || !selectedIds || selectedIds.length === 0) return;
+        const copied = currentTemplate.widgets
+          .filter((w: any) => selectedIds.includes(w.id))
+          .map((w: any) => ({
+            type: w.type,
+            content: w.content,
+            background_color: w.background_color,
+            position: { ...w.position },
+            styling: w.styling ? { ...w.styling } : undefined,
+            properties: w.properties ? { ...w.properties } : undefined,
+            page: currentPage,
+          }));
+        set({ clipboard: copied });
+      },
+      pasteClipboard: () => {
+        const state = get() as any;
+        const { currentTemplate, clipboard, currentPage } = state;
+        if (!currentTemplate || !clipboard || clipboard.length === 0) return;
+
+        const genId = () => `widget_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        const OFFSET = 20;
+
+        const pasted = clipboard.map((w: any) => ({
+          id: genId(),
+          type: w.type,
+          page: currentPage,
+          content: w.content,
+          background_color: w.background_color,
+          position: {
+            x: Math.max(0, (w.position?.x || 0) + OFFSET),
+            y: Math.max(0, (w.position?.y || 0) + OFFSET),
+            width: w.position?.width || 100,
+            height: w.position?.height || 30,
+          },
+          styling: w.styling ? { ...w.styling } : undefined,
+          properties: w.properties ? { ...w.properties } : undefined,
+        }));
+
+        set({
+          currentTemplate: {
+            ...currentTemplate,
+            widgets: [...currentTemplate.widgets, ...pasted],
+          },
+          selectedWidget: pasted[0],
+          selectedIds: pasted.map((w: any) => w.id),
+        });
       },
     }),
     {

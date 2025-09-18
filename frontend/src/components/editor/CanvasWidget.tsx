@@ -16,13 +16,15 @@ interface CanvasWidgetProps {
   isSelected: boolean;
   onSelect: (widget: Widget, additive?: boolean) => void;
   zoom: number;
+  onContextMenu?: (e: React.MouseEvent, widget: Widget) => void;
 }
 
 const CanvasWidget: React.FC<CanvasWidgetProps> = ({
   widget,
   isSelected,
   onSelect,
-  zoom
+  zoom,
+  onContextMenu
 }) => {
   const { updateWidget, currentTemplate } = useEditorStore() as any;
   const gridSize = (currentTemplate?.canvas?.grid_size) || 10;
@@ -110,6 +112,16 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
       window.removeEventListener('mousemove', onMouseMove as any);
     };
   }, []);
+  const resolveFontFamily = (name?: string) => {
+    switch (name) {
+      case 'Courier-Prime':
+        return "'Courier Prime', Courier, monospace";
+      case 'Patrick-Hand':
+        return "'Patrick Hand', 'Comic Sans MS', cursive";
+      default:
+        return name || 'Helvetica';
+    }
+  };
 
   const renderWidgetContent = () => {
     switch (widget.type) {
@@ -118,7 +130,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
           <div
             className="h-full flex items-center"
             style={{
-              fontFamily: widget.styling?.font || 'Helvetica',
+              fontFamily: resolveFontFamily(widget.styling?.font),
               fontSize: (widget.styling?.size || 12) / zoom,
               color: widget.styling?.color || '#000000'
             }}
@@ -141,8 +153,9 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
             />
             <span
               style={{
-                fontSize: 10 / zoom,
-                fontFamily: 'Helvetica'
+                fontSize: (widget.styling?.size || 10) / zoom,
+                fontFamily: resolveFontFamily(widget.styling?.font),
+                color: widget.styling?.color || '#000000'
               }}
             >
               {widget.content || 'Checkbox'}
@@ -263,7 +276,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         const anchorContent = widget.content || 'Link Text';
         const anchorStyling = widget.styling || {};
         const fontSize = (anchorStyling.size || 12) / zoom;
-        const fontFamily = anchorStyling.font || 'Helvetica';
+        const fontFamily = resolveFontFamily(anchorStyling.font);
         const textColor = anchorStyling.color || '#0066CC';
         
         return (
@@ -324,7 +337,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         const weekStartDay = calendarProps.first_day_of_week || 'monday'; // European default
         const cellMinSize = Math.max(20, calendarProps.cell_min_size || 44) / zoom;
         const calendarFontSize = Math.max(6, (calendarStyling.size || 10) / zoom);
-        const calendarFontFamily = calendarStyling.font || 'Helvetica';
+        const calendarFontFamily = resolveFontFamily(calendarStyling.font);
         
         // Pre-calculate dimensions for height validation
         let isWidgetTooSmall = false;
@@ -720,6 +733,12 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         height: widget.position.height,
       }}
       onClick={handleClick}
+      onContextMenu={(e) => {
+        if (onContextMenu) {
+          e.preventDefault();
+          onContextMenu(e, widget);
+        }
+      }}
     >
       {/* Widget Content & Handles */}
       <div className="w-full h-full relative" style={{ backgroundColor: widget.background_color || 'transparent' }}>

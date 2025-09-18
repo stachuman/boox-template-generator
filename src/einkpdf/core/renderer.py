@@ -21,8 +21,8 @@ from reportlab.lib.utils import ImageReader
 
 from .schema import Template, Widget, Canvas as CanvasConfig, Position
 from .coordinates import CoordinateConverter, create_converter_for_canvas
+from .fonts import ensure_font_registered
 from .profiles import ConstraintEnforcer, create_constraint_enforcer
-from .postprocess import add_navigation_to_pdf
 from .deterministic import make_pdf_deterministic
 from ..validation.yaml_validator import ValidationError
 
@@ -67,8 +67,6 @@ class DeterministicPDFRenderer:
         # Initialize constraint enforcer
         self.enforcer = create_constraint_enforcer(profile_name, strict_mode)
         
-        # Track collected data for multi-pass rendering
-        self.anchor_positions: Dict[str, Tuple[int, float, float]] = {}  # id -> (page, x, y)
         self.violations = []  # Track constraint violations
         # Master page mapping and total pages for token substitution
         self._page_master_map: Dict[int, str] = {}
@@ -125,12 +123,8 @@ class DeterministicPDFRenderer:
             # Store violations for later reporting
             self.violations = self.enforcer.violations.copy()
             
-            # Pass 3: Post-process with navigation (pikepdf)
-            base_pdf = buffer.getvalue()
-            if self.template.navigation.named_destinations or self.template.navigation.outlines or self.template.navigation.links:
-                final_pdf = add_navigation_to_pdf(base_pdf, self.template, self.anchor_positions)
-            else:
-                final_pdf = base_pdf
+            # Pass 3: No post-processing (named destinations/outlines removed)
+            final_pdf = buffer.getvalue()
             
             # Pass 4: Make deterministic if requested
             if deterministic:
@@ -222,14 +216,7 @@ class DeterministicPDFRenderer:
         except Exception:
             pass
 
-        # Include pages referenced by named destinations
-        try:
-            nav = getattr(self.template, 'navigation', None)
-            if nav and getattr(nav, 'named_destinations', None):
-                dest_max = max(getattr(dest, 'page', 1) for dest in nav.named_destinations if hasattr(dest, 'page'))
-                max_page = max(max_page, dest_max)
-        except Exception:
-            pass
+        # Named destinations removed; no additional pages from navigation
 
         return max_page
     
@@ -293,13 +280,6 @@ class DeterministicPDFRenderer:
         if hasattr(widget, 'background_color') and widget.background_color:
             self._draw_widget_background(pdf_canvas, widget)
 
-        # Store anchor position for navigation (if widget has bookmark property)
-        widget_props = getattr(widget, 'properties', {}) or {}
-        if isinstance(widget_props, dict) and 'bookmark' in widget_props:
-            bookmark_id = widget_props['bookmark']
-            # Store top-left corner position for bookmark
-            self.anchor_positions[bookmark_id] = (page_num, widget.position.x, widget.position.y)
-        
         # Render based on widget type
         if widget.type == "text_block":
             self._render_text_block(pdf_canvas, widget, page_num)
@@ -387,8 +367,13 @@ class DeterministicPDFRenderer:
         # Convert position for text drawing
         text_pos = self.converter.convert_text_position(widget.position, font_size)
         
-        # Set text properties
+        # Set text properties (with font registration)
+        font_name = ensure_font_registered(font_name)
         pdf_canvas.setFont(font_name, font_size)
+        try:
+            pdf_canvas.setFillColor(HexColor(color))
+        except Exception:
+            pass
         
         # Token substitution for dynamic fields
         content_text = widget.content
@@ -400,6 +385,10 @@ class DeterministicPDFRenderer:
             pass
 
         # Draw text
+        try:
+            pdf_canvas.setFillColor(HexColor(color))
+        except Exception:
+            pass
         pdf_canvas.drawString(text_pos['x'], text_pos['y'], content_text)
     
     def _render_checkbox(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
@@ -432,11 +421,20 @@ class DeterministicPDFRenderer:
         # Draw label if present
         if widget.content:
             label_x = box_pos['x'] + fixed_width + 5  # 5pt spacing
-            label_y = box_pos['y'] + (fixed_height / 2)  # Center vertically
-            
-            font_size = 10.0
-            font_size = self.enforcer.check_font_size(font_size)
-            pdf_canvas.setFont('Helvetica', font_size)
+            label_y = box_pos['y'] + (fixed_height / 2)  # Approximate vertical centering
+
+            # Use widget styling if provided
+            styling = getattr(widget, 'styling', {}) or {}
+            label_font = styling.get('font', 'Helvetica')
+            label_size = self.enforcer.check_font_size(float(styling.get('size', 10.0)))
+            label_color = self.enforcer.validate_color(styling.get('color', '#000000'))
+
+            label_font = ensure_font_registered(label_font)
+            pdf_canvas.setFont(label_font, label_size)
+            try:
+                pdf_canvas.setFillColor(HexColor(label_color))
+            except Exception:
+                pass
             pdf_canvas.drawString(label_x, label_y, widget.content)
     
     def _render_divider(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
@@ -554,7 +552,7 @@ class DeterministicPDFRenderer:
             pass
     
     def _render_anchor(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
-        """Render anchor link widget."""
+        """Render anchor link widget (pages-only)."""
         if not widget.content:
             return  # Skip empty anchor links
         
@@ -564,25 +562,20 @@ class DeterministicPDFRenderer:
         font_size = self.enforcer.check_font_size(styling.get('size', 12.0))
         color = self.enforcer.validate_color(styling.get('color', '#0066CC'))
         
-        # Get anchor properties with explicit validation
+        # Get anchor properties (pages-only)
         props = getattr(widget, 'properties', {}) or {}
-        
-        # Anchor type is required for anchor widgets
-        if 'anchor_type' not in props:
-            raise RenderingError(
-                f"Anchor widget '{widget.id}': missing required property 'anchor_type'"
-            )
-        anchor_type = props['anchor_type']
-        
-        # Get type-specific properties
         target_page = props.get('target_page')
-        destination = props.get('destination')
         
         # Convert position for text drawing
         text_pos = self.converter.convert_text_position(widget.position, font_size)
         
-        # Set text properties
+        # Set text properties (with font registration)
+        font_name = ensure_font_registered(font_name)
         pdf_canvas.setFont(font_name, font_size)
+        try:
+            pdf_canvas.setFillColor(HexColor(color))
+        except Exception:
+            pass
         
         # Calculate link rectangle coordinates for proper text measurement
         text_width = pdf_canvas.stringWidth(widget.content, font_name, font_size)
@@ -593,71 +586,25 @@ class DeterministicPDFRenderer:
             text_pos['y'] + font_size * 0.8   # Above baseline
         ]
         
-        # Create PDF link annotation based on anchor type with explicit validation
-        if anchor_type == 'page_link':
-            # Internal page link using automatic page bookmarks
-            if target_page is None:
-                raise RenderingError(
-                    f"Anchor widget '{widget.id}': page_link anchor_type requires 'target_page' property"
-                )
-            
-            if not isinstance(target_page, int) or target_page < 1:
-                raise RenderingError(
-                    f"Anchor widget '{widget.id}': target_page must be a positive integer, got {target_page}"
-                )
-            
-            # Validate target page exists (will be created during multi-page rendering)
-            total_pages = self._get_total_pages(self._group_widgets_by_page())
-            if target_page > total_pages:
-                raise RenderingError(
-                    f"Anchor widget '{widget.id}': target_page {target_page} exceeds total pages {total_pages}"
-                )
-            
-            page_bookmark_name = f"Page_{target_page}"
-            pdf_canvas.linkAbsolute(
-                "",  # Empty contents 
-                page_bookmark_name,  # Destination bookmark name
-                Rect=(link_rect[0], link_rect[1], link_rect[2], link_rect[3]),
-                Border='[0 0 0]'  # No visible border around link
-            )
-            
-        elif anchor_type == 'named_destination':
-            # Named destination link
-            if not destination or not isinstance(destination, str) or not destination.strip():
-                raise RenderingError(
-                    f"Anchor widget '{widget.id}': named_destination requires non-empty destination string"
-                )
-            
-            pdf_canvas.linkAbsolute(
-                "",  # Empty contents
-                destination.strip(),  # Destination bookmark name
-                Rect=(link_rect[0], link_rect[1], link_rect[2], link_rect[3]),
-                Border='[0 0 0]'  # No visible border around link
-            )
-            
-        elif anchor_type == 'outline_bookmark':
-            # Create bookmark destination for this location
-            if not destination or not isinstance(destination, str) or not destination.strip():
-                raise RenderingError(
-                    f"Anchor widget '{widget.id}': outline_bookmark requires non-empty destination string"
-                )
-            
-            bookmark_name = destination.strip()
-            pdf_canvas.bookmarkPage(bookmark_name)
-            # Also make it a clickable link to the bookmark
-            pdf_canvas.linkAbsolute(
-                "",  # Empty contents
-                bookmark_name,  # Destination bookmark name
-                Rect=(link_rect[0], link_rect[1], link_rect[2], link_rect[3]),
-                Border='[0 0 0]'  # No visible border around link
-            )
-            
-        else:
-            # Following CLAUDE.md Rule #4: Explicit error for unsupported anchor types
+        # Validate target page
+        if target_page is None or not isinstance(target_page, int) or target_page < 1:
             raise RenderingError(
-                f"Anchor widget '{widget.id}': unsupported anchor_type '{anchor_type}'. "
-                f"Supported types: page_link, named_destination, outline_bookmark"
+                f"Anchor widget '{widget.id}': requires positive integer 'target_page'"
             )
+
+        total_pages = self._get_total_pages(self._group_widgets_by_page())
+        if target_page > total_pages:
+            raise RenderingError(
+                f"Anchor widget '{widget.id}': target_page {target_page} exceeds total pages {total_pages}"
+            )
+
+        page_bookmark_name = f"Page_{target_page}"
+        pdf_canvas.linkAbsolute(
+            "",
+            page_bookmark_name,
+            Rect=(link_rect[0], link_rect[1], link_rect[2], link_rect[3]),
+            Border='[0 0 0]'
+        )
         
         # Draw the underlined text
         pdf_canvas.drawString(text_pos['x'], text_pos['y'], widget.content)
@@ -705,14 +652,6 @@ class DeterministicPDFRenderer:
             page_bookmark_name = f"Page_{target_page}"
             pdf_canvas.linkAbsolute("", page_bookmark_name, Rect=link_rect, Border='[0 0 0]')
 
-        elif action == 'named_destination':
-            destination = props.get('destination')
-            if not destination or not isinstance(destination, str) or not destination.strip():
-                raise RenderingError(
-                    f"Tap zone '{widget.id}': named_destination requires non-empty destination string"
-                )
-            pdf_canvas.linkAbsolute("", destination.strip(), Rect=link_rect, Border='[0 0 0]')
-
         elif action == 'prev_page':
             target_page = max(1, page_num - 1)
             page_bookmark_name = f"Page_{target_page}"
@@ -727,7 +666,7 @@ class DeterministicPDFRenderer:
         else:
             raise RenderingError(
                 f"Tap zone '{widget.id}': unsupported tap_action '{action}'. "
-                f"Supported: page_link, named_destination, prev_page, next_page"
+                f"Supported: page_link, prev_page, next_page"
             )
 
     def _resolve_image_reader(self, src: str) -> Optional[ImageReader]:
@@ -907,10 +846,10 @@ class DeterministicPDFRenderer:
         link_strategy = props.get('link_strategy')
         if link_strategy is None:
             link_strategy = 'no_links'  # Safe default - no links unless explicitly requested
-        if link_strategy not in ['sequential_pages', 'named_destinations', 'no_links']:
+        if link_strategy not in ['sequential_pages', 'no_links']:
             raise RenderingError(
                 f"Calendar widget '{widget.id}': invalid link_strategy '{link_strategy}'. "
-                f"Supported strategies: sequential_pages, named_destinations, no_links"
+                f"Supported strategies: sequential_pages, no_links"
             )
         
         # Validate link strategy parameters
@@ -935,17 +874,13 @@ class DeterministicPDFRenderer:
                     f"Calendar widget '{widget.id}': pages_per_date must be positive integer"
                 )
         
-        elif link_strategy == 'named_destinations':
-            destination_pattern = props.get('destination_pattern')
-            if not destination_pattern or not isinstance(destination_pattern, str):
-                raise RenderingError(
-                    f"Calendar widget '{widget.id}': named_destinations strategy requires 'destination_pattern'"
-                )
+        
         
         # Convert widget position for drawing
         cal_pos = self.converter.convert_position_for_drawing(widget.position)
         
-        # Set text properties
+        # Set text properties (with font registration)
+        font_name = ensure_font_registered(font_name)
         pdf_canvas.setFont(font_name, font_size)
         
         # Render based on calendar type
@@ -1213,29 +1148,7 @@ class DeterministicPDFRenderer:
                         Border='[0 0 0]'  # No visible border
                     )
         
-        elif link_strategy == 'named_destinations':
-            # Generate destination name from pattern
-            destination_pattern = props['destination_pattern']
-            
-            # Replace date placeholders in pattern
-            destination_name = destination_pattern.replace(
-                '{YYYY}', f"{date_obj.year:04d}"
-            ).replace(
-                '{MM}', f"{date_obj.month:02d}"
-            ).replace(
-                '{DD}', f"{date_obj.day:02d}"
-            ).replace(
-                '{M}', str(date_obj.month)
-            ).replace(
-                '{D}', str(date_obj.day)
-            )
-            
-            pdf_canvas.linkAbsolute(
-                "",  # Empty contents
-                destination_name,  # Generated destination name
-                Rect=(link_rect[0], link_rect[1], link_rect[2], link_rect[3]),
-                Border='[0 0 0]'  # No visible border
-            )
+        
     
     def _render_weekly_calendar(self, pdf_canvas: canvas.Canvas, widget: Widget,
                                start_date: date, cal_pos: Dict[str, float],

@@ -11,6 +11,7 @@ import { useEditorStore } from '@/stores/editorStore';
 import { Widget, DragItem } from '@/types';
 import CanvasWidget from './CanvasWidget';
 import GridOverlay from './GridOverlay';
+import ContextMenu from './ContextMenu';
 
 const Canvas: React.FC = () => {
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -67,6 +68,7 @@ const Canvas: React.FC = () => {
 
   const [guideV, setGuideV] = useState<number | null>(null);
   const [guideH, setGuideH] = useState<number | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; widget: any | null } | null>(null);
 
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: 'WIDGET',
@@ -286,6 +288,32 @@ const Canvas: React.FC = () => {
   }, [clearSelection]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const ctrlOrCmd = isMac ? event.metaKey : event.ctrlKey;
+
+    // Copy
+    if (ctrlOrCmd && (event.key === 'c' || event.key === 'C')) {
+      event.preventDefault();
+      try {
+        (useEditorStore.getState() as any).copySelected();
+      } catch (e) {
+        console.error('Copy failed', e);
+      }
+      return;
+    }
+
+    // Paste
+    if (ctrlOrCmd && (event.key === 'v' || event.key === 'V')) {
+      event.preventDefault();
+      try {
+        (useEditorStore.getState() as any).pasteClipboard();
+      } catch (e) {
+        console.error('Paste failed', e);
+      }
+      return;
+    }
+
+    // Delete selected
     if (!selectedWidget) return;
     if (event.key === 'Delete' || event.key === 'Backspace') {
       event.preventDefault();
@@ -357,8 +385,26 @@ const Canvas: React.FC = () => {
     setDragSelectRect(null);
   };
 
+  // Context menu helpers
+  const openWidgetMenu = (e: React.MouseEvent, w: any) => {
+    if (!selectedIds?.includes(w.id)) setSelectedWidget(w);
+    const rect = containerRef.current?.getBoundingClientRect();
+    const relX = rect ? e.clientX - rect.left : e.clientX;
+    const relY = rect ? e.clientY - rect.top : e.clientY;
+    setMenu({ x: relX, y: relY, widget: w });
+  };
+  const openCanvasMenu = (e: React.MouseEvent) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    const relX = rect ? e.clientX - rect.left : e.clientX;
+    const relY = rect ? e.clientY - rect.top : e.clientY;
+    setMenu({ x: relX, y: relY, widget: null });
+  };
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
   return (
     <div 
+      ref={containerRef}
       className="relative flex items-center justify-center min-h-full"
       onClick={handleCanvasClick}
       onKeyDown={handleKeyDown}
@@ -382,6 +428,10 @@ const Canvas: React.FC = () => {
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          if (e.target === e.currentTarget) openCanvasMenu(e);
+        }}
       >
         {/* Grid Overlay */}
         {showGrid && <GridOverlay />}
@@ -409,6 +459,7 @@ const Canvas: React.FC = () => {
               if (additive) toggleSelectWidget(w.id); else setSelectedWidget(w);
             }}
             zoom={zoom}
+            onContextMenu={(evt, w) => openWidgetMenu(evt, w)}
           />
         ))}
 
@@ -430,6 +481,41 @@ const Canvas: React.FC = () => {
       <div className="absolute bottom-4 right-4 bg-white bg-opacity-90 px-3 py-2 rounded shadow text-xs text-eink-gray">
         {canvasWidth} × {canvasHeight} pt ({Math.round(zoom * 100)}%)
       </div>
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={(function () {
+            const items: { label: string; onClick: () => void; disabled?: boolean }[] = [];
+            const store = (useEditorStore.getState() as any);
+            if (menu.widget) {
+              items.push({ label: 'Copy', onClick: () => store.copySelected() });
+              items.push({ label: 'Paste', onClick: () => store.pasteClipboard(), disabled: !(store.clipboard && store.clipboard.length) });
+              items.push({ label: 'Duplicate', onClick: () => store.duplicateWidget(menu.widget.id) });
+              items.push({ label: 'Delete', onClick: () => store.removeWidget(menu.widget.id) });
+              const assigned = store.getAssignedMasterForPage(store.currentPage);
+              const inMaster = store.findMasterIdByWidget(menu.widget.id);
+              if (!inMaster && assigned) items.push({ label: 'Move to Master', onClick: () => store.moveWidgetToMaster(menu.widget.id, assigned) });
+              if (inMaster) items.push({ label: 'Detach to Page', onClick: () => store.detachWidgetFromMasterToPage(menu.widget.id, store.currentPage) });
+              if (store.selectedIds && store.selectedIds.length >= 2) {
+                items.push({ label: 'Align Left', onClick: () => store.alignSelected('left') });
+                items.push({ label: 'Align Center', onClick: () => store.alignSelected('center') });
+                items.push({ label: 'Align Right', onClick: () => store.alignSelected('right') });
+                items.push({ label: 'Align Top', onClick: () => store.alignSelected('top') });
+                items.push({ label: 'Align Middle', onClick: () => store.alignSelected('middle') });
+                items.push({ label: 'Align Bottom', onClick: () => store.alignSelected('bottom') });
+                items.push({ label: 'Distribute H', onClick: () => store.distributeSelected('horizontal') });
+                items.push({ label: 'Distribute V', onClick: () => store.distributeSelected('vertical') });
+              }
+            } else {
+              items.push({ label: 'Paste', onClick: () => store.pasteClipboard(), disabled: !(store.clipboard && store.clipboard.length) });
+            }
+            return items;
+          })()}
+        />
+      )}
     </div>
   );
 };

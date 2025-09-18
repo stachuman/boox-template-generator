@@ -109,6 +109,11 @@ const WIDGET_TYPES: WidgetType[] = [
     defaultProps: {
       content: 'Checkbox Label',
       position: { width: 150, height: 20 },
+      styling: {
+        font: 'Courier-Prime',
+        size: 10,
+        color: '#000000'
+      },
       properties: {
         checkbox_size: 12
       }
@@ -149,14 +154,12 @@ const WIDGET_TYPES: WidgetType[] = [
       content: 'Link Text',
       position: { width: 100, height: 24 },
       styling: {
-        font: 'Helvetica',
+        font: 'Patrick-Hand',
         size: 12,
         color: '#0066CC'
       },
       properties: {
-        anchor_type: 'page_link',
-        target_page: 1,
-        destination: ''
+        target_page: 1
       }
     }
   },
@@ -169,7 +172,7 @@ const WIDGET_TYPES: WidgetType[] = [
       content: '',  // Calendar generates its own content
       position: { width: 280, height: 200 },  // Standard monthly calendar size
       styling: {
-        font: 'Helvetica',
+        font: 'Patrick-Hand',
         size: 10,
         color: '#000000'
       },

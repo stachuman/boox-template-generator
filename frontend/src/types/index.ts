@@ -41,7 +41,6 @@ export interface TextStyling {
 }
 
 export interface WidgetProperties {
-  bookmark?: string;
   checkbox_size?: number;
   line_spacing?: number;
   line_count?: number;
@@ -54,12 +53,10 @@ export interface WidgetProperties {
   grid_spacing?: number;       // pt spacing for grid verticals
   columns?: number;            // number of equal columns (guides) when not grid
   vertical_guides?: number[];  // custom vertical guides as ratios [0..1]
-  // Anchor widget properties
-  destination?: string;
-  anchor_type?: 'named_destination' | 'page_link' | 'outline_bookmark';
+  // Anchor widget properties (pages-only model)
   target_page?: number;
   // Tap zone properties
-  tap_action?: 'page_link' | 'named_destination' | 'prev_page' | 'next_page';
+  tap_action?: 'page_link' | 'prev_page' | 'next_page';
   outline?: boolean; // editor-only visual aid
   // Image properties
   image_src?: string;             // URL or data URI
@@ -72,10 +69,9 @@ export interface WidgetProperties {
   calendar_type?: 'monthly' | 'weekly' | 'custom_range';
   start_date?: string;        // ISO 8601 format (YYYY-MM-DD)
   end_date?: string;          // ISO 8601 format (YYYY-MM-DD), optional for monthly/weekly
-  link_strategy?: 'sequential_pages' | 'named_destinations' | 'no_links';
+  link_strategy?: 'sequential_pages' | 'no_links';
   first_page_number?: number; // Required when link_strategy = 'sequential_pages'
   pages_per_date?: number;    // Required when link_strategy = 'sequential_pages'
-  destination_pattern?: string; // Required when link_strategy = 'named_destinations'
   show_weekdays?: boolean;
   show_month_year?: boolean;
   cell_min_size?: number;     // Minimum touch target size for e-ink
@@ -106,24 +102,8 @@ export interface PageAssignment {
   master_id: string;
 }
 
-export interface NamedDestination {
-  id: string;
-  page: number;
-  x: number;
-  y: number;
-  fit: 'FitH' | 'Fit' | 'XYZ';
-}
-
-export interface OutlineItem {
-  title: string;
-  dest: string;
-  level: number;
-}
-
-export interface Navigation {
-  named_destinations: NamedDestination[];
-  outlines: OutlineItem[];
-}
+// Navigation is simplified; page-only links are embedded in widgets
+export interface Navigation {}
 
 export interface TemplateMetadata {
   name: string;
@@ -154,7 +134,7 @@ export interface Template {
   widgets: Widget[];
   masters?: Master[];
   page_assignments?: PageAssignment[];
-  navigation: Navigation;
+  navigation?: Navigation;
   export?: {
     default_mode: 'interactive' | 'flattened';
   };

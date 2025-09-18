@@ -287,6 +287,8 @@ const PropertiesPanel: React.FC = () => {
                     <option value="Times-Roman">Times Roman</option>
                     <option value="Times-Bold">Times Bold</option>
                     <option value="Courier">Courier</option>
+                    <option value="Courier-Prime">Courier Prime</option>
+                    <option value="Patrick-Hand">Patrick Hand</option>
                   </select>
                 </div>
                 <div>
@@ -354,6 +356,39 @@ const PropertiesPanel: React.FC = () => {
                   <p className="text-xs text-eink-light-gray mt-1">
                     Checkbox size in points. Size shown in preview matches PDF output exactly.
                   </p>
+                </div>
+                <div className="pt-1">
+                  <h5 className="font-medium mb-2">Label Styling</h5>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Font</label>
+                      <select {...register('styling.font')} onChange={(e) => handleLiveUpdate('styling.font', e.target.value)} className="input-field w-full">
+                        <option value="Helvetica">Helvetica</option>
+                        <option value="Helvetica-Bold">Helvetica Bold</option>
+                        <option value="Times-Roman">Times Roman</option>
+                        <option value="Times-Bold">Times Bold</option>
+                        <option value="Courier">Courier</option>
+                        <option value="Courier-Prime">Courier Prime</option>
+                        <option value="Patrick-Hand">Patrick Hand</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Size (pt)</label>
+                      <input
+                        type="number"
+                        min="6"
+                        max="24"
+                        {...register('styling.size', { min: 6, max: 24 })}
+                        onChange={(e) => handleLiveUpdate('styling.size', parseInt(e.target.value) || 10)}
+                        className="input-field w-full"
+                        placeholder="10"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <label className="block text-sm font-medium mb-1">Color</label>
+                    <input type="color" {...register('styling.color')} onChange={(e) => handleLiveUpdate('styling.color', e.target.value)} className="w-full h-10 border border-eink-pale-gray rounded" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -555,7 +590,6 @@ const PropertiesPanel: React.FC = () => {
                     className="input-field w-full"
                   >
                     <option value="page_link">Go to Page</option>
-                    <option value="named_destination">Go to Destination</option>
                     <option value="prev_page">Previous Page</option>
                     <option value="next_page">Next Page</option>
                   </select>
@@ -573,17 +607,7 @@ const PropertiesPanel: React.FC = () => {
                     />
                   </div>
                 )}
-                {selectedWidget.properties?.tap_action === 'named_destination' && (
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Destination Name</label>
-                    <input
-                      {...register('properties.destination')}
-                      onChange={(e) => handleLiveUpdate('properties.destination', e.target.value)}
-                      className="input-field w-full"
-                      placeholder="dest_id"
-                    />
-                  </div>
-                )}
+                
                 <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -759,57 +783,66 @@ const PropertiesPanel: React.FC = () => {
             <div>
               <h4 className="font-medium mb-3">Anchor Properties</h4>
               <div className="space-y-3">
+                {/* Anchor styling controls */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">Anchor Type</label>
-                  <select 
-                    {...register('properties.anchor_type')} 
-                    onChange={(e) => handleLiveUpdate('properties.anchor_type', e.target.value)}
+                  <h5 className="font-medium mb-2">Styling</h5>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Font</label>
+                      <select 
+                        {...register('styling.font')} 
+                        onChange={(e) => handleLiveUpdate('styling.font', e.target.value)}
+                        className="input-field w-full"
+                      >
+                        <option value="Helvetica">Helvetica</option>
+                        <option value="Helvetica-Bold">Helvetica Bold</option>
+                        <option value="Times-Roman">Times Roman</option>
+                        <option value="Times-Bold">Times Bold</option>
+                        <option value="Courier">Courier</option>
+                        <option value="Courier-Prime">Courier Prime</option>
+                        <option value="Patrick-Hand">Patrick Hand</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Size (pt)</label>
+                      <input
+                        type="number"
+                        min="6"
+                        max="48"
+                        {...register('styling.size', { min: 6, max: 48 })}
+                        onChange={(e) => handleLiveUpdate('styling.size', parseInt(e.target.value) || 12)}
+                        className="input-field w-full"
+                        placeholder="12"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <label className="block text-sm font-medium mb-1">Color</label>
+                    <input
+                      type="color"
+                      {...register('styling.color')}
+                      onChange={(e) => handleLiveUpdate('styling.color', e.target.value)}
+                      className="w-full h-10 border border-eink-pale-gray rounded"
+                    />
+                    <p className="text-xs text-eink-light-gray mt-1">
+                      Link color (blue appears as gray on e-ink)
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Target Page</label>
+                  <input
+                    type="number"
+                    min="1"
+                    {...register('properties.target_page', { min: 1 })}
+                    onChange={(e) => handleLiveUpdate('properties.target_page', parseInt(e.target.value) || 1)}
                     className="input-field w-full"
-                  >
-                    <option value="page_link">Page Link</option>
-                    <option value="named_destination">Named Destination</option>
-                    <option value="outline_bookmark">Outline Bookmark</option>
-                  </select>
+                    placeholder="1"
+                  />
                   <p className="text-xs text-eink-light-gray mt-1">
-                    Type of navigation target
+                    Page number to navigate to
                   </p>
                 </div>
-                
-                {selectedWidget.properties?.anchor_type === 'page_link' && (
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Target Page</label>
-                    <input
-                      type="number"
-                      min="1"
-                      {...register('properties.target_page', { min: 1 })}
-                      onChange={(e) => handleLiveUpdate('properties.target_page', parseInt(e.target.value) || 1)}
-                      className="input-field w-full"
-                      placeholder="1"
-                    />
-                    <p className="text-xs text-eink-light-gray mt-1">
-                      Page number to navigate to
-                    </p>
-                  </div>
-                )}
-                
-                {(selectedWidget.properties?.anchor_type === 'named_destination' || 
-                  selectedWidget.properties?.anchor_type === 'outline_bookmark') && (
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Destination ID</label>
-                    <input
-                      {...register('properties.destination')}
-                      onChange={(e) => handleLiveUpdate('properties.destination', e.target.value)}
-                      className="input-field w-full"
-                      placeholder="bookmark_id"
-                    />
-                    <p className="text-xs text-eink-light-gray mt-1">
-                      {selectedWidget.properties?.anchor_type === 'named_destination' 
-                        ? 'Named destination identifier'
-                        : 'Bookmark ID to link to'
-                      }
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -832,6 +865,8 @@ const PropertiesPanel: React.FC = () => {
                     <option value="Times-Roman">Times Roman</option>
                     <option value="Times-Bold">Times Bold</option>
                     <option value="Courier">Courier</option>
+                    <option value="Courier-Prime">Courier Prime</option>
+                    <option value="Patrick-Hand">Patrick Hand</option>
                   </select>
                   <p className="text-xs text-eink-light-gray mt-1">
                     Font family for calendar text
@@ -1071,7 +1106,6 @@ const PropertiesPanel: React.FC = () => {
                   >
                     <option value="no_links">No Links</option>
                     <option value="sequential_pages">Sequential Pages</option>
-                    <option value="named_destinations">Named Destinations</option>
                   </select>
                   <p className="text-xs text-eink-light-gray mt-1">
                     How calendar dates should link to content
@@ -1112,20 +1146,7 @@ const PropertiesPanel: React.FC = () => {
                   </div>
                 )}
 
-                {selectedWidget.properties?.link_strategy === 'named_destinations' && (
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Destination Pattern</label>
-                    <input
-                      {...register('properties.destination_pattern')}
-                      onChange={(e) => handleLiveUpdate('properties.destination_pattern', e.target.value)}
-                      className="input-field w-full"
-                      placeholder="day_{YYYY-MM-DD}"
-                    />
-                    <p className="text-xs text-eink-light-gray mt-1">
-                      Pattern for destination names. Use {'{YYYY-MM-DD}'} for date substitution
-                    </p>
-                  </div>
-                )}
+                {/* Named destination strategy removed; pages-only model */}
 
                 <div>
                   <h5 className="font-medium mb-2">Display Options</h5>
@@ -1194,23 +1215,7 @@ const PropertiesPanel: React.FC = () => {
             </div>
           )}
 
-          {/* Bookmark Properties */}
-          <div>
-            <h4 className="font-medium mb-3">Navigation</h4>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium mb-1">Bookmark ID</label>
-                <input
-                  {...register('properties.bookmark')}
-                  className="input-field w-full"
-                  placeholder="Optional bookmark identifier"
-                />
-                <p className="text-xs text-eink-light-gray mt-1">
-                  Used for creating named destinations and links
-                </p>
-              </div>
-            </div>
-          </div>
+          {/* Navigation options removed in pages-only model */}
 
           {/* Submit Button */}
           <button type="submit" className="btn-primary w-full">

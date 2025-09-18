@@ -29,7 +29,7 @@ requires-python = ">=3.9"
 dependencies = [
     # Core PDF generation stack
     "reportlab==4.0.9",              # Primary PDF generation
-    "pikepdf==8.7.1",                # Post-processing (outlines, destinations, flattening)
+    "pikepdf==8.7.1",                # Deterministic + metadata post-processing
     "PyMuPDF==1.23.26",              # Ground truth preview (AGPL licensed)
     
     # Data validation and parsing
@@ -147,6 +147,7 @@ strict_equality = true
 module = [
     "reportlab.*",
     "pikepdf.*", 
+    "pikepdf.*",
     "fitz.*",      # PyMuPDF
     "yaml.*",
 ]
