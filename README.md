@@ -1,5 +1,9 @@
 # E‑ink PDF Templates
 
+A quick look at the editor and output:
+
+![E‑ink PDF Templates](pic-1.png)
+
 A web UI + Python backend for designing static, link‑only PDFs optimized for Boox e‑ink devices. Includes device profiles, deterministic rendering, and a visual editor.
 
 ## 🚀 Project Status
