@@ -1,0 +1,38 @@
+# Global Docker ignore to shrink build context
+
+# VCS
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node
+frontend/node_modules/
+frontend/.vite/
+frontend/.cache/
+
+# Local env/editor
+.venv/
+venv/
+env/
+einkpdf-env/
+.env
+.env.*
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Data/output (mounted as volumes in compose)
+backend/data/
+data/
+output/
+

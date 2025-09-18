@@ -168,6 +168,7 @@ export interface TemplateResponse {
   created_at: string;
   updated_at: string;
   yaml_content: string;
+  parsed_template?: Template | null;
 }
 
 export interface APIError {

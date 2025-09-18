@@ -50,6 +50,100 @@ class TemplateService:
         # Index file to track templates
         self.index_file = self.storage_dir / "index.json"
         self._load_index()
+
+    def _iter_template_files(self):
+        return [p for p in self.storage_dir.glob("*.yaml") if p.is_file()]
+
+    def cleanup(self, ttl_days: int = 14, max_templates: Optional[int] = None) -> Dict[str, int]:
+        """
+        Light-weight storage cleanup for low-traffic deployments.
+
+        - Removes orphaned YAML files not referenced in index
+        - Optionally removes templates older than ttl_days
+        - Optionally caps total templates to max_templates (removes oldest first)
+
+        Args:
+            ttl_days: Age threshold in days for deletion (0 or negative disables)
+            max_templates: If set, keep at most this many templates (newest kept)
+
+        Returns:
+            Summary counters of performed actions
+        """
+        removed_files = 0
+        removed_index = 0
+
+        # 1) Remove orphan files not present in index
+        indexed_paths = {Path(info["file_path"]).resolve() for info in self._index.values()}
+        for file_path in self._iter_template_files():
+            if file_path.resolve() not in indexed_paths:
+                try:
+                    file_path.unlink()
+                    removed_files += 1
+                except OSError:
+                    continue
+
+        # 2) Remove missing-file entries from index
+        to_delete_ids = []
+        for tid, info in list(self._index.items()):
+            fp = Path(info.get("file_path", ""))
+            if not fp.exists():
+                to_delete_ids.append(tid)
+        for tid in to_delete_ids:
+            del self._index[tid]
+            removed_index += 1
+
+        # 3) TTL-based pruning
+        import datetime
+        if ttl_days and ttl_days > 0:
+            threshold = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=ttl_days)
+            old_ids: list[str] = []
+            for tid, info in self._index.items():
+                try:
+                    updated = datetime.datetime.fromisoformat(info.get("updated_at"))
+                except Exception:
+                    continue
+                if updated < threshold:
+                    # delete file and mark index removal
+                    fp = Path(info.get("file_path", ""))
+                    if fp.exists():
+                        try:
+                            fp.unlink()
+                            removed_files += 1
+                        except OSError:
+                            pass
+                    old_ids.append(tid)
+            for tid in old_ids:
+                if tid in self._index:
+                    del self._index[tid]
+                    removed_index += 1
+
+        # 4) Cap total templates
+        if isinstance(max_templates, int) and max_templates > 0:
+            # Sort by updated_at desc; keep newest
+            items = list(self._index.items())
+            try:
+                items.sort(key=lambda kv: datetime.datetime.fromisoformat(kv[1]["updated_at"]), reverse=True)
+            except Exception:
+                items.sort(key=lambda kv: kv[1].get("updated_at", ""), reverse=True)
+            keep = set(tid for tid, _ in items[:max_templates])
+            drop = [tid for tid, _ in items[max_templates:]]
+            for tid in drop:
+                info = self._index.get(tid)
+                if not info:
+                    continue
+                fp = Path(info.get("file_path", ""))
+                if fp.exists():
+                    try:
+                        fp.unlink()
+                        removed_files += 1
+                    except OSError:
+                        pass
+                del self._index[tid]
+                removed_index += 1
+
+        # Persist index changes
+        self._save_index()
+        return {"removed_files": removed_files, "removed_index": removed_index}
     
     def _load_index(self) -> None:
         """Load template index from disk."""
@@ -122,7 +216,14 @@ class TemplateService:
         }
         
         self._save_index()
-        
+
+        # Parse YAML to include parsed template in response (best-effort)
+        parsed: Optional[Template] = None
+        try:
+            parsed = parse_yaml_template(yaml_content)
+        except Exception:
+            parsed = None
+
         return TemplateResponse(
             id=template_id,
             name=name,
@@ -130,7 +231,8 @@ class TemplateService:
             profile=profile,
             created_at=now,
             updated_at=now,
-            yaml_content=yaml_content
+            yaml_content=yaml_content,
+            parsed_template=(parsed.model_dump() if parsed else None)
         )
     
     def get_template(self, template_id: str) -> Optional[TemplateResponse]:
@@ -161,6 +263,13 @@ class TemplateService:
         except IOError as e:
             raise EinkPDFServiceError(f"Failed to read template file: {e}")
         
+        # Parse YAML to include parsed template
+        parsed: Optional[Template] = None
+        try:
+            parsed = parse_yaml_template(yaml_content)
+        except Exception:
+            parsed = None
+
         return TemplateResponse(
             id=template_info["id"],
             name=template_info["name"],
@@ -168,7 +277,8 @@ class TemplateService:
             profile=template_info["profile"],
             created_at=datetime.fromisoformat(template_info["created_at"]),
             updated_at=datetime.fromisoformat(template_info["updated_at"]),
-            yaml_content=yaml_content
+            yaml_content=yaml_content,
+            parsed_template=(parsed.model_dump() if parsed else None)
         )
     
     def list_templates(self) -> List[TemplateResponse]:

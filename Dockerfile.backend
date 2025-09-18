@@ -1,0 +1,30 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Install system dependencies if needed (kept minimal for light usage)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+# Copy project files
+COPY pyproject.toml /app/
+COPY src /app/src
+COPY backend /app/backend
+COPY config /app/config
+
+# Install project (library includes FastAPI/uvicorn in dependencies)
+RUN pip install --no-cache-dir .
+
+# Set working directory to backend app
+WORKDIR /app/backend
+
+# Environment for lightweight cleanup
+ENV EINK_CLEANUP_TTL_DAYS=14
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

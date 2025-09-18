@@ -1,17 +1,17 @@
 profile:
-  name: "Boox-Note-Air-4C"
+  name: "boox-note-air-4c"
   display:
-    screen_size: [1872, 1404]  # 10.3" at 227 PPI
+    screen_size: [1872, 1404]
     ppi: 227
-    aspect_ratio: "4:3"
-    physical_size: "10.3 inch"
+    physical_size: "10.3-inch"
   pdf_settings:
     page_size: "A4"
     orientation: "portrait"
-    safe_margins: [36, 36, 36, 36]  # 0.5" safe area
+    safe_margins: [36, 36, 36, 36]
   constraints:
     min_font_pt: 10.0
     min_stroke_pt: 0.75
     min_touch_target_pt: 44.0
     grayscale_levels: 16
-    max_gray_fill_area: 0.15  # Avoid slow refresh
+    max_gray_fill_area: 0.2
+

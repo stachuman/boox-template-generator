@@ -14,6 +14,8 @@ from fastapi.responses import JSONResponse
 
 from .models import HealthResponse, APIError
 from .api import templates, pdf, profiles
+from .services import TemplateService
+import os
 from .websockets import handle_websocket_connection
 
 # Configure logging
@@ -151,4 +153,28 @@ if __name__ == "__main__":
         port=8000,
         reload=True,
         log_level="info"
+    )
+@app.on_event("startup")
+async def run_cleanup_on_startup() -> None:
+    """Lightweight storage cleanup at service start.
+
+    Controlled by environment variables:
+      EINK_CLEANUP_TTL_DAYS (default 14)
+      EINK_CLEANUP_MAX_TEMPLATES (optional)
+    """
+    try:
+        ttl_days = int(os.getenv("EINK_CLEANUP_TTL_DAYS", "14"))
+    except ValueError:
+        ttl_days = 14
+    try:
+        max_templates_env = os.getenv("EINK_CLEANUP_MAX_TEMPLATES")
+        max_templates = int(max_templates_env) if max_templates_env else None
+    except ValueError:
+        max_templates = None
+
+    svc = TemplateService()
+    summary = svc.cleanup(ttl_days=ttl_days, max_templates=max_templates)
+    logger.info(
+        "Cleanup complete: removed_files=%s removed_index=%s (ttl_days=%s max_templates=%s)",
+        summary.get("removed_files"), summary.get("removed_index"), ttl_days, max_templates
     )

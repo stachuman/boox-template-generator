@@ -36,6 +36,7 @@ class TemplateResponse(BaseModel):
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
     yaml_content: str = Field(..., description="YAML template content")
+    parsed_template: Optional[Dict[str, Any]] = Field(None, description="Parsed template as JSON (optional)")
 
 
 class TemplateListResponse(BaseModel):

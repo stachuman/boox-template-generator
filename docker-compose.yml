@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      - EINK_CLEANUP_TTL_DAYS=14
+      - EINK_PROFILE_DIR=/app/config/profiles
+      # - EINK_CLEANUP_MAX_TEMPLATES=500
+    volumes:
+      - eink_data:/app/backend/data
+      - ./config/profiles:/app/config/profiles:ro
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      - backend
+
+volumes:
+  eink_data: {}

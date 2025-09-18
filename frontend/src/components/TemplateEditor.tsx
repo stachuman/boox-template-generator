@@ -30,6 +30,7 @@ const TemplateEditor: React.FC = () => {
     showPagesPanel,
     showRightPanel,
     selectedIds,
+    setCurrentTemplate,
     setActiveProfile,
     setShowGrid,
     setShowWidgetPalette,
@@ -85,14 +86,18 @@ const TemplateEditor: React.FC = () => {
     try {
       setLoading(true);
       const template = await APIClient.getTemplate(id);
-      
-      // Parse YAML content into template object
-      // Note: In a real implementation, you'd need a YAML parser
-      // For now, we'll assume the backend returns the parsed template
-      // setCurrentTemplate(parsedTemplate);
-      
-      console.log('Template loaded:', template);
-      // TODO: Parse YAML and set template
+
+      if (template.parsed_template) {
+        setCurrentTemplate(template.parsed_template as any);
+      } else {
+        console.warn('Parsed template not present in response');
+      }
+
+      // Try set active profile based on template
+      if (template.profile && profiles.length > 0) {
+        const p = profiles.find(p => p.name === template.profile);
+        if (p) setActiveProfile(p);
+      }
       
     } catch (err) {
       if (err instanceof APIClientError) {

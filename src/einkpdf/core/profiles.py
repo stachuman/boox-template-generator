@@ -10,6 +10,7 @@ import os
 import yaml
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
+import os
 
 from .schema import DeviceProfile, DeviceConstraints
 from ..validation.yaml_validator import ValidationError
@@ -207,16 +208,25 @@ class ConstraintEnforcer:
 
 def get_profile_directory() -> Path:
     """Get the directory containing device profiles."""
-    # Get directory relative to this file
+    # 1) Environment override
+    env_dir = os.getenv("EINK_PROFILE_DIR")
+    if env_dir:
+        p = Path(env_dir)
+        if p.exists():
+            return p
+    # 2) Repo root: /config/profiles relative to project
     current_dir = Path(__file__).parent
     profile_dir = current_dir.parent.parent.parent / "config" / "profiles"
-    
-    if not profile_dir.exists():
-        raise DeviceProfileError(
-            f"Device profile directory not found: {profile_dir}"
-        )
-    
-    return profile_dir
+    if profile_dir.exists():
+        return profile_dir
+    # 3) Package-relative fallback (src/einkpdf/config/profiles)
+    pkg_dir = current_dir.parent / "config" / "profiles"
+    if pkg_dir.exists():
+        return pkg_dir
+    # Not found
+    raise DeviceProfileError(
+        f"Device profile directory not found: {profile_dir}"
+    )
 
 
 def list_available_profiles() -> List[str]:
@@ -227,15 +237,14 @@ def list_available_profiles() -> List[str]:
         List of profile names (without .yaml extension)
     """
     profile_dir = get_profile_directory()
-    profile_files = profile_dir.glob("*.yaml")
-    
-    profiles = []
-    for file_path in profile_files:
-        profile_name = file_path.stem
-        # Convert filename to profile name (e.g., "boox-note-air-4c" -> "Boox-Note-Air-4C")
-        profiles.append(profile_name)
-    
-    return sorted(profiles)
+    profiles: List[str] = []
+    # Support both .yaml and .yml extensions
+    for pattern in ("*.yaml", "*.yml"):
+        for file_path in profile_dir.glob(pattern):
+            if file_path.is_file():
+                profiles.append(file_path.stem)
+    # De-duplicate and sort
+    return sorted(list(set(profiles)))
 
 
 def load_device_profile(profile_name: str) -> DeviceProfile:

@@ -1,6 +1,6 @@
-# E-ink PDF Templates
+# E‑ink PDF Templates
 
-A production-ready system for creating interactive PDF templates optimized for Boox Onyx e-readers, featuring internal navigation, bookmarks, and device-specific optimization.
+A web UI + Python backend for designing static, link‑only PDFs optimized for Boox e‑ink devices. Includes device profiles, deterministic rendering, and a visual editor.
 
 ## 🚀 Project Status
 
@@ -36,54 +36,31 @@ A production-ready system for creating interactive PDF templates optimized for B
 - **Constraint Enforcement**: Minimum font sizes, touch targets, stroke widths
 - **E-ink Optimization**: Grayscale levels and fill area constraints
 
-## 📁 Project Structure
+## Architecture
+- Frontend: Vite + React (served by Nginx in Docker)
+- Backend: FastAPI (ReportLab + pikepdf + PyMuPDF)
+- Profiles: YAML files defining device constraints (min font, touch target, etc.)
+- Output: Static PDFs with internal link navigation (no forms/JS)
 
-```
-eink/
-├── src/einkpdf/                # Core library
-│   ├── core/                   # Core PDF generation
-│   │   ├── schema.py          # Pydantic models & validation
-│   │   ├── renderer.py        # ReportLab PDF rendering
-│   │   ├── postprocess.py     # pikepdf navigation features
-│   │   ├── preview.py         # PyMuPDF preview generation
-│   │   ├── profiles.py        # Device profiles & constraints
-│   │   ├── coordinates.py     # Coordinate system conversion
-│   │   └── deterministic.py   # Deterministic PDF builds
-│   ├── validation/             # Template validation
-│   │   └── yaml_validator.py  # YAML schema validation
-│   └── testing/                # Testing framework
-│       └── golden_files.py    # Golden file regression testing
-├── device_profiles/            # Device-specific configurations
-├── tools/                      # CLI utilities
-│   └── golden_file_cli.py     # Golden file management
-├── tests/                      # Test files and golden references
-└── templates/                  # Example templates
-```
+## Quick Start (Docker)
+1) Profiles: ensure your host has `/config/profiles` with device YAMLs.
+2) Build and run:
+   - `docker compose build`
+   - `docker compose up -d`
+3) Open the app:
+   - Frontend: `http://localhost:3000` (override with `FRONTEND_PORT`)
+   - API is proxied internally by Nginx (`/api`, `/ws`)
 
-## 🛠️ Installation
+Data persists in the named volume `eink_data` (mounted at `/app/backend/data`). Profiles are bind‑mounted read‑only to `/app/config/profiles`.
 
-### Prerequisites
-- Python 3.9+
-- Virtual environment recommended
+## Configuration
+- Frontend port: set `FRONTEND_PORT` env for compose (default 3000)
+- Profiles directory: host `/config/profiles` → container `/app/config/profiles`
+- Cleanup on startup (backend):
+  - `EINK_CLEANUP_TTL_DAYS=14` (set ≤0 to disable)
+  - `EINK_CLEANUP_MAX_TEMPLATES` (optional cap)
 
-### Setup
-```bash
-# Clone repository
-git clone <repository-url>
-cd eink
-
-# Create and activate virtual environment
-python -m venv einkpdf-env
-source einkpdf-env/bin/activate  # Linux/Mac
-# einkpdf-env\Scripts\activate   # Windows
-
-# Install dependencies
-pip install -e .
-```
-
-## 🚀 Quick Start
-
-### Basic PDF Generation
+## Library Usage (Python)
 ```python
 from einkpdf.validation.yaml_validator import parse_yaml_template
 from einkpdf.core.renderer import render_template
@@ -167,21 +144,15 @@ navigation:
       level: 1
 ```
 
-## 🧪 Testing
-
-### Run Full Test Suite
+## Development
 ```bash
-# Activate environment
-source einkpdf-env/bin/activate
+# Backend
+python -m venv einkpdf-env && source einkpdf-env/bin/activate
+pip install -e .[dev]
+uvicorn backend.app.main:app --reload
 
-# Run Phase 1 MVP validation
-PYTHONPATH=src python test_phase1_mvp.py
-
-# Run deterministic build tests
-PYTHONPATH=src python test_deterministic.py
-
-# Run golden file tests
-PYTHONPATH=src python test_golden_files.py
+# Frontend
+cd frontend && npm ci && npm run dev
 ```
 
 ### Golden File Testing
@@ -199,18 +170,8 @@ python tools/golden_file_cli.py run-tests
 python tools/golden_file_cli.py list
 ```
 
-## 📋 Device Profiles
-
-Currently supported devices:
-
-### Boox Note Air 4C
-- **Screen**: 10.3" E-ink display (1872×1404 pixels, 227 PPI)
-- **Constraints**:
-  - Minimum font size: 10pt
-  - Minimum touch target: 44pt
-  - Minimum stroke width: 0.75pt
-  - Grayscale levels: 16
-  - Maximum gray fill area: 15%
+## Device Profiles
+Place YAML files under `/config/profiles` on the host. The backend reads from `/app/config/profiles` (bind‑mounted). You can override with `EINK_PROFILE_DIR`.
 
 ## 🔧 Architecture
 
@@ -233,9 +194,8 @@ Currently supported devices:
 - **Deterministic Builds**: 100% reproducible (identical SHA256 hashes)
 - **Test Coverage**: 7/7 core components validated
 
-## 📄 License
-
-This project is licensed under AGPL v3.0 to maintain compatibility with PyMuPDF licensing requirements.
+## License
+AGPL‑3.0‑or‑later.
 
 ## 🛣️ Roadmap
 
