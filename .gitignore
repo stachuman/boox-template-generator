@@ -6,6 +6,8 @@ old/
 /.env/
 ._*
 
+*.tgz
+
 # Python cache/build
 __pycache__/
 *.py[cod]

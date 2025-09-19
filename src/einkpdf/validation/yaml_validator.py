@@ -10,6 +10,7 @@ from typing import Dict, Any
 from pydantic import ValidationError as PydanticValidationError
 
 from ..core.schema import Template
+from ..core.profiles import list_available_profiles
 
 
 class ValidationError(Exception):
@@ -72,6 +73,21 @@ def parse_yaml_template(yaml_content: str) -> Template:
             f"Unsupported schema version '{schema_version}'. Only version '1.0' is supported."
         )
     
+    # Auto-fill default device profile if missing/empty to keep UX smooth
+    try:
+        md = raw_data.get("metadata") if isinstance(raw_data, dict) else None
+        if isinstance(md, dict):
+            prof = md.get("profile")
+            if not prof or (isinstance(prof, str) and not prof.strip()):
+                choices = list_available_profiles()
+                # Prefer common default if available
+                preferred = "boox-note-air-4c"
+                fallback = preferred if preferred in choices else (choices[0] if choices else "default")
+                md["profile"] = fallback
+    except Exception:
+        # Non-fatal; let schema validation surface remaining issues
+        pass
+
     # Validate against Pydantic schema
     try:
         return Template.model_validate(raw_data)

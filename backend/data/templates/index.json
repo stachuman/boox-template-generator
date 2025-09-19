@@ -1,11 +1,1 @@
-{
-  "e0331205-10a5-4e30-bef0-b7d12d048282": {
-    "id": "e0331205-10a5-4e30-bef0-b7d12d048282",
-    "name": "Test1",
-    "description": "",
-    "profile": "Boox-Tab-Ultra-C",
-    "created_at": "2025-09-17T17:21:54.097797+00:00",
-    "updated_at": "2025-09-17T17:21:54.097797+00:00",
-    "file_path": "data/templates/e0331205-10a5-4e30-bef0-b7d12d048282.yaml"
-  }
-}
+{}
