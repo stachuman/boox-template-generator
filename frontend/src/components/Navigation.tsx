@@ -7,16 +7,22 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FileText, Layout, Home } from 'lucide-react';
+import { FileText, Folder } from 'lucide-react';
 import clsx from 'clsx';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
 
   const navItems = [
-    { path: '/', label: 'Gallery', icon: Home },
-    { path: '/editor', label: 'Editor', icon: Layout },
+    { path: '/', label: 'Projects', icon: Folder },
   ];
+
+  const isActive = (path: string) => {
+    if (path === '/') {
+      return location.pathname === '/' || location.pathname.startsWith('/projects');
+    }
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <nav className="toolbar h-16 flex items-center justify-between">
@@ -32,7 +38,7 @@ const Navigation: React.FC = () => {
             to={path}
             className={clsx(
               'flex items-center space-x-2 px-3 py-2 rounded-md transition-colors',
-              location.pathname === path
+              isActive(path)
                 ? 'bg-eink-black text-eink-white'
                 : 'text-eink-dark-gray hover:bg-eink-pale-gray'
             )}

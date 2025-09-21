@@ -25,6 +25,8 @@ from .fonts import ensure_font_registered
 from .profiles import ConstraintEnforcer, create_constraint_enforcer
 from .deterministic import make_pdf_deterministic
 from ..validation.yaml_validator import ValidationError
+from ..i18n import get_month_names, get_weekday_names
+from .postprocess import add_navigation_to_pdf
 
 
 class RenderingError(Exception):
@@ -71,6 +73,8 @@ class DeterministicPDFRenderer:
         # Master page mapping and total pages for token substitution
         self._page_master_map: Dict[int, str] = {}
         self._total_pages: int = 1
+        # Named destination anchor positions collected during layout
+        self.anchor_positions: Dict[str, Tuple[int, float, float]] = {}
     
     def get_page_size(self) -> Tuple[float, float]:
         """
@@ -114,6 +118,21 @@ class DeterministicPDFRenderer:
                 # Note: ReportLab Canvas doesn't support setCreationDate directly
                 # Creation date will be handled by pikepdf post-processor for deterministic builds
             
+            # Pre-pass: collect all anchor destination IDs available in template
+            try:
+                self._available_dest_ids = set()
+                for w in getattr(self.template, 'widgets', []) or []:
+                    try:
+                        if getattr(w, 'type', None) == 'anchor':
+                            props = getattr(w, 'properties', {}) or {}
+                            did = props.get('dest_id') if isinstance(props, dict) else None
+                            if isinstance(did, str) and did.strip():
+                                self._available_dest_ids.add(did.strip())
+                    except Exception:
+                        continue
+            except Exception:
+                self._available_dest_ids = set()
+
             # Pass 2: Layout pass - render content and collect anchor positions
             self._layout_pass(pdf_canvas)
             
@@ -123,8 +142,13 @@ class DeterministicPDFRenderer:
             # Store violations for later reporting
             self.violations = self.enforcer.violations.copy()
             
-            # Pass 3: No post-processing (named destinations/outlines removed)
-            final_pdf = buffer.getvalue()
+            # Pass 3: Post-process named destinations (from anchor widgets)
+            base_pdf = buffer.getvalue()
+            # Guard against missing attribute in older instances
+            if getattr(self, 'anchor_positions', None):
+                final_pdf = add_navigation_to_pdf(base_pdf, self.template, self.anchor_positions)
+            else:
+                final_pdf = base_pdf
             
             # Pass 4: Make deterministic if requested
             if deterministic:
@@ -280,6 +304,13 @@ class DeterministicPDFRenderer:
         if hasattr(widget, 'background_color') and widget.background_color:
             self._draw_widget_background(pdf_canvas, widget)
 
+        # Collect explicit anchor destinations (dest_id) for named destinations
+        widget_props = getattr(widget, 'properties', {}) or {}
+        if widget.type == "anchor":
+            did = widget_props.get('dest_id') if isinstance(widget_props, dict) else None
+            if isinstance(did, str) and did.strip():
+                self.anchor_positions[did.strip()] = (page_num, widget.position.x, widget.position.y)
+
         # Render based on widget type
         if widget.type == "text_block":
             self._render_text_block(pdf_canvas, widget, page_num)
@@ -290,7 +321,39 @@ class DeterministicPDFRenderer:
         elif widget.type == "lines":
             self._render_lines(pdf_canvas, widget)
         elif widget.type == "anchor":
-            self._render_anchor(pdf_canvas, widget)
+            # Define a named destination immediately so ReportLab resolves links.
+            did = widget_props.get('dest_id') if isinstance(widget_props, dict) else None
+            if isinstance(did, str) and did.strip():
+                name = did.strip()
+                # Convert y to bottom-left coordinate for horizontal bookmark if supported
+                try:
+                    # Try most specific API if available
+                    if hasattr(pdf_canvas, 'bookmarkHorizontalAbsolute'):
+                        pos = self.converter.convert_position_for_drawing(widget.position)
+                        pdf_canvas.bookmarkHorizontalAbsolute(name, pos['y'] + pos['height'])
+                    elif hasattr(pdf_canvas, 'bookmarkHorizontal'):
+                        pos = self.converter.convert_position_for_drawing(widget.position)
+                        pdf_canvas.bookmarkHorizontal(name, pos['y'] + pos['height'])
+                    else:
+                        # Fallback: page-level bookmark
+                        pdf_canvas.bookmarkPage(name)
+                except Exception:
+                    # As a safety, ensure at least a page bookmark exists
+                    try:
+                        pdf_canvas.bookmarkPage(name)
+                    except Exception:
+                        pass
+                # Also register a named destination in the PDF so linkAbsolute resolves names immediately
+                try:
+                    if hasattr(pdf_canvas, 'addNamedDestination'):
+                        pdf_canvas.addNamedDestination(name)
+                except Exception:
+                    pass
+        elif widget.type == "internal_link":
+            self._render_internal_link(pdf_canvas, widget)
+        elif widget.type == "link_list":
+            # Editor composite: expand into internal_link items on the fly for preview/PDF
+            self._render_link_list(pdf_canvas, widget)
         elif widget.type == "tap_zone":
             self._render_tap_zone(pdf_canvas, widget, page_num)
         elif widget.type == "calendar":
@@ -300,9 +363,118 @@ class DeterministicPDFRenderer:
         else:
             # Following CLAUDE.md rule #4: explicit NotImplementedError
             raise UnsupportedWidgetError(
-                f"Widget type '{widget.type}' not implemented in Phase 1. "
-                f"Supported types: text_block, checkbox, divider, lines, anchor, calendar"
+                f"Widget type '{widget.type}' not implemented. "
+                f"Supported: text_block, checkbox, divider, lines, anchor, internal_link, tap_zone, calendar, image"
             )
+
+    def _render_link_list(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
+        """
+        Expand and render a link_list composite as multiple internal_link widgets.
+
+        This mirrors the compilation-time expansion so preview works when a raw
+        Template (not a compiled Project) is sent to the renderer.
+        """
+        props = getattr(widget, 'properties', {}) or {}
+        styling = getattr(widget, 'styling', {}) or {}
+
+        try:
+            count = max(1, int(props.get('count', 1)))
+        except Exception:
+            count = 1
+        try:
+            start_index = max(1, int(props.get('start_index', 1)))
+        except Exception:
+            start_index = 1
+        try:
+            index_pad = max(1, int(props.get('index_pad', 3)))
+        except Exception:
+            index_pad = 3
+        try:
+            columns = max(1, int(props.get('columns', 1)))
+        except Exception:
+            columns = 1
+        gap_x = float(props.get('gap_x', 0.0) or 0.0)
+        gap_y = float(props.get('gap_y', 0.0) or 0.0)
+        item_height = props.get('item_height')
+        try:
+            item_height = float(item_height) if item_height is not None else None
+        except Exception:
+            item_height = None
+
+        label_template = props.get('label_template', 'Note {index_padded}') or 'Note {index_padded}'
+        bind_expr = props.get('bind', 'notes(@index)') or 'notes(@index)'
+
+        # Layout calculations (top-left coordinate system)
+        total_w = float(widget.position.width)
+        total_h = float(widget.position.height)
+        rows = int(math.ceil(count / columns)) if columns > 0 else count
+        cell_w = (total_w - (columns - 1) * gap_x) / max(1, columns)
+        cell_h = item_height if item_height is not None else (total_h - (rows - 1) * gap_y) / max(1, rows)
+
+        base_x = float(widget.position.x)
+        base_y = float(widget.position.y)
+
+        # Draw each item as an internal_link
+        for i in range(count):
+            idx = start_index + i
+            row = i // columns
+            col = i % columns
+            cell_x = base_x + col * (cell_w + gap_x)
+            cell_y = base_y + row * (cell_h + gap_y)
+
+            # Format label
+            idx_padded = str(idx).zfill(index_pad)
+            content = (label_template or '')
+            content = content.replace('{index_padded}', idx_padded).replace('{index}', str(idx))
+
+            # Resolve bind -> to_dest for this item (support token substitution)
+            bexpr = (bind_expr or '')
+            bexpr = bexpr.replace('{index_padded}', idx_padded).replace('{index}', str(idx))
+            to_dest = self._resolve_link_list_bind(bexpr, idx, idx_padded)
+
+            temp_widget = Widget(
+                id=f"{widget.id}_item_{i+1}",
+                type="internal_link",
+                page=widget.page,
+                position=type(widget.position)(x=cell_x, y=cell_y, width=cell_w, height=cell_h),
+                content=content,
+                styling=styling,
+                properties={"to_dest": to_dest}
+            )
+            self._render_internal_link(pdf_canvas, temp_widget)
+
+    def _resolve_link_list_bind(self, bind_expr: str, idx: int, idx_padded: str) -> str:
+        """Resolve a simple bind expression for link_list items.
+
+        Supports: notes(@index), year(@index), month(@index), day(@index),
+        generic func(arg) → "func:arg", plus optional #suffix. If arg is
+        '@index' or '@index_padded', it substitutes the current values.
+        """
+        if not isinstance(bind_expr, str) or not bind_expr:
+            return ""
+        import re
+        m = re.match(r'^(\w+)\(([^)]+)\)(#.*)?$', bind_expr)
+        if not m:
+            # No function form; treat as direct destination
+            return bind_expr
+        func, arg, suffix = m.group(1), m.group(2), m.group(3) or ''
+        if arg == '@index':
+            resolved = str(idx)
+        elif arg == '@index_padded':
+            resolved = idx_padded
+        else:
+            resolved = arg
+
+        if func == 'notes':
+            # notes(N) → notes:page:NNN
+            try:
+                return f"notes:page:{int(resolved):03d}{suffix}"
+            except Exception:
+                return f"notes:page:{resolved}{suffix}"
+        if func in ('year', 'month', 'day'):
+            return f"{func}:{resolved}{suffix}"
+        # Generic
+        return f"{func}:{resolved}{suffix}"
 
     def _draw_widget_background(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
         """
@@ -352,13 +524,22 @@ class DeterministicPDFRenderer:
         if font_name is None:
             font_name = 'Helvetica'  # Default font for e-ink devices
             
-        font_size = styling.get('size')
-        if font_size is None:
+        # Coerce font size robustly (string/number)
+        fs_raw = styling.get('size')
+        if fs_raw is None or (isinstance(fs_raw, str) and not fs_raw.strip()):
             font_size = 12.0  # Minimum readable size for e-ink
-            
+        else:
+            try:
+                font_size = float(fs_raw)
+            except Exception:
+                font_size = 12.0
+        
         color = styling.get('color')
         if color is None:
             color = '#000000'  # Pure black for maximum contrast
+        text_align = str(styling.get('text_align', 'left')).lower()
+        if text_align not in ('left', 'center', 'right'):
+            text_align = 'left'
         
         # Enforce constraints
         font_size = self.enforcer.check_font_size(font_size)
@@ -366,6 +547,7 @@ class DeterministicPDFRenderer:
         
         # Convert position for text drawing
         text_pos = self.converter.convert_text_position(widget.position, font_size)
+        box = self.converter.convert_position_for_drawing(widget.position)
         
         # Set text properties (with font registration)
         font_name = ensure_font_registered(font_name)
@@ -389,7 +571,15 @@ class DeterministicPDFRenderer:
             pdf_canvas.setFillColor(HexColor(color))
         except Exception:
             pass
-        pdf_canvas.drawString(text_pos['x'], text_pos['y'], content_text)
+        # Horizontal alignment within the widget box
+        text_width = pdf_canvas.stringWidth(content_text, font_name, font_size)
+        if text_align == 'center':
+            start_x = box['x'] + max(0.0, (box['width'] - text_width) / 2)
+        elif text_align == 'right':
+            start_x = box['x'] + max(0.0, box['width'] - text_width)
+        else:
+            start_x = text_pos['x']
+        pdf_canvas.drawString(start_x, text_pos['y'], content_text)
     
     def _render_checkbox(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
         """Render checkbox widget."""
@@ -551,72 +741,51 @@ class DeterministicPDFRenderer:
         except Exception:
             pass
     
-    def _render_anchor(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
-        """Render anchor link widget (pages-only)."""
+    def _render_internal_link(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
+        """Render text link to a named destination (properties.to_dest)."""
         if not widget.content:
-            return  # Skip empty anchor links
-        
-        # Get styling with explicit validation
+            return
+        props = getattr(widget, 'properties', {}) or {}
+        to_dest = props.get('to_dest')
+        if not to_dest or not isinstance(to_dest, str):
+            raise RenderingError(f"internal_link '{widget.id}': missing properties.to_dest")
+
         styling = getattr(widget, 'styling', {}) or {}
-        font_name = styling.get('font', 'Helvetica')
+        font_name = ensure_font_registered(styling.get('font', 'Helvetica'))
         font_size = self.enforcer.check_font_size(styling.get('size', 12.0))
         color = self.enforcer.validate_color(styling.get('color', '#0066CC'))
-        
-        # Get anchor properties (pages-only)
-        props = getattr(widget, 'properties', {}) or {}
-        target_page = props.get('target_page')
-        
-        # Convert position for text drawing
+        text_align = str(styling.get('text_align', 'left')).lower()
+        if text_align not in ('left', 'center', 'right'):
+            text_align = 'left'
+
         text_pos = self.converter.convert_text_position(widget.position, font_size)
-        
-        # Set text properties (with font registration)
-        font_name = ensure_font_registered(font_name)
+        box = self.converter.convert_position_for_drawing(widget.position)
         pdf_canvas.setFont(font_name, font_size)
         try:
             pdf_canvas.setFillColor(HexColor(color))
         except Exception:
             pass
-        
-        # Calculate link rectangle coordinates for proper text measurement
+
         text_width = pdf_canvas.stringWidth(widget.content, font_name, font_size)
-        link_rect = [
-            text_pos['x'],
-            text_pos['y'] - font_size * 0.2,  # Slightly below baseline
-            text_pos['x'] + text_width,       # Actual text width
-            text_pos['y'] + font_size * 0.8   # Above baseline
-        ]
-        
-        # Validate target page
-        if target_page is None or not isinstance(target_page, int) or target_page < 1:
-            raise RenderingError(
-                f"Anchor widget '{widget.id}': requires positive integer 'target_page'"
-            )
+        # Horizontal alignment within the widget box
+        if text_align == 'center':
+            start_x = box['x'] + max(0.0, (box['width'] - text_width) / 2)
+        elif text_align == 'right':
+            start_x = box['x'] + max(0.0, box['width'] - text_width)
+        else:
+            start_x = text_pos['x']
 
-        total_pages = self._get_total_pages(self._group_widgets_by_page())
-        if target_page > total_pages:
-            raise RenderingError(
-                f"Anchor widget '{widget.id}': target_page {target_page} exceeds total pages {total_pages}"
-            )
-
-        page_bookmark_name = f"Page_{target_page}"
-        pdf_canvas.linkAbsolute(
-            "",
-            page_bookmark_name,
-            Rect=(link_rect[0], link_rect[1], link_rect[2], link_rect[3]),
-            Border='[0 0 0]'
+        link_rect = (
+            start_x,
+            text_pos['y'] - font_size * 0.2,
+            start_x + text_width,
+            text_pos['y'] + font_size * 0.8,
         )
-        
-        # Draw the underlined text
-        pdf_canvas.drawString(text_pos['x'], text_pos['y'], widget.content)
-        
-        # Draw underline using actual text width
+
+        pdf_canvas.linkAbsolute("", to_dest, Rect=link_rect, Border='[0 0 0]')
+        pdf_canvas.drawString(start_x, text_pos['y'], widget.content)
         underline_y = text_pos['y'] - font_size * 0.1
-        pdf_canvas.line(
-            text_pos['x'], 
-            underline_y, 
-            text_pos['x'] + text_width, 
-            underline_y
-        )
+        pdf_canvas.line(start_x, underline_y, start_x + text_width, underline_y)
 
     def _render_tap_zone(self, pdf_canvas: canvas.Canvas, widget: Widget, page_num: int) -> None:
         """Render an invisible tap zone that creates a link rectangle."""
@@ -633,6 +802,12 @@ class DeterministicPDFRenderer:
         )
 
         if rect_pos['width'] <= 0 or rect_pos['height'] <= 0:
+            return
+
+        # Prefer named destination if provided
+        to_dest = props.get('to_dest')
+        if isinstance(to_dest, str) and to_dest.strip():
+            pdf_canvas.linkAbsolute("", to_dest.strip(), Rect=link_rect, Border='[0 0 0]')
             return
 
         if action == 'page_link':
@@ -791,15 +966,21 @@ class DeterministicPDFRenderer:
             raise RenderingError(
                 f"Calendar widget '{widget.id}': missing required property 'start_date'"
             )
-        
-        try:
-            # Parse ISO 8601 date format (YYYY-MM-DD)
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        except ValueError as e:
-            raise RenderingError(
-                f"Calendar widget '{widget.id}': invalid start_date format '{start_date_str}'. "
-                f"Expected YYYY-MM-DD format."
-            ) from e
+        # Parse date with tolerant fallback to support tokenized inputs in preview
+        def _parse_start_date(s: str) -> date:
+            try:
+                return datetime.strptime(s, '%Y-%m-%d').date()
+            except Exception:
+                # Accept YYYY-MM and assume day 1
+                try:
+                    dt = datetime.strptime(s, '%Y-%m')
+                    return date(dt.year, dt.month, 1)
+                except Exception:
+                    # Final fallback: today (non-strict) to keep preview working with tokens
+                    if self.strict_mode:
+                        raise
+                    return datetime.utcnow().date()
+        start_date = _parse_start_date(start_date_str)
         
         # Get styling properties with explicit documented defaults
         font_name = styling.get('font')
@@ -846,10 +1027,10 @@ class DeterministicPDFRenderer:
         link_strategy = props.get('link_strategy')
         if link_strategy is None:
             link_strategy = 'no_links'  # Safe default - no links unless explicitly requested
-        if link_strategy not in ['sequential_pages', 'no_links']:
+        if link_strategy not in ['sequential_pages', 'no_links', 'named_destinations']:
             raise RenderingError(
                 f"Calendar widget '{widget.id}': invalid link_strategy '{link_strategy}'. "
-                f"Supported strategies: sequential_pages, no_links"
+                f"Supported strategies: sequential_pages, named_destinations, no_links"
             )
         
         # Validate link strategy parameters
@@ -911,6 +1092,26 @@ class DeterministicPDFRenderer:
                                first_day_of_week: str, link_strategy: str, 
                                props: Dict[str, Any]) -> None:
         """Render a monthly calendar layout."""
+
+        def _get_float(v: Any, default: float) -> float:
+            try:
+                if v is None:
+                    return default
+                if isinstance(v, str) and not v.strip():
+                    return default
+                return float(v)
+            except Exception:
+                return default
+
+        def _get_int(v: Any, default: int) -> int:
+            try:
+                if v is None:
+                    return default
+                if isinstance(v, str) and not v.strip():
+                    return default
+                return int(v)
+            except Exception:
+                return default
         
         # Get month information
         year = start_date.year
@@ -926,7 +1127,7 @@ class DeterministicPDFRenderer:
         day_label_style = props.get('weekday_label_style', 'short')  # short|narrow|full
         month_name_format = props.get('month_name_format', 'long')   # long|short
         week_numbers = bool(props.get('week_numbers', False))
-        cell_padding = float(props.get('cell_padding', 4.0))
+        cell_padding = _get_float(props.get('cell_padding', 4.0), 4.0)
         
         # Reserve space for headers
         header_height = font_size * 2 if show_month_year else 0
@@ -963,15 +1164,12 @@ class DeterministicPDFRenderer:
             # In strict mode this may raise; bubble up for consistent behavior
             raise
         
-        # Month and year header
+        # Month and year header (locale aware)
         if show_month_year:
-            month_names_long = ['January', 'February', 'March', 'April', 'May', 'June',
-                                'July', 'August', 'September', 'October', 'November', 'December']
-            month_names_short = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                                 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            locale = str(props.get('locale', 'en')).lower()
             # Default to long unless overridden by props
             month_name_format = props.get('month_name_format', 'long')
-            month_names = month_names_long if month_name_format == 'long' else month_names_short
+            month_names = get_month_names(locale, short=(month_name_format != 'long'))
             header_text = f"{month_names[month - 1]} {year}"
             
             # Center the header text
@@ -990,15 +1188,8 @@ class DeterministicPDFRenderer:
         
         # Weekday headers
         if show_weekdays:
-            # Configure weekdays based on locale and style
-            if first_day_of_week == 'monday':
-                base = [('Mon','M','Monday'), ('Tue','T','Tuesday'), ('Wed','W','Wednesday'),
-                        ('Thu','T','Thursday'), ('Fri','F','Friday'), ('Sat','S','Saturday'), ('Sun','S','Sunday')]
-            else:
-                base = [('Sun','S','Sunday'), ('Mon','M','Monday'), ('Tue','T','Tuesday'),
-                        ('Wed','W','Wednesday'), ('Thu','T','Thursday'), ('Fri','F','Friday'), ('Sat','S','Saturday')]
-            idx = 0 if day_label_style == 'short' else (1 if day_label_style == 'narrow' else 2)
-            weekdays = [b[idx] for b in base]
+            locale = str(props.get('locale', 'en')).lower()
+            weekdays = get_weekday_names(locale, style=day_label_style, start=first_day_of_week)
             weekday_y = cal_pos['y'] + calendar_height - header_height - font_size
             
             for i, day_name in enumerate(weekdays):
@@ -1147,6 +1338,27 @@ class DeterministicPDFRenderer:
                         Rect=(link_rect[0], link_rect[1], link_rect[2], link_rect[3]),
                         Border='[0 0 0]'  # No visible border
                     )
+        elif link_strategy == 'named_destinations':
+            # Expect an Anchor on the corresponding day page with dest_id: day:YYYY-MM-DD
+            dest = f"day:{date_obj.isoformat()}"
+            # If we know available destinations and this one doesn't exist, skip to avoid unresolved errors
+            try:
+                if hasattr(self, '_available_dest_ids') and self._available_dest_ids:
+                    if dest not in self._available_dest_ids:
+                        return
+            except Exception:
+                pass
+            try:
+                pdf_canvas.linkAbsolute(
+                    "",
+                    dest,
+                    Rect=(link_rect[0], link_rect[1], link_rect[2], link_rect[3]),
+                    Border='[0 0 0]'
+                )
+            except Exception:
+                # If destination missing, silently skip in non-strict mode
+                if self.strict_mode:
+                    raise
         
         
     
@@ -1158,6 +1370,26 @@ class DeterministicPDFRenderer:
                                first_day_of_week: str, link_strategy: str, 
                                props: Dict[str, Any]) -> None:
         """Render a weekly calendar layout."""
+
+        def _get_float(v: Any, default: float) -> float:
+            try:
+                if v is None:
+                    return default
+                if isinstance(v, str) and not v.strip():
+                    return default
+                return float(v)
+            except Exception:
+                return default
+
+        def _get_int(v: Any, default: int) -> int:
+            try:
+                if v is None:
+                    return default
+                if isinstance(v, str) and not v.strip():
+                    return default
+                return int(v)
+            except Exception:
+                return default
         
         # Calculate the start of the week containing the start date
         start_of_week = start_date
@@ -1195,10 +1427,10 @@ class DeterministicPDFRenderer:
         available_height = max(0.0, available_height)
         show_time_grid = bool(props.get('show_time_grid', False))
         show_time_gutter = bool(props.get('show_time_gutter', False))
-        time_start_hour = int(props.get('time_start_hour', 8))
-        time_end_hour = int(props.get('time_end_hour', 20))
-        time_slot_minutes = int(props.get('time_slot_minutes', 60))
-        time_label_interval = int(props.get('time_label_interval', 60))
+        time_start_hour = _get_int(props.get('time_start_hour', 8), 8)
+        time_end_hour = _get_int(props.get('time_end_hour', 20), 20)
+        time_slot_minutes = _get_int(props.get('time_slot_minutes', 60), 60)
+        time_label_interval = _get_int(props.get('time_label_interval', 60), 60)
         time_start_hour = max(0, min(23, time_start_hour))
         time_end_hour = max(time_start_hour + 1, min(24, time_end_hour))
         time_slot_minutes = max(5, min(120, time_slot_minutes))
@@ -1234,9 +1466,9 @@ class DeterministicPDFRenderer:
         
         # Weekday headers
         if show_weekdays:
-            weekdays = (['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] 
-                       if first_day_of_week == 'monday' 
-                       else ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'])
+            locale = str(props.get('locale', 'en')).lower()
+            day_label_style = props.get('weekday_label_style', 'short')  # short|narrow|full
+            weekdays = get_weekday_names(locale, style=day_label_style, start=first_day_of_week)
             weekday_y = cal_pos['y'] + calendar_height - header_height - font_size
             
             for i, day_name in enumerate(weekdays):
@@ -1253,7 +1485,7 @@ class DeterministicPDFRenderer:
         grid_start_y = cal_pos['y'] + calendar_height - header_height - weekday_height
         
         # Draw weekly calendar grid
-        cell_padding = float(props.get('cell_padding', 4.0))
+        cell_padding = _get_float(props.get('cell_padding', 4.0), 4.0)
         highlight_today = bool(props.get('highlight_today', False))
         highlight_date_str = props.get('highlight_date')
         for day_col in range(7):

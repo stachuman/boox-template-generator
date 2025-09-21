@@ -6,6 +6,7 @@ Follows CLAUDE.md coding standards - no dummy implementations.
 """
 
 from fastapi import APIRouter, HTTPException, status
+import logging
 from fastapi.responses import Response
 
 from ..models import PDFGenerateRequest, PreviewGenerateRequest
@@ -15,6 +16,7 @@ router = APIRouter(prefix="/pdf", tags=["pdf"])
 
 # Initialize PDF service
 pdf_service = PDFService()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/generate")
@@ -32,6 +34,9 @@ async def generate_pdf(request: PDFGenerateRequest) -> Response:
         HTTPException: If generation fails
     """
     try:
+        logger.info("/pdf/generate request: profile=%s deterministic=%s strict=%s yaml_len=%s",
+                    request.profile, request.deterministic, request.strict_mode,
+                    len(request.yaml_content) if isinstance(request.yaml_content, str) else 'n/a')
         pdf_bytes = pdf_service.generate_pdf(
             yaml_content=request.yaml_content,
             profile=request.profile,
@@ -48,6 +53,7 @@ async def generate_pdf(request: PDFGenerateRequest) -> Response:
             }
         )
     except EinkPDFServiceError as e:
+        logger.error("/pdf/generate failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
@@ -69,6 +75,9 @@ async def generate_preview(request: PreviewGenerateRequest) -> Response:
         HTTPException: If generation fails
     """
     try:
+        logger.info("/pdf/preview request: profile=%s page=%s scale=%s yaml_len=%s",
+                    request.profile, request.page_number, request.scale,
+                    len(request.yaml_content) if isinstance(request.yaml_content, str) else 'n/a')
         preview_bytes = pdf_service.generate_preview(
             yaml_content=request.yaml_content,
             profile=request.profile,
@@ -85,6 +94,7 @@ async def generate_preview(request: PreviewGenerateRequest) -> Response:
             }
         )
     except EinkPDFServiceError as e:
+        logger.error("/pdf/preview failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)

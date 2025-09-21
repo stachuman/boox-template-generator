@@ -7,6 +7,7 @@ If a requested font is not available, falls back to safe base-14 fonts.
 
 from pathlib import Path
 from typing import Optional
+import logging
 
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -34,10 +35,16 @@ BASE14 = {
 # Known custom font display name -> TTF filename in assets/fonts
 # Contributors: add your new fonts here and drop .ttf files in assets/fonts/
 KNOWN_FONTS = {
-    # Old typist style
-    "Courier-Prime": "CourierPrime-Regular.ttf",
-    # Handwritten style
-    "Patrick-Hand": "PatrickHand-Regular.ttf",
+    "DejaVu Sans": "DejaVuSans.ttf",
+    "DejaVu Sans Bold": "DejaVuSans-Bold.ttf",
+    "DejaVu Sans Extra Light": "DejaVuSans-ExtraLight.ttf", 
+    "DejaVu Sans Mono": "DejaVuSansMono.ttf",
+    "DejaVu Serif": "DejaVuSerif.ttf",
+    "DejaVu Serif Bold": "DejaVuSerif-Bold.ttf",
+    "DejaVu Serif Italic": "DejaVuSerif-Italic.ttf",
+    "DejaVu Serif Condensed": "DejaVuSerifCondensed.ttf",
+    "DejaVu Serif Condensed Bold": "DejaVuSerifCondensed-Bold.ttf",
+    "DejaVu Serif Condensed Italic": "DejaVuSerifCondensed-Italic.ttf",
 }
 
 
@@ -74,6 +81,10 @@ def ensure_font_registered(font_name: Optional[str]) -> str:
                 return name
         except Exception:
             # Fall back below
+            pass
+        try:
+            logging.getLogger(__name__).warning("Font '%s' mapped to '%s' not loaded; falling back", name, str(font_path))
+        except Exception:
             pass
 
     # Fallback: choose a similar base-14 font

@@ -22,6 +22,20 @@ const PropertiesPanel: React.FC = () => {
     }
   }, [selectedWidget, reset]);
 
+  // Font options loaded from backend assets (must be before any conditional returns)
+  const [fontOptions, setFontOptions] = React.useState<string[]>(['Helvetica','Times-Roman','Courier']);
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { APIClient } = await import('@/services/api');
+        const fonts = await APIClient.getFonts();
+        if (mounted && Array.isArray(fonts) && fonts.length) setFontOptions(fonts);
+      } catch (_) {}
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   const onSubmit = (data: Widget) => {
     if (selectedWidget) {
       updateWidget(selectedWidget.id, data);
@@ -75,6 +89,7 @@ const PropertiesPanel: React.FC = () => {
       case 'checkbox': return Square;
       case 'divider': return Minus;
       case 'lines': return AlignJustify;
+      case 'link_list': return AlignJustify;
       case 'anchor': return Anchor;
       case 'tap_zone': return Anchor;
       default: return Settings;
@@ -82,6 +97,7 @@ const PropertiesPanel: React.FC = () => {
   };
 
   const Icon = getWidgetIcon(selectedWidget.type);
+  // Deprecated static list removed; we fetch from backend assets
 
   return (
     <div className="h-full flex flex-col">
@@ -282,13 +298,7 @@ const PropertiesPanel: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium mb-1">Font</label>
                   <select {...register('styling.font')} className="input-field w-full">
-                    <option value="Helvetica">Helvetica</option>
-                    <option value="Helvetica-Bold">Helvetica Bold</option>
-                    <option value="Times-Roman">Times Roman</option>
-                    <option value="Times-Bold">Times Bold</option>
-                    <option value="Courier">Courier</option>
-                    <option value="Courier-Prime">Courier Prime</option>
-                    <option value="Patrick-Hand">Patrick Hand</option>
+                    {fontOptions.map(f => (<option key={f} value={f}>{f}</option>))}
                   </select>
                 </div>
                 <div>
@@ -308,6 +318,14 @@ const PropertiesPanel: React.FC = () => {
                     {...register('styling.color')}
                     className="input-field w-full h-10"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Text Align</label>
+                  <select {...register('styling.text_align')} className="input-field w-full">
+                    <option value="left">Left</option>
+                    <option value="center">Center</option>
+                    <option value="right">Right</option>
+                  </select>
                 </div>
               </div>
               {/* Extra spacing and cap */}
@@ -339,6 +357,176 @@ const PropertiesPanel: React.FC = () => {
             </div>
           )}
 
+          {/* Link List (composite) */}
+          {selectedWidget.type === 'link_list' && (
+            <div>
+              <h4 className="font-medium mb-3">Link List</h4>
+              {/* Styling */}
+              <div className="space-y-3 mb-4">
+                <h5 className="font-medium">Styling</h5>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Font</label>
+                    <select 
+                      {...register('styling.font')} 
+                      onChange={(e) => handleLiveUpdate('styling.font', e.target.value)}
+                      className="input-field w-full"
+                    >
+                      {fontOptions.map(f => (<option key={f} value={f}>{f}</option>))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Size (pt)</label>
+                    <input
+                      type="number"
+                      min={6}
+                      max={48}
+                      {...register('styling.size', { min: 6, max: 48 })}
+                      onChange={(e) => handleLiveUpdate('styling.size', parseInt(e.target.value) || 12)}
+                      className="input-field w-full"
+                      placeholder="12"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Color</label>
+                  <input
+                    type="color"
+                    {...register('styling.color')}
+                    onChange={(e) => handleLiveUpdate('styling.color', e.target.value)}
+                    className="w-full h-10 border border-eink-pale-gray rounded"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Text Align</label>
+                  <select {...register('styling.text_align')} onChange={(e) => handleLiveUpdate('styling.text_align', e.target.value)} className="input-field w-full">
+                    <option value="left">Left</option>
+                    <option value="center">Center</option>
+                    <option value="right">Right</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* List Options */}
+              <div className="space-y-3">
+                <h5 className="font-medium">List Options</h5>
+                {(!selectedWidget.properties?.bind || String(selectedWidget.properties?.bind).trim() === '') && (
+                  <div className="text-xs text-red-600">
+                    Binding is required. Set <code>bind</code> to a destination expression, e.g. <code>month(@year-@index_padded)</code>.
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Count</label>
+                    <input
+                      type="number"
+                      min={1}
+                      {...register('properties.count', { min: 1 })}
+                      onChange={(e) => handleLiveUpdate('properties.count', Math.max(1, parseInt(e.target.value) || 1))}
+                      className="input-field w-full"
+                      placeholder="10"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Start Index</label>
+                    <input
+                      type="number"
+                      min={1}
+                      {...register('properties.start_index', { min: 1 })}
+                      onChange={(e) => handleLiveUpdate('properties.start_index', Math.max(1, parseInt(e.target.value) || 1))}
+                      className="input-field w-full"
+                      placeholder="1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Index Padding</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={6}
+                      {...register('properties.index_pad', { min: 1, max: 6 })}
+                      onChange={(e) => handleLiveUpdate('properties.index_pad', Math.max(1, parseInt(e.target.value) || 3))}
+                      className="input-field w-full"
+                      placeholder="3"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Columns</label>
+                    <input
+                      type="number"
+                      min={1}
+                      {...register('properties.columns', { min: 1 })}
+                      onChange={(e) => handleLiveUpdate('properties.columns', Math.max(1, parseInt(e.target.value) || 1))}
+                      className="input-field w-full"
+                      placeholder="2"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Gap X (pt)</label>
+                    <input
+                      type="number"
+                      step={1}
+                      min={0}
+                      {...register('properties.gap_x', { min: 0 })}
+                      onChange={(e) => handleLiveUpdate('properties.gap_x', Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="input-field w-full"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Gap Y (pt)</label>
+                    <input
+                      type="number"
+                      step={1}
+                      min={0}
+                      {...register('properties.gap_y', { min: 0 })}
+                      onChange={(e) => handleLiveUpdate('properties.gap_y', Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="input-field w-full"
+                      placeholder="6"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Item Height (pt)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      {...register('properties.item_height')}
+                      onChange={(e) => handleLiveUpdate('properties.item_height', Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="input-field w-full"
+                      placeholder="24 (or leave empty to auto)"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Label Template</label>
+                  <input
+                    type="text"
+                    {...register('properties.label_template')}
+                    onChange={(e) => handleLiveUpdate('properties.label_template', e.target.value)}
+                    className="input-field w-full"
+                    placeholder="Note {index_padded}"
+                  />
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Supports tokens: {'{index}'}, {'{index_padded}'}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Bind Expression</label>
+                  <input
+                    type="text"
+                    {...register('properties.bind')}
+                    onChange={(e) => handleLiveUpdate('properties.bind', e.target.value)}
+                    className="input-field w-full"
+                    placeholder="notes(@index)"
+                  />
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Example: notes(@index) → notes:page:001..; change to day(@index_date)
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Properties (for checkbox) */}
           {selectedWidget.type === 'checkbox' && (
             <div>
@@ -363,13 +551,7 @@ const PropertiesPanel: React.FC = () => {
                     <div>
                       <label className="block text-sm font-medium mb-1">Font</label>
                       <select {...register('styling.font')} onChange={(e) => handleLiveUpdate('styling.font', e.target.value)} className="input-field w-full">
-                        <option value="Helvetica">Helvetica</option>
-                        <option value="Helvetica-Bold">Helvetica Bold</option>
-                        <option value="Times-Roman">Times Roman</option>
-                        <option value="Times-Bold">Times Bold</option>
-                        <option value="Courier">Courier</option>
-                        <option value="Courier-Prime">Courier Prime</option>
-                        <option value="Patrick-Hand">Patrick Hand</option>
+                        {fontOptions.map(f => (<option key={f} value={f}>{f}</option>))}
                       </select>
                     </div>
                     <div>
@@ -783,66 +965,34 @@ const PropertiesPanel: React.FC = () => {
             <div>
               <h4 className="font-medium mb-3">Anchor Properties</h4>
               <div className="space-y-3">
-                {/* Anchor styling controls */}
                 <div>
-                  <h5 className="font-medium mb-2">Styling</h5>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Font</label>
-                      <select 
-                        {...register('styling.font')} 
-                        onChange={(e) => handleLiveUpdate('styling.font', e.target.value)}
-                        className="input-field w-full"
-                      >
-                        <option value="Helvetica">Helvetica</option>
-                        <option value="Helvetica-Bold">Helvetica Bold</option>
-                        <option value="Times-Roman">Times Roman</option>
-                        <option value="Times-Bold">Times Bold</option>
-                        <option value="Courier">Courier</option>
-                        <option value="Courier-Prime">Courier Prime</option>
-                        <option value="Patrick-Hand">Patrick Hand</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Size (pt)</label>
-                      <input
-                        type="number"
-                        min="6"
-                        max="48"
-                        {...register('styling.size', { min: 6, max: 48 })}
-                        onChange={(e) => handleLiveUpdate('styling.size', parseInt(e.target.value) || 12)}
-                        className="input-field w-full"
-                        placeholder="12"
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-2">
-                    <label className="block text-sm font-medium mb-1">Color</label>
-                    <input
-                      type="color"
-                      {...register('styling.color')}
-                      onChange={(e) => handleLiveUpdate('styling.color', e.target.value)}
-                      className="w-full h-10 border border-eink-pale-gray rounded"
-                    />
-                    <p className="text-xs text-eink-light-gray mt-1">
-                      Link color (blue appears as gray on e-ink)
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Target Page</label>
+                  <label className="block text-sm font-medium mb-1">Destination ID</label>
                   <input
-                    type="number"
-                    min="1"
-                    {...register('properties.target_page', { min: 1 })}
-                    onChange={(e) => handleLiveUpdate('properties.target_page', parseInt(e.target.value) || 1)}
+                    type="text"
+                    {...register('properties.dest_id')}
+                    onChange={(e) => handleLiveUpdate('properties.dest_id', e.target.value)}
                     className="input-field w-full"
-                    placeholder="1"
+                    placeholder="e.g., notes:page:{index_padded} or day:2026-01-01"
                   />
+                  {/* Lint: warn if '@' used in dest_id (IDs must not contain @) */}
+                  {selectedWidget.properties?.dest_id?.includes?.('@') && (
+                    <p className="text-xs mt-1 text-red-600">
+                      Destination IDs cannot contain '@'. Use tokens like {'{year}'} in dest_id, and use @vars only inside bind(...).
+                    </p>
+                  )}
                   <p className="text-xs text-eink-light-gray mt-1">
-                    Page number to navigate to
+                    Named destination for internal links (used during compile)
                   </p>
                 </div>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedWidget.properties?.outline !== false}
+                    onChange={(e) => handleLiveUpdate('properties.outline', e.target.checked)}
+                    className="rounded border-eink-pale-gray"
+                  />
+                  <span className="text-sm">Show outline in editor</span>
+                </label>
               </div>
             </div>
           )}
@@ -860,13 +1010,7 @@ const PropertiesPanel: React.FC = () => {
                     onChange={(e) => handleLiveUpdate('styling.font', e.target.value)}
                     className="input-field w-full"
                   >
-                    <option value="Helvetica">Helvetica</option>
-                    <option value="Helvetica-Bold">Helvetica Bold</option>
-                    <option value="Times-Roman">Times Roman</option>
-                    <option value="Times-Bold">Times Bold</option>
-                    <option value="Courier">Courier</option>
-                    <option value="Courier-Prime">Courier Prime</option>
-                    <option value="Patrick-Hand">Patrick Hand</option>
+                    {fontOptions.map(f => (<option key={f} value={f}>{f}</option>))}
                   </select>
                   <p className="text-xs text-eink-light-gray mt-1">
                     Font family for calendar text
@@ -1071,30 +1215,31 @@ const PropertiesPanel: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium mb-1">Start Date</label>
                   <input
-                    type="date"
+                    type="text"
                     {...register('properties.start_date')}
                     onChange={(e) => handleLiveUpdate('properties.start_date', e.target.value)}
                     className="input-field w-full"
-                    required
+                    placeholder="YYYY-MM-DD or tokens like {year}-{month_padded}-01"
                   />
                   <p className="text-xs text-eink-light-gray mt-1">
-                    First date to display in calendar
+                    Accepts exact date (YYYY-MM-DD) or tokens: {'{year}'}, {'{month_padded}'}, {'{day_padded}'}
                   </p>
                 </div>
 
                 {selectedWidget.properties?.calendar_type === 'custom_range' && (
                   <div>
                     <label className="block text-sm font-medium mb-1">End Date</label>
-                    <input
-                      type="date"
-                      {...register('properties.end_date')}
-                      onChange={(e) => handleLiveUpdate('properties.end_date', e.target.value)}
-                      className="input-field w-full"
-                    />
-                    <p className="text-xs text-eink-light-gray mt-1">
-                      Last date to display (for custom ranges)
-                    </p>
-                  </div>
+                  <input
+                    type="text"
+                    {...register('properties.end_date')}
+                    onChange={(e) => handleLiveUpdate('properties.end_date', e.target.value)}
+                    className="input-field w-full"
+                    placeholder="YYYY-MM-DD or tokens"
+                  />
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Last date to display (for custom ranges)
+                  </p>
+                </div>
                 )}
 
                 <div>
@@ -1105,10 +1250,11 @@ const PropertiesPanel: React.FC = () => {
                     className="input-field w-full"
                   >
                     <option value="no_links">No Links</option>
-                    <option value="sequential_pages">Sequential Pages</option>
+                    <option value="sequential_pages">Sequential Pages (Page_N bookmarks)</option>
+                    <option value="named_destinations">Named Destinations (requires day anchors)</option>
                   </select>
                   <p className="text-xs text-eink-light-gray mt-1">
-                    How calendar dates should link to content
+                    Sequential Pages links to bookmarks like Page_2. Named Destinations expects an Anchor on day pages with dest_id "day:{'{'}date{'}'}".
                   </p>
                 </div>
 

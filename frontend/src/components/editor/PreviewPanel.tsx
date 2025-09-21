@@ -159,10 +159,12 @@ const PreviewPanel: React.FC = () => {
             <button
               onClick={requestPreview}
               disabled={!canGeneratePreview || loading}
-              className="p-1 rounded hover:bg-eink-pale-gray disabled:opacity-50"
-              title="Refresh preview"
+              className="px-2 py-1 rounded hover:bg-eink-pale-gray disabled:opacity-50 flex items-center gap-1"
+              title={loading ? 'Generating…' : 'Refresh preview'}
+              aria-label={loading ? 'Generating…' : 'Refresh preview'}
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="text-xs hidden sm:inline">{loading ? 'Generating…' : 'Refresh'}</span>
             </button>
             
             {previewImage && (
@@ -257,8 +259,8 @@ const PreviewPanel: React.FC = () => {
             <div>
               <Eye className="w-8 h-8 text-eink-light-gray mx-auto mb-2" />
               <p className="text-eink-gray mb-4">No preview available</p>
-              <button onClick={requestPreview} className="btn-primary text-sm">
-                Generate Preview
+              <button onClick={requestPreview} className="btn-primary text-sm" disabled={loading}>
+                {loading ? 'Generating…' : 'Generate Preview'}
               </button>
             </div>
           </div>

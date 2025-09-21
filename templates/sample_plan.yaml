@@ -1,0 +1,16 @@
+name: "Simple Daily Planner"
+description: "Test plan with day pages"
+category: "planner"
+author: "plan_compiler"
+profile: "boox-note-air-4c"
+
+plan:
+  calendar:
+    start_date: "2026-01-01"
+    end_date: "2026-01-03"
+    pages_per_day: 1
+
+  sections:
+    - kind: "day_page"
+      master: "DayPage"
+      generate: "each_day"

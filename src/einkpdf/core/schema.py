@@ -8,6 +8,7 @@ All models enforce the production standards defined in CLAUDE.md.
 
 from enum import Enum
 from typing import List, Dict, Any, Optional, Union
+from datetime import date
 from pydantic import BaseModel, Field, validator
 
 
@@ -147,7 +148,7 @@ class Widget(BaseModel):
     """Base widget with position and common properties."""
     id: str = Field(..., min_length=1, pattern=r"^[a-zA-Z0-9_-]+$")
     type: str = Field(..., min_length=1)
-    page: int = Field(1, ge=1, le=100)
+    page: int = Field(1, ge=1, le=10000)
     position: Position
     background_color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$", description="Background color as hex value")
 
@@ -166,14 +167,14 @@ class Master(BaseModel):
 
 class PageAssignment(BaseModel):
     """Assign a master to a specific page."""
-    page: int = Field(..., ge=1, le=100)
+    page: int = Field(..., ge=1, le=10000)
     master_id: str = Field(..., min_length=1, pattern=r"^[a-zA-Z0-9_-]+$")
 
 
 class NamedDestination(BaseModel):
     """PDF named destination for navigation."""
-    id: str = Field(..., min_length=1, pattern=r"^[a-zA-Z0-9_-]+$")
-    page: int = Field(1, ge=1, le=100)
+    id: str = Field(..., min_length=1, pattern=r"^[a-zA-Z0-9_:.{}-]+$")
+    page: int = Field(1, ge=1, le=10000)
     x: float = Field(..., ge=0)
     y: float = Field(..., ge=0) 
     fit: FitMode = Field(FitMode.FIT_H)
@@ -268,4 +269,195 @@ class Template(BaseModel):
             if pa.page in pages_seen:
                 raise ValueError(f"Multiple master assignments for page {pa.page}")
             pages_seen.add(pa.page)
+        return v
+
+
+# ---- Plan Compiler Schema Models ----
+
+class CalendarPlan(BaseModel):
+    """Calendar configuration for plan compiler."""
+    start_date: Union[date, str] = Field(..., description="Calendar start date (ISO format)")
+    end_date: Optional[Union[date, str]] = Field(None, description="Calendar end date (ISO format)")
+    weeks: str = Field("iso", pattern=r"^(iso|us|mon|sun)$", description="Week start convention")
+    pages_per_day: int = Field(1, ge=1, le=5, description="Number of pages per day")
+
+    @validator("start_date", "end_date", pre=True)
+    def validate_dates(cls, v):
+        """Convert string dates to date objects."""
+        if isinstance(v, str):
+            try:
+                return date.fromisoformat(v)
+            except ValueError:
+                raise ValueError(f"Invalid date format: {v}. Use YYYY-MM-DD format.")
+        return v
+
+    @validator("end_date")
+    def validate_end_after_start(cls, v, values):
+        """Ensure end_date is after start_date."""
+        if v is not None and "start_date" in values:
+            start = values["start_date"]
+            if isinstance(start, date) and isinstance(v, date) and v < start:
+                raise ValueError("end_date must be after start_date")
+        return v
+
+
+class SectionSpec(BaseModel):
+    """Section specification for plan compiler."""
+    kind: str = Field(..., pattern=r"^(month_index|week_index|day_page|notes_index|notes_pages)$")
+    master: str = Field(..., min_length=1, description="Master template name")
+    generate: str = Field(..., pattern=r"^(each_month|each_week|each_day|once|count)$")
+    pages_per_item: Optional[int] = Field(None, ge=1, le=5, description="Pages per generated item")
+    count: Optional[int] = Field(None, ge=1, le=1000, description="Count for generate=count")
+
+    @validator("count")
+    def validate_count_for_generate(cls, v, values):
+        """Ensure count is provided when generate=count."""
+        if values.get("generate") == "count" and v is None:
+            raise ValueError("count must be specified when generate=count")
+        return v
+
+    @validator("pages_per_item")
+    def validate_pages_per_item_for_day(cls, v, values):
+        """pages_per_item only applies to day_page sections."""
+        if v is not None and values.get("kind") != "day_page":
+            raise ValueError("pages_per_item only applies to day_page sections")
+        return v
+
+
+class PlanDocument(BaseModel):
+    """Complete plan document for template compilation."""
+    plan: Dict[str, Any] = Field(..., description="Plan configuration")
+    name: Optional[str] = Field(None, max_length=100, description="Template name")
+    description: Optional[str] = Field("", max_length=500, description="Template description")
+    category: Optional[str] = Field("planner", max_length=50, description="Template category")
+    author: Optional[str] = Field("", max_length=100, description="Template author")
+    created: Optional[str] = Field(None, description="Creation timestamp")
+    profile: Optional[str] = Field("boox-note-air-4c", description="Device profile")
+    canvas: Optional[Dict[str, Any]] = Field(None, description="Canvas configuration")
+
+    @validator("plan")
+    def validate_plan_structure(cls, v):
+        """Validate plan structure."""
+        if not isinstance(v, dict):
+            raise ValueError("plan must be a dictionary")
+
+        if "calendar" not in v:
+            raise ValueError("plan must contain calendar section")
+
+        if "sections" not in v:
+            raise ValueError("plan must contain sections list")
+
+        # Validate calendar
+        try:
+            CalendarPlan.model_validate(v["calendar"])
+        except Exception as e:
+            raise ValueError(f"Invalid calendar configuration: {e}")
+
+        # Validate sections
+        if not isinstance(v["sections"], list):
+            raise ValueError("plan.sections must be a list")
+
+        try:
+            for section in v["sections"]:
+                SectionSpec.model_validate(section)
+        except Exception as e:
+            raise ValueError(f"Invalid section specification: {e}")
+
+        return v
+
+
+class BindSpec(BaseModel):
+    """Binding specification for parametric links."""
+    type: str = Field(..., pattern=r"^(day|week|month|notes|section)$")
+    day: Optional[str] = Field(None, description="Day reference (ISO date or @token)")
+    week: Optional[str] = Field(None, description="Week reference (ISO week or @token)")
+    month: Optional[str] = Field(None, description="Month reference (YYYY-MM or @token)")
+    section: Optional[str] = Field(None, description="Section slug")
+    notes_index: Optional[bool] = Field(None, description="Link to notes index")
+    page_index: Optional[Union[int, str]] = Field(None, description="Page index (1-based or @token)")
+    offset_days: Optional[int] = Field(0, description="Day offset for relative navigation")
+
+    @validator("day")
+    def validate_day_for_type(cls, v, values):
+        """Ensure day is provided when type=day."""
+        if values.get("type") == "day" and v is None:
+            raise ValueError("day must be specified when type=day")
+        return v
+
+    @validator("week")
+    def validate_week_for_type(cls, v, values):
+        """Ensure week is provided when type=week."""
+        if values.get("type") == "week" and v is None:
+            raise ValueError("week must be specified when type=week")
+        return v
+
+    @validator("month")
+    def validate_month_for_type(cls, v, values):
+        """Ensure month is provided when type=month."""
+        if values.get("type") == "month" and v is None:
+            raise ValueError("month must be specified when type=month")
+        return v
+
+
+class MasterWidget(BaseModel):
+    """Widget definition in master template."""
+    id: str = Field(..., min_length=1, pattern=r"^[a-zA-Z0-9_-]+$")
+    type: str = Field(..., min_length=1, description="Widget type")
+    position: Position
+    content: Optional[str] = Field(None, description="Widget content with tokens")
+    styling: Optional[Dict[str, Any]] = Field(None, description="Widget styling")
+    properties: Optional[Dict[str, Any]] = Field(None, description="Widget properties")
+    when: Optional[str] = Field(None, description="Conditional inclusion expression")
+
+    @validator("properties")
+    def validate_properties(cls, v):
+        """Validate properties structure."""
+        if v is None:
+            return v
+
+        # Validate bind if present
+        if "bind" in v:
+            bind = v["bind"]
+            if isinstance(bind, dict):
+                try:
+                    BindSpec.model_validate(bind)
+                except Exception as e:
+                    raise ValueError(f"Invalid bind specification: {e}")
+            elif isinstance(bind, str):
+                # String bind format validation
+                import re
+                if not re.match(r"(\w+)\(([^)]+)\)(?:#(\d+))?", bind):
+                    raise ValueError(f"Invalid bind string format: {bind}")
+
+        return v
+
+
+class MasterTemplate(BaseModel):
+    """Master template definition."""
+    name: str = Field(..., min_length=1, max_length=100, description="Master template name")
+    page_size: Optional[str] = Field("A4", description="Page size")
+    tokens: Optional[List[str]] = Field(default_factory=list, description="Available tokens")
+    widgets: List[MasterWidget] = Field(default_factory=list, description="Master widgets")
+
+    @validator("widgets")
+    def validate_unique_widget_ids(cls, v):
+        """Ensure all widget IDs are unique within master."""
+        ids = [widget.id for widget in v]
+        if len(ids) != len(set(ids)):
+            duplicate_ids = [id for id in ids if ids.count(id) > 1]
+            raise ValueError(f"Duplicate widget IDs in master: {duplicate_ids}")
+        return v
+
+
+class MasterLibrary(BaseModel):
+    """Master template library."""
+    masters: List[MasterTemplate] = Field(default_factory=list, description="Master templates")
+
+    @validator("masters")
+    def validate_unique_master_names(cls, v):
+        """Ensure all master names are unique."""
+        names = [master.name for master in v]
+        if len(names) != len(set(names)):
+            duplicate_names = [name for name in names if names.count(name) > 1]
+            raise ValueError(f"Duplicate master names: {duplicate_names}")
         return v

@@ -11,7 +11,7 @@ import { Type, Square, Minus, AlignJustify, Anchor, Calendar } from 'lucide-reac
 import clsx from 'clsx';
 
 interface WidgetType {
-  type: 'text_block' | 'checkbox' | 'divider' | 'lines' | 'anchor' | 'calendar' | 'tap_zone' | 'image';
+  type: 'text_block' | 'checkbox' | 'divider' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list';
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
@@ -39,6 +39,30 @@ const WIDGET_TYPES: WidgetType[] = [
         font: 'Helvetica',
         size: 12,
         color: '#000000'
+      }
+    }
+  },
+  {
+    type: 'link_list',
+    label: 'Link List',
+    icon: AlignJustify,
+    description: 'Composite list of internal links (auto layout)',
+    defaultProps: {
+      position: { width: 320, height: 160 },
+      styling: {
+        font: 'Helvetica',
+        size: 12,
+        color: '#0066CC'
+      },
+      properties: {
+        count: 10,
+        start_index: 1,
+        index_pad: 3,
+        columns: 2,
+        gap_y: 6,
+        item_height: 24,
+        label_template: 'Note {index_padded}',
+        bind: 'notes(@index)'
       }
     }
   },
@@ -147,19 +171,32 @@ const WIDGET_TYPES: WidgetType[] = [
   },
   {
     type: 'anchor',
-    label: 'Anchor Link',
+    label: 'Anchor (Destination)',
     icon: Anchor,
-    description: 'Navigation link to page or bookmark',
+    description: 'Named destination marker (invisible)',
     defaultProps: {
-      content: 'Link Text',
-      position: { width: 100, height: 24 },
+      content: '',
+      position: { width: 1, height: 1 },
+      properties: {
+        dest_id: 'day:2026-01-01'
+      }
+    }
+  },
+  {
+    type: 'internal_link',
+    label: 'Internal Link',
+    icon: Anchor,
+    description: 'Text link to a named destination',
+    defaultProps: {
+      content: 'Internal Link',
+      position: { width: 140, height: 24 },
       styling: {
         font: 'Patrick-Hand',
         size: 12,
         color: '#0066CC'
       },
       properties: {
-        target_page: 1
+        to_dest: 'notes:index'
       }
     }
   },

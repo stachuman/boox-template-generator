@@ -10,7 +10,7 @@ import { useParams } from 'react-router-dom';
 
 import { useEditorStore } from '@/stores/editorStore';
 import { APIClient, APIClientError } from '@/services/api';
-import { DeviceProfile } from '@/types';
+import { DeviceProfile, Template } from '@/types';
 
 import Toolbar from './editor/Toolbar';
 import WidgetPalette from './editor/WidgetPalette';
@@ -18,8 +18,23 @@ import PageManager from './editor/PageManager';
 import Canvas from './editor/Canvas';
 import PropertiesPanel from './editor/PropertiesPanel';
 import PreviewPanel from './editor/PreviewPanel';
+import CompilePanel from './editor/CompilePanel';
 
-const TemplateEditor: React.FC = () => {
+interface TemplateEditorProps {
+  yamlContent?: string;
+  onTemplateChange?: (template: Template | null, yamlContent: string) => void;
+  projectProfile?: string;
+  hidePageManager?: boolean;
+  hideCompilePanel?: boolean;
+}
+
+const TemplateEditor: React.FC<TemplateEditorProps> = ({
+  yamlContent,
+  onTemplateChange,
+  projectProfile,
+  hidePageManager = false,
+  hideCompilePanel = false
+}) => {
   const { templateId } = useParams<{ templateId: string }>();
   
   const {
@@ -48,6 +63,8 @@ const TemplateEditor: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [compiledYaml, setCompiledYaml] = useState<string | null>(null);
+  const [showCompile, setShowCompile] = useState(false);
 
   useEffect(() => {
     loadProfiles();
@@ -56,21 +73,44 @@ const TemplateEditor: React.FC = () => {
       // Reset then load the requested template to avoid residual state
       resetEditor();
       loadTemplate(templateId);
+    } else if (yamlContent) {
+      // Project-based mode: load from yamlContent prop
+      try {
+        const template = JSON.parse(yamlContent) as Template;
+        setCurrentTemplate(template);
+        setLoading(false);
+      } catch (err) {
+        setError('Invalid template YAML');
+        setLoading(false);
+      }
     } else {
       // New template flow: hard reset to default empty template
       resetEditor();
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateId]);
+  }, [templateId, yamlContent]);
+
+  // Call onTemplateChange when template changes (for project-based mode)
+  useEffect(() => {
+    if (onTemplateChange && currentTemplate) {
+      const yamlString = JSON.stringify(currentTemplate, null, 2);
+      onTemplateChange(currentTemplate, yamlString);
+    }
+  }, [currentTemplate, onTemplateChange]);
 
   const loadProfiles = async () => {
     try {
       const profilesData = await APIClient.getProfiles();
       setProfiles(profilesData);
-      
-      // Set default profile if none selected
-      if (!activeProfile && profilesData.length > 0) {
+
+      // Set project profile if provided, otherwise use default
+      if (projectProfile) {
+        const profile = profilesData.find(p => p.name === projectProfile);
+        if (profile) {
+          setActiveProfile(profile);
+        }
+      } else if (!activeProfile && profilesData.length > 0) {
         setActiveProfile(profilesData[0]);
       }
     } catch (err) {
@@ -119,9 +159,8 @@ const TemplateEditor: React.FC = () => {
     try {
       setSaving(true);
       
-      // Convert template to YAML
-      // Note: In a real implementation, you'd need a YAML serializer
-      const yamlContent = JSON.stringify(currentTemplate, null, 2); // Placeholder
+      // Prefer compiled YAML if available (fully resolved). Otherwise, JSON placeholder.
+      const yamlContent = compiledYaml || JSON.stringify(currentTemplate, null, 2);
       
       if (templateId) {
         // Update existing template
@@ -160,8 +199,12 @@ const TemplateEditor: React.FC = () => {
     }
 
     try {
-      // Convert template to YAML
-      const yamlContent = JSON.stringify(currentTemplate, null, 2); // Placeholder
+      // Export requires resolved YAML. Use compiled YAML from Build.
+      if (!compiledYaml) {
+        alert('Please click Build, then Compile & Open before exporting the final PDF.');
+        return;
+      }
+      const yamlContent = compiledYaml;
       
       const pdfBlob = await APIClient.generatePDF({
         yaml_content: yamlContent,
@@ -222,8 +265,9 @@ const TemplateEditor: React.FC = () => {
         currentTemplate={currentTemplate}
         onProfileChange={setActiveProfile}
         onTemplateMetadataUpdate={updateTemplateMetadata}
-        onSave={handleSave}
-        onExportPDF={handleExportPDF}
+        onSave={onTemplateChange ? undefined : handleSave}
+        onExportPDF={onTemplateChange ? undefined : handleExportPDF}
+        onOpenCompile={onTemplateChange || hideCompilePanel ? undefined : () => setShowCompile(true)}
         saving={saving}
         showGrid={showGrid}
         onToggleGrid={() => setShowGrid(!showGrid)}
@@ -233,8 +277,10 @@ const TemplateEditor: React.FC = () => {
         showPagesPanel={showPagesPanel}
         showRightPanel={showRightPanel}
         onToggleWidgetPalette={() => setShowWidgetPalette(!showWidgetPalette)}
-        onTogglePagesPanel={() => setShowPagesPanel(!showPagesPanel)}
+        onTogglePagesPanel={hidePageManager ? undefined : () => setShowPagesPanel(!showPagesPanel)}
         onToggleRightPanel={() => setShowRightPanel(!showRightPanel)}
+        hideProfileSelector={!!onTemplateChange}
+        hidePreviewButton={!!onTemplateChange}
         selectedCount={selectedIds?.length || 0}
         onAlignLeft={() => alignSelected('left')}
         onAlignCenter={() => alignSelected('center')}
@@ -258,7 +304,7 @@ const TemplateEditor: React.FC = () => {
         )}
 
         {/* Page Management Panel */}
-        {showPagesPanel && <PageManager />}
+        {showPagesPanel && !hidePageManager && <PageManager />}
 
         {/* Center - Canvas Area */}
         <div className="flex-1 flex flex-col">
@@ -278,6 +324,24 @@ const TemplateEditor: React.FC = () => {
           </div>
         )}
       </div>
+      {showCompile && !hideCompilePanel && (
+        <CompilePanel
+          onClose={() => setShowCompile(false)}
+          onApplyTemplate={(parsed, yaml) => {
+            setCurrentTemplate(parsed as any);
+            setCompiledYaml(yaml);
+            // If compiled template has a profile, reflect it into activeProfile
+            try {
+              const profName = (parsed as any)?.metadata?.profile;
+              if (profName && profiles.length) {
+                const prof = profiles.find(p => p.name === profName);
+                if (prof) setActiveProfile(prof);
+              }
+            } catch {}
+            setShowCompile(false);
+          }}
+        />
+      )}
     </div>
   );
 };

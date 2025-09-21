@@ -38,9 +38,14 @@ export interface TextStyling {
   font?: string;
   size?: number;
   color?: string;
+  text_align?: 'left' | 'center' | 'right';
 }
 
 export interface WidgetProperties {
+  // Named destination primitives (renderer/plan-compiler)
+  dest_id?: string;    // for anchor widgets
+  to_dest?: string;    // for internal links or tap zones
+  bind?: any;          // opaque binding consumed by plan compiler
   checkbox_size?: number;
   line_spacing?: number;
   line_count?: number;
@@ -82,7 +87,7 @@ export interface WidgetProperties {
 
 export interface Widget {
   id: string;
-  type: 'text_block' | 'checkbox' | 'divider' | 'lines' | 'anchor' | 'calendar' | 'tap_zone' | 'image';
+  type: 'text_block' | 'checkbox' | 'divider' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list';
   page: number;
   content?: string;
   position: Position;
@@ -159,6 +164,159 @@ export interface APIError {
     message: string;
     value: any;
   }>;
+}
+
+// ---- Project-Based Architecture Types ----
+
+export type RepeatMode = 'once' | 'each_day' | 'each_week' | 'each_month' | 'count';
+
+export interface ProjectMetadata {
+  name: string;
+  description: string;
+  category: string;
+  author: string;
+  device_profile: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NamedPage {
+  name: string;
+  description: string;
+  template: Template;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompilationRule {
+  page_name: string;
+  repeat_mode: RepeatMode;
+  start_date?: string;
+  end_date?: string;
+  count?: number;
+  context_rules: Record<string, string>;
+  order: number;
+}
+
+export interface LinkResolution {
+  mode: 'named_destinations' | 'page_numbers';
+  destination_patterns: Record<string, string>;
+  generate_outlines: boolean;
+  generate_month_links: boolean;
+  generate_day_links: boolean;
+}
+
+// Master/Plan Architecture Types
+export interface Master {
+  name: string;
+  description: string;
+  widgets: Widget[];
+  created_at: string;
+  updated_at: string;
+}
+
+export enum GenerateMode {
+  ONCE = 'once',
+  EACH_DAY = 'each_day',
+  EACH_MONTH = 'each_month',
+  COUNT = 'count'
+}
+
+export interface PlanSection {
+  kind: string;
+  master: string;
+  generate: GenerateMode;
+  start_date?: string;
+  end_date?: string;
+  count?: number;
+  context?: Record<string, any>;
+}
+
+export interface CalendarConfig {
+  start_date: string;
+  end_date: string;
+  pages_per_day: number;
+}
+
+export interface Plan {
+  calendar: CalendarConfig;
+  sections: PlanSection[];
+  order: string[];
+  locale?: string;
+}
+
+export interface BindingContext {
+  [key: string]: any;
+}
+
+export interface Project {
+  id: string;
+  metadata: ProjectMetadata;
+  masters: Master[];
+  plan: Plan;
+  link_resolution: LinkResolution;
+  default_canvas: Record<string, any>;
+}
+
+export interface ProjectListItem {
+  id: string;
+  name: string;
+  description: string;
+  masters_count: number;
+  plan_sections_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompilationResult {
+  template_yaml: string;
+  compilation_stats: Record<string, any>;
+}
+
+// Request types for project API
+export interface CreateProjectRequest {
+  name: string;
+  description?: string;
+  device_profile?: string;
+  author?: string;
+  category?: string;
+}
+
+export interface UpdateProjectRequest {
+  name?: string;
+  description?: string;
+  device_profile?: string;
+  author?: string;
+  category?: string;
+}
+
+export interface AddPageRequest {
+  name: string;
+  template_yaml: string;
+  description?: string;
+}
+
+export interface UpdatePageRequest {
+  template_yaml?: string;
+  new_name?: string;
+  description?: string;
+}
+
+export interface UpdateCompilationRulesRequest {
+  rules: CompilationRule[];
+}
+
+// Master/Plan API Request Types
+export interface AddMasterRequest {
+  name: string;
+  template_yaml: string;
+  description?: string;
+}
+
+export interface UpdateMasterRequest {
+  template_yaml?: string;
+  new_name?: string;
+  description?: string;
 }
 
 export interface WebSocketMessage {

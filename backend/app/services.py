@@ -27,6 +27,9 @@ except ImportError as e:
     raise ImportError(f"Failed to import einkpdf library: {e}. Ensure the parent project is properly set up.")
 
 from .models import TemplateResponse, DeviceProfileResponse
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class EinkPDFServiceError(Exception):
@@ -399,38 +402,91 @@ class TemplateService:
 class PDFService:
     """Service for PDF generation operations."""
     
-    def generate_pdf(self, yaml_content: str, profile: str, 
+    def __init__(self):
+        # Simple in-memory LRU cache for generated PDFs used by preview
+        # key: sha256(yaml + profile + flags) -> bytes
+        from collections import OrderedDict
+        self._pdf_cache = OrderedDict()
+        self._pdf_cache_max = 4  # keep a few recent versions
+    
+    def generate_pdf(self, yaml_content: str, profile: str,
                     deterministic: bool = True, strict_mode: bool = False) -> bytes:
         """
         Generate PDF from YAML template.
-        
+
         Args:
             yaml_content: YAML template content
             profile: Device profile name
             deterministic: Generate deterministic PDF
             strict_mode: Fail on constraint violations
-            
+
         Returns:
             PDF content as bytes
-            
+
         Raises:
             EinkPDFServiceError: If generation fails
         """
+        logger.info(
+            "PDFService.generate_pdf start: profile=%s strict=%s deterministic=%s yaml_len=%s",
+            profile, strict_mode, deterministic, len(yaml_content) if isinstance(yaml_content, str) else 'n/a'
+        )
         try:
             template = parse_yaml_template(yaml_content)
         except (TemplateParseError, SchemaValidationError) as e:
+            logger.error("Template validation failed: %s", e)
             raise EinkPDFServiceError(f"Invalid template YAML: {e}")
-        
+
+        # Check for empty templates
+        if not template.widgets:
+            logger.error("Template has no widgets - cannot generate PDF")
+            raise EinkPDFServiceError("Template has no widgets - cannot generate PDF")
+
         try:
+            # Preview/cache optimization: reuse identical PDF by content/profile/flags
+            try:
+                import hashlib
+                key_src = (
+                    (yaml_content.encode('utf-8') if isinstance(yaml_content, str) else yaml_content)
+                    + f"|{profile}|d={int(bool(deterministic))}|s={int(bool(strict_mode))}".encode('utf-8')
+                )
+                cache_key = hashlib.sha256(key_src).hexdigest()
+            except Exception:
+                cache_key = None
+
+            if cache_key and cache_key in self._pdf_cache:
+                # Move to end (most recently used)
+                pdf_bytes = self._pdf_cache.pop(cache_key)
+                self._pdf_cache[cache_key] = pdf_bytes
+                logger.info("Using cached PDF for preview/profile=%s", profile)
+                return pdf_bytes
+
+            logger.info("Rendering template: widgets=%d profile_name=%s", len(template.widgets), profile)
             pdf_bytes = render_template(
                 template=template,
                 profile_name=profile,
                 strict_mode=strict_mode,
                 deterministic=deterministic
             )
+            logger.info("PDF generation OK: bytes=%d", len(pdf_bytes) if pdf_bytes else 0)
+            # Store in cache
+            if cache_key:
+                try:
+                    from collections import OrderedDict
+                    if cache_key in self._pdf_cache:
+                        self._pdf_cache.pop(cache_key)
+                    self._pdf_cache[cache_key] = pdf_bytes
+                    # Enforce LRU size
+                    while len(self._pdf_cache) > self._pdf_cache_max:
+                        self._pdf_cache.popitem(last=False)
+                except Exception:
+                    pass
             return pdf_bytes
         except RenderingError as e:
+            logger.exception("PDF rendering error: %s", e)
             raise EinkPDFServiceError(f"PDF generation failed: {e}")
+        except Exception as e:
+            logger.exception("Unexpected error during PDF generation: %s", e)
+            raise EinkPDFServiceError(f"Unexpected error during PDF generation: {e}")
     
     def generate_preview(self, yaml_content: str, profile: str, 
                         page_number: int = 1, scale: float = 2.0) -> bytes:
@@ -449,6 +505,7 @@ class PDFService:
         Raises:
             EinkPDFServiceError: If preview generation fails
         """
+        logger.info("PDFService.generate_preview start: profile=%s page=%s scale=%s", profile, page_number, scale)
         # First generate PDF
         pdf_bytes = self.generate_pdf(yaml_content, profile, deterministic=True)
         
@@ -458,8 +515,10 @@ class PDFService:
                 page_number=page_number,
                 scale=scale
             )
+            logger.info("Preview generation OK: bytes=%d", len(preview_bytes) if preview_bytes else 0)
             return preview_bytes
         except PreviewError as e:
+            logger.exception("Preview generation error: %s", e)
             raise EinkPDFServiceError(f"Preview generation failed: {e}")
 
 

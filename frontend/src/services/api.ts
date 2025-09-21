@@ -6,7 +6,22 @@
  */
 
 import axios, { AxiosResponse } from 'axios';
-import { DeviceProfile, TemplateResponse, APIError } from '@/types';
+import {
+  DeviceProfile,
+  TemplateResponse,
+  APIError,
+  Project,
+  ProjectListItem,
+  CompilationResult,
+  CreateProjectRequest,
+  UpdateProjectRequest,
+  AddPageRequest,
+  UpdatePageRequest,
+  UpdateCompilationRulesRequest,
+  AddMasterRequest,
+  UpdateMasterRequest,
+  Plan
+} from '@/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -21,13 +36,27 @@ const apiClient = axios.create({
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.data) {
-      throw new APIClientError(error.response.data);
+    // Try to normalize backend error
+    const resp = error.response;
+    if (resp) {
+      const ct = resp.headers?.['content-type'] || '';
+      // JSON error
+      if (ct.includes('application/json') && resp.data && typeof resp.data === 'object') {
+        // FastAPI often returns { detail: string | object }
+        const data = resp.data as any;
+        const message = typeof data.detail === 'string'
+          ? data.detail
+          : typeof data.message === 'string'
+            ? data.message
+            : JSON.stringify(data);
+        throw new APIClientError({ error: 'HTTP_ERROR', message });
+      }
+      // Blob or text fallback
+      const message = error.message || `HTTP ${resp.status}`;
+      throw new APIClientError({ error: 'HTTP_ERROR', message });
     }
-    throw new APIClientError({
-      error: 'NETWORK_ERROR',
-      message: error.message || 'Network request failed',
-    });
+    // Network error
+    throw new APIClientError({ error: 'NETWORK_ERROR', message: error.message || 'Network request failed' });
   }
 );
 
@@ -73,6 +102,12 @@ export class APIClient {
   // Device Profiles
   static async getProfiles(): Promise<DeviceProfile[]> {
     const response: AxiosResponse<DeviceProfile[]> = await apiClient.get('/profiles/');
+    return response.data;
+  }
+
+  // Compile parametric masters + plan
+  static async compileBuild(masters_yaml: string, plan_yaml: string): Promise<{ yaml_content: string; parsed_template: any }> {
+    const response = await apiClient.post('/compile/build', { masters_yaml, plan_yaml });
     return response.data;
   }
 
@@ -124,6 +159,88 @@ export class APIClient {
   // Health Check
   static async healthCheck(): Promise<{ status: string; version: string; einkpdf_available: boolean }> {
     const response = await apiClient.get('/health');
+    return response.data;
+  }
+
+  // ---- Project-Based API Methods ----
+
+  // Projects
+  static async createProject(request: CreateProjectRequest): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.post('/projects', request);
+    return response.data;
+  }
+
+  static async getProjects(): Promise<ProjectListItem[]> {
+    const response: AxiosResponse<ProjectListItem[]> = await apiClient.get('/projects');
+    return response.data;
+  }
+
+  static async getProject(projectId: string): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.get(`/projects/${projectId}`);
+    return response.data;
+  }
+
+  static async updateProject(projectId: string, request: UpdateProjectRequest): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.patch(`/projects/${projectId}`, request);
+    return response.data;
+  }
+
+  static async deleteProject(projectId: string): Promise<void> {
+    await apiClient.delete(`/projects/${projectId}`);
+  }
+
+  // Named Pages
+  static async addNamedPage(projectId: string, request: AddPageRequest): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.post(`/projects/${projectId}/pages`, request);
+    return response.data;
+  }
+
+  static async updateNamedPage(projectId: string, pageName: string, request: UpdatePageRequest): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.patch(`/projects/${projectId}/pages/${encodeURIComponent(pageName)}`, request);
+    return response.data;
+  }
+
+  static async removeNamedPage(projectId: string, pageName: string): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.delete(`/projects/${projectId}/pages/${encodeURIComponent(pageName)}`);
+    return response.data;
+  }
+
+  // Masters
+  static async addMaster(projectId: string, request: AddMasterRequest): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.post(`/projects/${projectId}/masters`, request);
+    return response.data;
+  }
+
+  static async updateMaster(projectId: string, masterName: string, request: UpdateMasterRequest): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.patch(`/projects/${projectId}/masters/${encodeURIComponent(masterName)}`, request);
+    return response.data;
+  }
+
+  static async removeMaster(projectId: string, masterName: string): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.delete(`/projects/${projectId}/masters/${encodeURIComponent(masterName)}`);
+    return response.data;
+  }
+
+  // Plans
+  static async updatePlan(projectId: string, plan: Plan): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.put(`/projects/${projectId}/plan`, { plan_data: plan });
+    return response.data;
+  }
+
+  // Compilation
+  static async updateCompilationRules(projectId: string, request: UpdateCompilationRulesRequest): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.put(`/projects/${projectId}/compilation`, request);
+    return response.data;
+  }
+
+  static async compileProject(projectId: string): Promise<CompilationResult> {
+    const response: AxiosResponse<CompilationResult> = await apiClient.post(`/projects/${projectId}/compile`);
+    return response.data;
+  }
+
+  // Assets
+  static async getFonts(): Promise<string[]> {
+    const response: AxiosResponse<string[]> = await apiClient.get('/assets/fonts');
     return response.data;
   }
 }

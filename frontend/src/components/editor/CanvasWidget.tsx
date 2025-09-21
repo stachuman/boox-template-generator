@@ -118,8 +118,29 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         return "'Courier Prime', Courier, monospace";
       case 'Patrick-Hand':
         return "'Patrick Hand', 'Comic Sans MS', cursive";
+      case 'DejaVu Sans':
+        return "'DejaVu Sans', Arial, Helvetica, sans-serif";
+      case 'DejaVu Sans Bold':
+        return "'DejaVu Sans', Arial, Helvetica, sans-serif";
+      case 'DejaVu Serif':
+        return "'DejaVu Serif', 'Times New Roman', Times, serif";
+      case 'DejaVu Serif Bold':
+        return "'DejaVu Serif', 'Times New Roman', Times, serif";
+      case 'DejaVu Sans Mono':
+        return "'DejaVu Sans Mono', 'Courier New', Courier, monospace";
       default:
         return name || 'Helvetica';
+    }
+  };
+
+  const mapJustify = (align?: string) => {
+    switch ((align || 'left').toLowerCase()) {
+      case 'center':
+        return 'center';
+      case 'right':
+        return 'flex-end';
+      default:
+        return 'flex-start';
     }
   };
 
@@ -132,7 +153,9 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
             style={{
               fontFamily: resolveFontFamily(widget.styling?.font),
               fontSize: (widget.styling?.size || 12) / zoom,
-              color: widget.styling?.color || '#000000'
+              color: widget.styling?.color || '#000000',
+              textAlign: (widget.styling?.text_align as any) || 'left',
+              justifyContent: mapJustify(widget.styling?.text_align),
             }}
           >
             {widget.content || 'Text Block'}
@@ -273,24 +296,51 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         );
 
       case 'anchor':
-        const anchorContent = widget.content || 'Link Text';
-        const anchorStyling = widget.styling || {};
-        const fontSize = (anchorStyling.size || 12) / zoom;
-        const fontFamily = resolveFontFamily(anchorStyling.font);
-        const textColor = anchorStyling.color || '#0066CC';
-        
+        // Make anchors easy to find/select in the editor (visual-only)
+        const minSize = Math.max(18, 24 / zoom); // keep roughly ~24px on screen
+        const anchorLabel = (widget.properties?.dest_id as string) || 'anchor';
+        return (
+          <div
+            className="h-full w-full flex items-center justify-center"
+            style={{ minWidth: minSize, minHeight: minSize }}
+            title={anchorLabel}
+          >
+            <div
+              className="flex items-center justify-center text-[10px] leading-none text-eink-gray bg-white/80"
+              style={{
+                width: '100%',
+                height: '100%',
+                border: '2px dashed #60a5fa', // blue-400
+                borderRadius: 4,
+                padding: 2,
+                boxSizing: 'border-box',
+              }}
+            >
+              ⛵
+            </div>
+          </div>
+        );
+
+      case 'internal_link':
+        const linkContent = widget.content || 'Internal Link';
+        const linkStyling = widget.styling || {};
+        const linkFontSize = (linkStyling.size || 12) / zoom;
+        const linkFontFamily = resolveFontFamily(linkStyling.font);
+        const linkColor = linkStyling.color || '#0066CC';
         return (
           <div 
             className="h-full flex items-center px-1 cursor-pointer hover:bg-blue-50 transition-colors"
             style={{
-              fontSize,
-              fontFamily,
-              color: textColor,
+              fontSize: linkFontSize,
+              fontFamily: linkFontFamily,
+              color: linkColor,
+              textAlign: (widget.styling?.text_align as any) || 'left',
+              justifyContent: mapJustify(widget.styling?.text_align),
               textDecoration: 'underline',
-              minHeight: '44px' // E-ink touch target minimum
+              minHeight: '44px'
             }}
           >
-            <span className="truncate">{anchorContent}</span>
+            <span className="truncate">{linkContent}</span>
           </div>
         );
 
@@ -707,6 +757,74 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
                 Too small
               </div>
             )}
+          </div>
+        );
+
+      case 'link_list':
+        const lp = widget.properties || {} as any;
+        const lSty = widget.styling || {} as any;
+        const toInt = (v: any, d: number) => {
+          const n = parseInt(String(v ?? '').trim(), 10);
+          return Number.isFinite(n) ? n : d;
+        };
+        const toFloat = (v: any, d: number) => {
+          if (v === null || v === undefined) return d;
+          const s = String(v).trim();
+          if (s === '') return d;
+          const n = parseFloat(s);
+          return Number.isFinite(n) ? n : d;
+        };
+        const lCount = Math.max(1, toInt(lp.count, 1));
+        const lStart = Math.max(1, toInt(lp.start_index, 1));
+        const lPad = Math.max(1, toInt(lp.index_pad, 3));
+        const lCols = Math.max(1, toInt(lp.columns, 1));
+        const lGapX = toFloat(lp.gap_x, 0);
+        const lGapY = toFloat(lp.gap_y, 0);
+        const rawItemH = lp.item_height;
+        const lItemH = (rawItemH === null || rawItemH === undefined || String(rawItemH).trim() === '') ? null : toFloat(rawItemH, 0);
+        const labelTpl = lp.label_template || 'Note {index_padded}';
+        const rows = Math.ceil(lCount / lCols);
+        const boxW = widget.position.width / zoom;
+        const boxH = widget.position.height / zoom;
+        const gapXz = lGapX / zoom;
+        const gapYz = lGapY / zoom;
+        const cellW = (boxW - (lCols - 1) * gapXz) / lCols;
+        const cellH = lItemH != null ? (lItemH / zoom) : (boxH - (rows - 1) * gapYz) / Math.max(1, rows);
+        const fontSize = Math.max(8, (lSty.size || 12) / zoom);
+        const fontFamily = resolveFontFamily(lSty.font);
+        const textColor = lSty.color || '#0066CC';
+
+        const monthNames = [ '', 'January','February','March','April','May','June','July','August','September','October','November','December' ];
+        const monthAbbr = [ '', 'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec' ];
+        const formatLabel = (idx: number) => {
+          const padded = String(idx).padStart(lPad, '0');
+          const mn = (idx >=1 && idx <=12) ? monthNames[idx] : String(idx);
+          const ma = (idx >=1 && idx <=12) ? monthAbbr[idx] : String(idx);
+          return labelTpl
+            .replace('{index_padded}', padded)
+            .replace('{index}', String(idx))
+            .replace('{month_padded}', padded)
+            .replace('{month_name}', mn)
+            .replace('{month_abbr}', ma);
+        };
+
+        const items = Array.from({ length: lCount }, (_, i) => lStart + i);
+        return (
+          <div className="h-full w-full bg-white">
+            <div className="relative" style={{ width: '100%', height: '100%', fontSize, fontFamily, color: textColor }}>
+              {items.map((idx, i) => {
+                const row = Math.floor(i / lCols);
+                const col = i % lCols;
+                const left = col * (cellW + gapXz);
+                const top = row * (cellH + gapYz);
+                return (
+                  <div key={i} className="absolute px-2 py-1 rounded hover:bg-blue-50 cursor-pointer"
+                    style={{ left, top, width: cellW, height: cellH, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', border: '1px dashed #e5e7eb', textAlign: (lSty.text_align as any) || 'left' }}>
+                    {formatLabel(idx)}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         );
 

@@ -1,0 +1,91 @@
+masters:
+  - name: MonthIndex
+    widgets:
+      - id: month_title
+        type: text_block
+        page: 1
+        position: { x: 72, y: 780, width: 451, height: 24 }
+        content: "{{ @month_name }} {{ @year }}"
+        styling: { font: Helvetica-Bold, size: 16, color: "#000000" }
+
+      - id: month_anchor
+        type: anchor
+        page: 1
+        position: { x: 72, y: 780, width: 1, height: 1 }
+        properties: { dest_id: "month:@month" }
+
+      # Example global link placeholder (compiler resolves bind → to_dest)
+      - id: to_notes_index
+        type: internal_link
+        page: 1
+        position: { x: 72, y: 60, width: 140, height: 18 }
+        content: "Notes index →"
+        properties: { bind: "notes(index)" }
+
+  - name: WeekIndex
+    widgets:
+      - id: week_title
+        type: text_block
+        page: 1
+        position: { x: 72, y: 780, width: 451, height: 24 }
+        content: "Week {{ @iso_week }} ({{ @week_range }})"
+        styling: { font: Helvetica-Bold, size: 14, color: "#000000" }
+
+      - id: week_anchor
+        type: anchor
+        page: 1
+        position: { x: 72, y: 780, width: 1, height: 1 }
+        properties: { dest_id: "week:@iso_week" }
+
+  - name: DayPage
+    widgets:
+      - id: day_title
+        type: text_block
+        page: 1
+        position: { x: 72, y: 780, width: 451, height: 24 }
+        content: "{{ @date_long }}"
+        styling: { font: Helvetica-Bold, size: 12, color: "#000000" }
+
+      - id: day_group_anchor
+        type: anchor
+        page: 1
+        position: { x: 72, y: 780, width: 1, height: 1 }
+        properties: { dest_id: "day:@date" }
+
+      - id: back_to_month
+        type: internal_link
+        page: 1
+        position: { x: 72, y: 60, width: 140, height: 18 }
+        content: "← Month index"
+        properties: { bind: "month(@month)" }
+
+  - name: NotesIndex
+    widgets:
+      - id: anchor_notes_index
+        type: anchor
+        page: 1
+        position: { x: 72, y: 780, width: 1, height: 1 }
+        properties: { dest_id: "notes:index" }
+
+      - id: notes_label
+        type: text_block
+        page: 1
+        position: { x: 72, y: 780, width: 451, height: 24 }
+        content: "Notes Index"
+        styling: { font: Helvetica-Bold, size: 14, color: "#000000" }
+
+  - name: NotesPage
+    widgets:
+      - id: notes_anchor
+        type: anchor
+        page: 1
+        position: { x: 72, y: 780, width: 1, height: 1 }
+        properties: { dest_id: "notes:page:@index_padded" }
+
+      - id: back_to_notes_index
+        type: internal_link
+        page: 1
+        position: { x: 72, y: 60, width: 160, height: 18 }
+        content: "← Notes index"
+        properties: { bind: "notes(index)" }
+

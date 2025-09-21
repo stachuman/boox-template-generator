@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .models import HealthResponse, APIError
-from .api import templates, pdf, profiles
+from .api import templates, pdf, profiles, compile as compile_api, projects, assets
 from .services import TemplateService
 import os
 from .websockets import handle_websocket_connection
@@ -47,6 +47,9 @@ app.add_middleware(
 app.include_router(templates.router, prefix="/api")
 app.include_router(pdf.router, prefix="/api")
 app.include_router(profiles.router, prefix="/api")
+app.include_router(compile_api.router, prefix="/api")
+app.include_router(projects.router, prefix="/api")
+app.include_router(assets.router, prefix="/api")
 
 
 @app.get("/", response_model=HealthResponse)

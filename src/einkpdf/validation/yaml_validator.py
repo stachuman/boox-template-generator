@@ -10,7 +10,6 @@ from typing import Dict, Any
 from pydantic import ValidationError as PydanticValidationError
 
 from ..core.schema import Template
-from ..core.profiles import list_available_profiles
 
 
 class ValidationError(Exception):
@@ -26,6 +25,42 @@ class TemplateParseError(ValidationError):
 class SchemaValidationError(ValidationError):
     """Raised when template fails Pydantic schema validation."""
     pass
+
+
+def _default_profile() -> str:
+    """Resolve a default device profile without importing core.profiles to avoid cycles."""
+    import os
+    from pathlib import Path
+
+    # 1) Environment override
+    env_dir = os.getenv("EINK_PROFILE_DIR")
+    if env_dir:
+        base = Path(env_dir)
+    else:
+        # 2) Repo-level config/profiles
+        # src/einkpdf/validation/yaml_validator.py -> project root is parents[3]
+        try:
+            base = Path(__file__).resolve().parents[3] / "config" / "profiles"
+        except Exception:
+            base = None
+        # 3) Package-relative fallback
+        if not base or not base.exists():
+            base = Path(__file__).resolve().parents[1] / "core" / "config" / "profiles"
+
+    choices = []
+    try:
+        if base and base.exists():
+            for pattern in ("*.yaml", "*.yml"):
+                for p in base.glob(pattern):
+                    if p.is_file():
+                        choices.append(p.stem)
+    except Exception:
+        pass
+
+    preferred = "boox-note-air-4c"
+    if preferred in choices:
+        return preferred
+    return choices[0] if choices else "default"
 
 
 def parse_yaml_template(yaml_content: str) -> Template:
@@ -79,11 +114,7 @@ def parse_yaml_template(yaml_content: str) -> Template:
         if isinstance(md, dict):
             prof = md.get("profile")
             if not prof or (isinstance(prof, str) and not prof.strip()):
-                choices = list_available_profiles()
-                # Prefer common default if available
-                preferred = "boox-note-air-4c"
-                fallback = preferred if preferred in choices else (choices[0] if choices else "default")
-                md["profile"] = fallback
+                md["profile"] = _default_profile()
     except Exception:
         # Non-fatal; let schema validation surface remaining issues
         pass

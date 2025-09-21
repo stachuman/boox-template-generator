@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { Save, Download, Eye, Grid, Monitor, Settings } from 'lucide-react';
+import { Save, Download, Eye, Grid, Monitor, Settings, Hammer } from 'lucide-react';
 import clsx from 'clsx';
 import { DeviceProfile, Template } from '@/types';
 
@@ -16,8 +16,9 @@ interface ToolbarProps {
   currentTemplate: Template | null;
   onProfileChange: (profile: DeviceProfile) => void;
   onTemplateMetadataUpdate: (updates: Partial<Template['metadata']>) => void;
-  onSave: () => void;
-  onExportPDF: () => void;
+  onSave?: () => void;
+  onExportPDF?: () => void;
+  onOpenCompile?: () => void;
   saving: boolean;
   showGrid: boolean;
   onToggleGrid: () => void;
@@ -28,8 +29,10 @@ interface ToolbarProps {
   showPagesPanel: boolean;
   showRightPanel: boolean;
   onToggleWidgetPalette: () => void;
-  onTogglePagesPanel: () => void;
+  onTogglePagesPanel?: () => void;
   onToggleRightPanel: () => void;
+  hideProfileSelector?: boolean;
+  hidePreviewButton?: boolean;
   // Align/Distribute
   selectedCount?: number;
   onAlignLeft?: () => void;
@@ -52,6 +55,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onTemplateMetadataUpdate,
   onSave,
   onExportPDF,
+  onOpenCompile,
   saving,
   showGrid,
   onToggleGrid,
@@ -63,23 +67,27 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onToggleWidgetPalette,
   onTogglePagesPanel,
   onToggleRightPanel,
+  hideProfileSelector = false,
+  hidePreviewButton = false,
 }) => {
   const [showMetadataEditor, setShowMetadataEditor] = useState(false);
   return (
     <div className="toolbar flex items-center justify-between">
       {/* Left Section - Actions */}
       <div className="flex items-center space-x-2">
-        <button
-          onClick={onSave}
-          disabled={saving}
-          className={clsx(
-            'btn-primary flex items-center space-x-2',
-            saving && 'opacity-50 cursor-not-allowed'
-          )}
-        >
-          <Save className="w-4 h-4" />
-          <span>{saving ? 'Saving...' : 'Save'}</span>
-        </button>
+        {onSave && (
+          <button
+            onClick={onSave}
+            disabled={saving}
+            className={clsx(
+              'btn-primary flex items-center space-x-2',
+              saving && 'opacity-50 cursor-not-allowed'
+            )}
+          >
+            <Save className="w-4 h-4" />
+            <span>{saving ? 'Saving...' : 'Save'}</span>
+          </button>
+        )}
 
         {/* Template Name and Settings */}
         <div className="flex items-center space-x-2">
@@ -96,13 +104,26 @@ const Toolbar: React.FC<ToolbarProps> = ({
           </button>
         </div>
 
-        <button
-          onClick={onExportPDF}
-          className="btn-secondary flex items-center space-x-2"
-        >
-          <Download className="w-4 h-4" />
-          <span>Export PDF</span>
-        </button>
+        {onExportPDF && (
+          <button
+            onClick={onExportPDF}
+            className="btn-secondary flex items-center space-x-2"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export PDF</span>
+          </button>
+        )}
+
+        {onOpenCompile && (
+          <button
+            onClick={onOpenCompile}
+            className="btn-secondary flex items-center space-x-2"
+            title="Build from Masters + Plan"
+          >
+            <Hammer className="w-4 h-4" />
+            <span>Build</span>
+          </button>
+        )}
 
         <div className="w-px h-6 bg-eink-pale-gray" />
 
@@ -135,18 +156,20 @@ const Toolbar: React.FC<ToolbarProps> = ({
           <Grid className="w-4 h-4" />
         </button>
 
-        <button
-          onClick={onTogglePreview}
-          className={clsx(
-            'p-2 rounded transition-colors',
-            showPreview
-              ? 'bg-eink-black text-eink-white'
-              : 'text-eink-gray hover:bg-eink-pale-gray'
-          )}
-          title={showPreview ? 'Hide Preview' : 'Show Preview'}
-        >
-          <Eye className="w-4 h-4" />
-        </button>
+        {!hidePreviewButton && (
+          <button
+            onClick={onTogglePreview}
+            className={clsx(
+              'p-2 rounded transition-colors',
+              showPreview
+                ? 'bg-eink-black text-eink-white'
+                : 'text-eink-gray hover:bg-eink-pale-gray'
+            )}
+            title={showPreview ? 'Hide Preview' : 'Show Preview'}
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+        )}
 
         <div className="w-px h-6 bg-eink-pale-gray" />
 
@@ -161,16 +184,18 @@ const Toolbar: React.FC<ToolbarProps> = ({
         >
           Palette
         </button>
-        <button
-          onClick={onTogglePagesPanel}
-          className={clsx(
-            'px-2 py-1 rounded text-sm transition-colors',
-            showPagesPanel ? 'bg-eink-black text-eink-white' : 'text-eink-gray hover:bg-eink-pale-gray'
-          )}
-          title={showPagesPanel ? 'Hide Pages Panel' : 'Show Pages Panel'}
-        >
-          Pages
-        </button>
+        {onTogglePagesPanel && (
+          <button
+            onClick={onTogglePagesPanel}
+            className={clsx(
+              'px-2 py-1 rounded text-sm transition-colors',
+              showPagesPanel ? 'bg-eink-black text-eink-white' : 'text-eink-gray hover:bg-eink-pale-gray'
+            )}
+            title={showPagesPanel ? 'Hide Pages Panel' : 'Show Pages Panel'}
+          >
+            Pages
+          </button>
+        )}
         <button
           onClick={onToggleRightPanel}
           className={clsx(
@@ -184,37 +209,39 @@ const Toolbar: React.FC<ToolbarProps> = ({
       </div>
 
       {/* Right Section - Device Profile */}
-      <div className="flex items-center space-x-3">
-        <div className="flex items-center space-x-2">
-          <Monitor className="w-4 h-4 text-eink-gray" />
-          <span className="text-sm text-eink-gray">Profile:</span>
-        </div>
-        
-        <select
-          value={activeProfile?.name || ''}
-          onChange={(e) => {
-            const profile = profiles.find(p => p.name === e.target.value);
-            if (profile) {
-              onProfileChange(profile);
-            }
-          }}
-          className="input-field text-sm"
-        >
-          <option value="">Select Device Profile</option>
-          {profiles.map((profile) => (
-            <option key={profile.name} value={profile.name}>
-              {profile.name}
-            </option>
-          ))}
-        </select>
-
-        {activeProfile && (
-          <div className="text-xs text-eink-light-gray">
-            {activeProfile.display.screen_size[0]}×{activeProfile.display.screen_size[1]} 
-            @ {activeProfile.display.ppi}ppi
+      {!hideProfileSelector && (
+        <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
+            <Monitor className="w-4 h-4 text-eink-gray" />
+            <span className="text-sm text-eink-gray">Profile:</span>
           </div>
-        )}
-      </div>
+
+          <select
+            value={activeProfile?.name || ''}
+            onChange={(e) => {
+              const profile = profiles.find(p => p.name === e.target.value);
+              if (profile) {
+                onProfileChange(profile);
+              }
+            }}
+            className="input-field text-sm"
+          >
+            <option value="">Select Device Profile</option>
+            {profiles.map((profile) => (
+              <option key={profile.name} value={profile.name}>
+                {profile.name}
+              </option>
+            ))}
+          </select>
+
+          {activeProfile && (
+            <div className="text-xs text-eink-light-gray">
+              {activeProfile.display.screen_size[0]}×{activeProfile.display.screen_size[1]}
+              @ {activeProfile.display.ppi}ppi
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Template Metadata Editor Modal */}
       {showMetadataEditor && currentTemplate && (

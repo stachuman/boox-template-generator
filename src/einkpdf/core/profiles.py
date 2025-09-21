@@ -13,12 +13,15 @@ from pathlib import Path
 import os
 
 from .schema import DeviceProfile, DeviceConstraints
+import logging
 from ..validation.yaml_validator import ValidationError
 
 
 class DeviceProfileError(Exception):
     """Raised when device profile operations fail."""
     pass
+
+logger = logging.getLogger(__name__)
 
 
 class ProfileNotFoundError(DeviceProfileError):
@@ -184,6 +187,14 @@ class ConstraintEnforcer:
         except ValueError:
             raise ValidationError(f"Invalid hex color: {color}")
         
+        # Bypass grayscale conversion for color-capable devices
+        try:
+            disp = getattr(self.profile, 'display', {}) or {}
+            if isinstance(disp, dict) and (disp.get('color') is True or 'color' in str(self.profile.name).lower()):
+                return color
+        except Exception:
+            pass
+
         # Check if already grayscale (R=G=B)
         if r == g == b:
             return color
@@ -213,15 +224,18 @@ def get_profile_directory() -> Path:
     if env_dir:
         p = Path(env_dir)
         if p.exists():
+            logger.debug("Using EINK_PROFILE_DIR: %s", p)
             return p
     # 2) Repo root: /config/profiles relative to project
     current_dir = Path(__file__).parent
     profile_dir = current_dir.parent.parent.parent / "config" / "profiles"
     if profile_dir.exists():
+        logger.debug("Using repo profiles dir: %s", profile_dir)
         return profile_dir
     # 3) Package-relative fallback (src/einkpdf/config/profiles)
     pkg_dir = current_dir.parent / "config" / "profiles"
     if pkg_dir.exists():
+        logger.debug("Using package profiles dir: %s", pkg_dir)
         return pkg_dir
     # Not found
     raise DeviceProfileError(
@@ -275,19 +289,36 @@ def load_device_profile(profile_name: str) -> DeviceProfile:
             f"underscores, and hyphens are allowed."
         )
     
-    # Normalize profile name to filename format
+    # Normalize primary candidate (lowercase slug)
     filename = profile_name.lower().replace("_", "-")
     if not filename.endswith(".yaml"):
         filename += ".yaml"
-    
+
     profile_path = profile_dir / filename
-    
+    logger.debug("Resolving profile '%s' primary path: %s", profile_name, profile_path)
+
+    # If normalized file is missing, try case-insensitive stem match as fallback
     if not profile_path.exists():
-        available = list_available_profiles()
-        raise ProfileNotFoundError(
-            f"Device profile '{profile_name}' not found. "
-            f"Available profiles: {', '.join(available)}"
-        )
+        match_path = None
+        stem_target = Path(filename).stem.lower()
+        for pattern in ("*.yaml", "*.yml"):
+            for fp in profile_dir.glob(pattern):
+                try:
+                    if fp.is_file() and fp.stem.lower() == stem_target:
+                        match_path = fp
+                        break
+                except Exception:
+                    continue
+            if match_path:
+                break
+        if match_path:
+            profile_path = match_path
+            logger.debug("Resolved profile via fallback match: %s", profile_path)
+        else:
+            available = list_available_profiles()
+            raise ProfileNotFoundError(
+                f"Device profile '{profile_name}' not found. Available profiles: {', '.join(available)}"
+            )
     
     try:
         with open(profile_path, 'r', encoding='utf-8') as f:
