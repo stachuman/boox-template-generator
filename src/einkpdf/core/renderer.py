@@ -767,6 +767,18 @@ class DeterministicPDFRenderer:
             pass
 
         text_width = pdf_canvas.stringWidth(widget.content, font_name, font_size)
+        # Touch target check
+        try:
+            min_w, min_h = self.enforcer.check_touch_target_size(widget.position.width, widget.position.height)
+            if (widget.position.width < min_w or widget.position.height < min_h) and self.strict_mode:
+                raise RenderingError(
+                    f"internal_link '{widget.id}': touch target {widget.position.width}x{widget.position.height}pt "
+                    f"below profile minimum {min_w}x{min_h}pt"
+                )
+        except Exception as _:
+            # In non-strict mode the enforcer tracks violations; continue rendering
+            pass
+
         # Horizontal alignment within the widget box
         if text_align == 'center':
             start_x = box['x'] + max(0.0, (box['width'] - text_width) / 2)
@@ -794,6 +806,17 @@ class DeterministicPDFRenderer:
 
         # Compute rectangle in PDF coords
         rect_pos = self.converter.convert_position_for_drawing(widget.position)
+        # Touch target check
+        try:
+            min_w, min_h = self.enforcer.check_touch_target_size(widget.position.width, widget.position.height)
+            if (widget.position.width < min_w or widget.position.height < min_h) and self.strict_mode:
+                raise RenderingError(
+                    f"tap_zone '{widget.id}': touch target {widget.position.width}x{widget.position.height}pt "
+                    f"below profile minimum {min_w}x{min_h}pt"
+                )
+        except Exception as _:
+            pass
+
         link_rect = (
             rect_pos['x'],
             rect_pos['y'],

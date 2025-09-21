@@ -1,10 +1,10 @@
 profile:
-  name: "boox-note-air-4c"
+  name: "remarkable-1"
   display:
     screen_size: [1872, 1404]
-    ppi: 227
+    ppi: 226
     physical_size: "10.3-inch"
-    color: true
+    color: false
   pdf_settings:
     page_size: "A4"
     orientation: "portrait"
@@ -15,4 +15,3 @@ profile:
     min_touch_target_pt: 44.0
     grayscale_levels: 16
     max_gray_fill_area: 0.2
-

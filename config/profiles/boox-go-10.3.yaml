@@ -5,6 +5,7 @@ profile:
     ppi: 227
     aspect_ratio: "4:3"
     physical_size: "10.3 inch"
+    color: false
   pdf_settings:
     page_size: "A4"
     orientation: "portrait"

@@ -803,6 +803,80 @@ const PropertiesPanel: React.FC = () => {
             </div>
           )}
 
+          {/* Internal Link Properties */}
+          {selectedWidget.type === 'internal_link' && (
+            <div>
+              <h4 className="font-medium mb-3">Internal Link</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Link Text</label>
+                  <input
+                    type="text"
+                    {...register('content')}
+                    onChange={(e) => handleLiveUpdate('content', e.target.value)}
+                    className="input-field w-full"
+                    placeholder="Link label"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Font</label>
+                    <select {...register('styling.font')} onChange={(e) => handleLiveUpdate('styling.font', e.target.value)} className="input-field w-full">
+                      {fontOptions.map(f => (<option key={f} value={f}>{f}</option>))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Size (pt)</label>
+                    <input
+                      type="number"
+                      min={6}
+                      max={48}
+                      {...register('styling.size', { min: 6, max: 48 })}
+                      onChange={(e) => handleLiveUpdate('styling.size', parseInt(e.target.value) || 12)}
+                      className="input-field w-full"
+                      placeholder="12"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Color</label>
+                    <input type="color" {...register('styling.color')} onChange={(e) => handleLiveUpdate('styling.color', e.target.value)} className="w-full h-10 border border-eink-pale-gray rounded" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Text Align</label>
+                    <select {...register('styling.text_align')} onChange={(e) => handleLiveUpdate('styling.text_align', e.target.value)} className="input-field w-full">
+                      <option value="left">Left</option>
+                      <option value="center">Center</option>
+                      <option value="right">Right</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Bind (Destination)</label>
+                  <input
+                    type="text"
+                    {...register('properties.bind')}
+                    onChange={(e) => handleLiveUpdate('properties.bind', e.target.value)}
+                    className="input-field w-full"
+                    placeholder="e.g., day(@date) or notes(@index)"
+                  />
+                  <p className="text-xs text-eink-light-gray mt-1">Use function-like binds; @vars allowed in args. Example: month(@year-@month_padded).</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Or Destination ID</label>
+                  <input
+                    type="text"
+                    {...register('properties.to_dest')}
+                    onChange={(e) => handleLiveUpdate('properties.to_dest', e.target.value)}
+                    className="input-field w-full"
+                    placeholder="e.g., day:2026-01-01"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Properties (for image) */}
           {selectedWidget.type === 'image' && (
             <div>

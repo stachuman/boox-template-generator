@@ -1,10 +1,11 @@
 profile:
-  name: "Boox-Note-Air-4C-Landscape"
+  name: "boox-note-air-4C-landscape"
   display:
     screen_size: [1872, 1404]  # 10.3" at 227 PPI
     ppi: 227
     aspect_ratio: "4:3"
     physical_size: "10.3 inch"
+    color: true
   pdf_settings:
     page_size: "A4"
     orientation: "landscape"

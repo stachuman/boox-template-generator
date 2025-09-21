@@ -192,12 +192,22 @@ class BindingResolver:
         # Only resolve bind → to_dest for leaf link widgets.
         # Do NOT consume bind for composite widgets like link_list; they expand later using per-item context.
         if isinstance(props_for_bind, dict) and "bind" in props_for_bind:
-            if wtype in ("internal_link", "tap_zone"):
-                bind_expr = props_for_bind["bind"]
+            # Ignore empty/whitespace binds
+            bind_expr = props_for_bind.get("bind")
+            if isinstance(bind_expr, str) and not bind_expr.strip():
+                # Remove empty bind to avoid validation errors downstream
+                try:
+                    del resolved_widget["properties"]["bind"]
+                except Exception:
+                    pass
+            elif wtype in ("internal_link", "tap_zone"):
                 if not isinstance(resolved_widget.get("properties"), dict):
                     resolved_widget["properties"] = {}
-                resolved_widget["properties"]["to_dest"] = self._resolve_binding(bind_expr, context)
-                del resolved_widget["properties"]["bind"]  # Remove bind after resolving
+                resolved_widget["properties"]["to_dest"] = self._resolve_binding(str(bind_expr), context)
+                try:
+                    del resolved_widget["properties"]["bind"]  # Remove bind after resolving
+                except Exception:
+                    pass
             # else: keep 'bind' intact for composites
 
         return resolved_widget
