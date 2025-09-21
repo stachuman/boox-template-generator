@@ -1,0 +1,148 @@
+{
+  "schema_version": "1.0",
+  "metadata": {
+    "name": "day",
+    "description": "",
+    "category": "calendar",
+    "version": "1.0",
+    "author": "",
+    "created": "2025-09-20T21:05:01.181562+00:00",
+    "profile": "boox-tab-ultra-c"
+  },
+  "canvas": {
+    "dimensions": {
+      "width": 595.2,
+      "height": 841.8,
+      "margins": [
+        48,
+        48,
+        48,
+        48
+      ]
+    },
+    "coordinate_system": "top_left",
+    "background": "#FFFFFF",
+    "grid_size": 10,
+    "snap_enabled": true
+  },
+  "widgets": [
+    {
+      "id": "widget_1758402150202_g2h7qy47c",
+      "type": "anchor",
+      "page": 1,
+      "position": {
+        "x": 270,
+        "y": 15,
+        "width": 1,
+        "height": 1
+      },
+      "background_color": null,
+      "content": "",
+      "styling": null,
+      "properties": {
+        "dest_id": "day:{date}"
+      }
+    },
+    {
+      "id": "widget_1758402206381_04oosrb3l",
+      "type": "calendar",
+      "page": 1,
+      "position": {
+        "x": 0,
+        "y": 80,
+        "width": 340,
+        "height": 60
+      },
+      "background_color": null,
+      "content": "",
+      "styling": {
+        "font": "DejaVu Serif",
+        "size": 14,
+        "color": "#0066cc"
+      },
+      "properties": {
+        "calendar_type": "weekly",
+        "start_date": "{date}",
+        "link_strategy": "named_destinations",
+        "first_page_number": 2,
+        "pages_per_date": 1,
+        "show_weekdays": true,
+        "show_month_year": false,
+        "cell_min_size": 44,
+        "show_grid_lines": true,
+        "first_day_of_week": "monday",
+        "show_trailing_days": false,
+        "highlight_today": false,
+        "highlight_date": "",
+        "weekday_label_style": "short",
+        "week_numbers": false,
+        "cell_padding": "",
+        "show_time_grid": false,
+        "time_start_hour": 8,
+        "time_end_hour": 18,
+        "time_slot_minutes": "",
+        "time_label_interval": "",
+        "show_time_gutter": false,
+        "layout_orientation": "horizontal"
+      }
+    },
+    {
+      "id": "widget_1758402261334_uw9d3byrd",
+      "type": "link_list",
+      "page": 1,
+      "position": {
+        "x": 0,
+        "y": 10,
+        "width": 590,
+        "height": 44
+      },
+      "background_color": "#ffffff",
+      "content": "",
+      "styling": {
+        "font": "DejaVu Serif Bold",
+        "size": 12,
+        "color": "#0066CC",
+        "text_align": "center"
+      },
+      "properties": {
+        "count": 12,
+        "start_index": 1,
+        "index_pad": 2,
+        "columns": 12,
+        "gap_y": 6,
+        "item_height": "44",
+        "label_template": "{month_abbr}",
+        "bind": "month(@year-@index_padded)",
+        "gap_x": ""
+      }
+    },
+    {
+      "id": "widget_1758477167714_pzzoftigt",
+      "type": "text_block",
+      "page": 1,
+      "position": {
+        "x": 0,
+        "y": 50,
+        "width": 280,
+        "height": 30
+      },
+      "background_color": null,
+      "content": "{date_long}",
+      "styling": {
+        "font": "DejaVu Serif",
+        "size": 12,
+        "color": "#000000",
+        "text_align": "center"
+      },
+      "properties": {
+        "top_padding": null,
+        "line_cap": null
+      }
+    }
+  ],
+  "navigation": {},
+  "export": {
+    "default_mode": "interactive"
+  },
+  "masters": []
+}

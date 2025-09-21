@@ -412,6 +412,17 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         
         // Helper function to render weekly calendar
         const renderWeeklyCalendar = () => {
+          const layoutOrientation = calendarProps.layout_orientation || 'horizontal';
+
+          if (layoutOrientation === 'vertical') {
+            return renderWeeklyCalendarVertical();
+          } else {
+            return renderWeeklyCalendarHorizontal();
+          }
+        };
+
+        // Helper function to render horizontal weekly calendar
+        const renderWeeklyCalendarHorizontal = () => {
           // Calculate the start of the week containing the start date
           const startOfWeek = new Date(startDate);
           const day = startOfWeek.getDay(); // 0 = Sunday, 1 = Monday, etc.
@@ -540,6 +551,172 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          );
+        };
+
+        // Helper function to render vertical weekly calendar
+        const renderWeeklyCalendarVertical = () => {
+          // Calculate the start of the week containing the start date
+          const startOfWeek = new Date(startDate);
+          const day = startOfWeek.getDay(); // 0 = Sunday, 1 = Monday, etc.
+          const mondayOffset = weekStartDay === 'monday' ? (day + 6) % 7 : day;
+          startOfWeek.setDate(startDate.getDate() - mondayOffset);
+
+          // Generate 7 days of the week
+          const weekDays = [];
+          for (let i = 0; i < 7; i++) {
+            const currentDay = new Date(startOfWeek);
+            currentDay.setDate(startOfWeek.getDate() + i);
+            weekDays.push(currentDay);
+          }
+
+          // Calculate dimensions
+          const showTimeGrid = !!calendarProps.show_time_grid;
+          const showTimeGutter = !!calendarProps.show_time_gutter;
+          const timeStart = Math.max(0, Math.min(23, calendarProps.time_start_hour || 8));
+          const timeEnd = Math.max(timeStart + 1, Math.min(24, calendarProps.time_end_hour || 20));
+          const slotMinutes = Math.max(5, Math.min(120, calendarProps.time_slot_minutes || 60));
+          const labelEvery = Math.max(slotMinutes, Math.min(240, calendarProps.time_label_interval || 60));
+
+          const weekdayGutterWidth = showWeekdays ? calendarFontSize * 4.0 : 0;
+          const gridWidth = widget.position.width / zoom - weekdayGutterWidth;
+          const gridHeight = widget.position.height / zoom;
+
+          const headerHeight = showMonthYear ? calendarFontSize * 2 : 0;
+          const timeHeaderHeight = showTimeGrid ? calendarFontSize * 1.5 : 0;
+          const availableHeight = gridHeight - headerHeight - timeHeaderHeight;
+
+          const cellHeight = availableHeight / 7; // 7 rows for days
+          const cellWidth = gridWidth;
+
+          if (showTimeGrid) {
+            const totalMinutes = (timeEnd - timeStart) * 60;
+            const timeSlots = Math.max(1, Math.floor(totalMinutes / slotMinutes));
+            // cellWidth will be divided by time slots when rendering grid
+          }
+
+          const weekdays = weekStartDay === 'monday'
+            ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+          return (
+            <div
+              className="h-full w-full"
+              style={{
+                fontSize: calendarFontSize,
+                fontFamily: calendarFontFamily,
+                color: calendarStyling.color || '#000000'
+              }}
+            >
+              {/* Week Header */}
+              {showMonthYear && (
+                <div
+                  className="text-center font-semibold border-b"
+                  style={{
+                    height: headerHeight,
+                    lineHeight: `${headerHeight}px`,
+                    borderColor: showGridLines ? '#ccc' : 'transparent'
+                  }}
+                >
+                  {weekDays[0].toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} - Week {Math.ceil(weekDays[0].getDate() / 7)}
+                </div>
+              )}
+
+              {/* Time Slot Headers (horizontal across top) */}
+              {showTimeGrid && timeHeaderHeight > 0 && (
+                <div className="flex" style={{ height: timeHeaderHeight }}>
+                  {showWeekdays && <div style={{ width: weekdayGutterWidth }} />}
+                  {(() => {
+                    const totalMinutes = (timeEnd - timeStart) * 60;
+                    const timeSlots = Math.max(1, Math.floor(totalMinutes / slotMinutes));
+                    const slotWidth = cellWidth / timeSlots;
+                    const timeHeaders = [];
+
+                    for (let s = 0; s <= timeSlots; s++) {
+                      const minutesFromStart = s * slotMinutes;
+                      if (minutesFromStart > totalMinutes) break;
+                      if (minutesFromStart % labelEvery !== 0) continue;
+
+                      const hour = timeStart + Math.floor(minutesFromStart / 60);
+                      const minute = minutesFromStart % 60;
+                      const timeLabel = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+
+                      timeHeaders.push(
+                        <div
+                          key={s}
+                          className="text-center text-xs font-medium flex items-center justify-center"
+                          style={{
+                            width: slotWidth,
+                            borderRight: showGridLines && s < timeSlots ? '1px solid #ccc' : 'none',
+                            borderBottom: showGridLines ? '1px solid #ccc' : 'none'
+                          }}
+                        >
+                          {timeLabel}
+                        </div>
+                      );
+                    }
+                    return timeHeaders;
+                  })()}
+                </div>
+              )}
+
+              {/* Daily rows (7 rows for days) */}
+              <div className="flex-1 flex flex-col">
+                {weekDays.map((currentDay, dayIndex) => (
+                  <div
+                    key={dayIndex}
+                    className="flex"
+                    style={{ height: cellHeight }}
+                  >
+                    {/* Weekday label in left gutter */}
+                    {showWeekdays && (
+                      <div
+                        className="flex items-center justify-start text-xs font-medium"
+                        style={{
+                          width: weekdayGutterWidth,
+                          borderRight: showGridLines ? '1px solid #ccc' : 'none',
+                          borderBottom: showGridLines ? '1px solid #ccc' : 'none',
+                          padding: `${Math.max(0, (calendarProps.cell_padding || 4) / zoom)}px`
+                        }}
+                      >
+                        {weekdays[dayIndex]} {currentDay.getDate()}
+                      </div>
+                    )}
+
+                    {/* Day content area */}
+                    <div
+                      className="flex-1 relative"
+                      style={{
+                        borderBottom: showGridLines ? '1px solid #ccc' : 'none'
+                      }}
+                    >
+                      {/* Time grid (vertical columns) */}
+                      {showTimeGrid && (() => {
+                        const totalMinutes = (timeEnd - timeStart) * 60;
+                        const timeSlots = Math.max(1, Math.floor(totalMinutes / slotMinutes));
+                        const slotWidth = cellWidth / timeSlots;
+                        const timeColumns = [];
+
+                        for (let s = 0; s < timeSlots; s++) {
+                          timeColumns.push(
+                            <div
+                              key={s}
+                              className="absolute top-0 bottom-0"
+                              style={{
+                                left: s * slotWidth,
+                                width: slotWidth,
+                                borderRight: showGridLines && s < timeSlots - 1 ? '1px solid #ccc' : 'none'
+                              }}
+                            />
+                          );
+                        }
+                        return timeColumns;
+                      })()}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           );

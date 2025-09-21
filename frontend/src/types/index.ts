@@ -82,6 +82,7 @@ export interface WidgetProperties {
   cell_min_size?: number;     // Minimum touch target size for e-ink
   show_grid_lines?: boolean;
   first_day_of_week?: 'sunday' | 'monday'; // Calendar locale: Sunday (US) or Monday (Europe)
+  layout_orientation?: 'horizontal' | 'vertical'; // Weekly calendar layout: horizontal (columns) or vertical (rows)
   [key: string]: any;
 }
 

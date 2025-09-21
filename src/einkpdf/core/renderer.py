@@ -1095,11 +1095,20 @@ class DeterministicPDFRenderer:
                 first_day_of_week, link_strategy, props
             )
         elif calendar_type == 'weekly':
-            self._render_weekly_calendar(
-                pdf_canvas, widget, start_date, cal_pos, font_name, font_size,
-                show_weekdays, show_month_year, show_grid_lines, cell_min_size,
-                first_day_of_week, link_strategy, props
-            )
+            # Check layout orientation for weekly calendars
+            layout_orientation = props.get('layout_orientation', 'horizontal')
+            if layout_orientation == 'vertical':
+                self._render_weekly_calendar_vertical(
+                    pdf_canvas, widget, start_date, cal_pos, font_name, font_size,
+                    show_weekdays, show_month_year, show_grid_lines, cell_min_size,
+                    first_day_of_week, link_strategy, props
+                )
+            else:
+                self._render_weekly_calendar(
+                    pdf_canvas, widget, start_date, cal_pos, font_name, font_size,
+                    show_weekdays, show_month_year, show_grid_lines, cell_min_size,
+                    first_day_of_week, link_strategy, props
+                )
         else:
             # Simplified preview for custom_range (not fully implemented)
             self._render_calendar_preview(
@@ -1585,6 +1594,201 @@ class DeterministicPDFRenderer:
                     ty = y - (font_size * 0.3)
                     pdf_canvas.drawString(tx, ty, label)
                 pdf_canvas.setFont(font_name, font_size)
+
+    def _render_weekly_calendar_vertical(self, pdf_canvas: canvas.Canvas, widget: Widget,
+                                       start_date: date, cal_pos: Dict[str, float],
+                                       font_name: str, font_size: float,
+                                       show_weekdays: bool, show_month_year: bool,
+                                       show_grid_lines: bool, cell_min_size: float,
+                                       first_day_of_week: str, link_strategy: str,
+                                       props: Dict[str, Any]) -> None:
+        """Render a vertical weekly calendar layout (7 rows for days)."""
+
+        def _get_float(v: Any, default: float) -> float:
+            try:
+                if v is None:
+                    return default
+                if isinstance(v, str) and not v.strip():
+                    return default
+                return float(v)
+            except Exception:
+                return default
+
+        def _get_int(v: Any, default: int) -> int:
+            try:
+                if v is None:
+                    return default
+                if isinstance(v, str) and not v.strip():
+                    return default
+                return int(v)
+            except Exception:
+                return default
+
+        # Calculate the start of the week containing the start date
+        start_of_week = start_date
+        day_of_week = start_date.weekday()  # 0=Monday, 6=Sunday
+
+        # Adjust for locale
+        if first_day_of_week == 'monday':
+            # Monday-first: use Python's natural weekday indexing
+            days_back = day_of_week
+        else:
+            # Sunday-first: convert to Sunday=0 indexing
+            day_of_week = (day_of_week + 1) % 7  # Convert to Sunday=0
+            days_back = day_of_week
+
+        # Calculate actual start of week
+        start_of_week = date(start_date.year, start_date.month, start_date.day)
+        start_of_week = start_of_week - timedelta(days=days_back)
+
+        # Generate 7 days of the week
+        week_days = []
+        for i in range(7):
+            current_day = start_of_week + timedelta(days=i)
+            week_days.append(current_day)
+
+        # Calculate layout dimensions
+        calendar_width = cal_pos['width']
+        calendar_height = cal_pos['height']
+
+        # Reserve space for headers
+        header_height = font_size * 2 if show_month_year else 0
+        time_header_height = font_size * 1.5 if props.get('show_time_grid', False) else 0
+        available_height = calendar_height - header_height - time_header_height
+
+        # Calculate cell dimensions (7 rows for days of week), optional time gutter
+        available_height = max(0.0, available_height)
+        show_time_grid = bool(props.get('show_time_grid', False))
+        show_time_gutter = bool(props.get('show_time_gutter', False))
+        time_start_hour = _get_int(props.get('time_start_hour', 8), 8)
+        time_end_hour = _get_int(props.get('time_end_hour', 20), 20)
+        time_slot_minutes = _get_int(props.get('time_slot_minutes', 60), 60)
+        time_label_interval = _get_int(props.get('time_label_interval', 60), 60)
+        time_start_hour = max(0, min(23, time_start_hour))
+        time_end_hour = max(time_start_hour + 1, min(24, time_end_hour))
+        time_slot_minutes = max(5, min(120, time_slot_minutes))
+        time_label_interval = max(time_slot_minutes, min(240, time_label_interval))
+        weekday_gutter_width = (font_size * 4.0) if show_weekdays else 0.0
+        cell_width = calendar_width - weekday_gutter_width
+        cell_height = available_height / 7
+
+        # Log touch target violations without expanding beyond bounds
+        try:
+            _ = self.enforcer.check_touch_target_size(cell_width, cell_height)
+        except Exception:
+            # In strict mode this may raise; bubble up for consistent behavior
+            raise
+
+        # Week header
+        if show_month_year:
+            week_text = f"{start_of_week.strftime('%b %Y')} - Week {start_of_week.isocalendar()[1]}"
+
+            # Center the header text
+            text_width = pdf_canvas.stringWidth(week_text, font_name, font_size)
+            header_x = cal_pos['x'] + (calendar_width - text_width) / 2
+            header_y = cal_pos['y'] + calendar_height - font_size
+
+            pdf_canvas.drawString(header_x, header_y, week_text)
+
+            # Draw header separator line if grid lines enabled
+            if show_grid_lines:
+                line_y = cal_pos['y'] + calendar_height - header_height
+                stroke_width = self.enforcer.check_stroke_width(0.5)
+                pdf_canvas.setLineWidth(stroke_width)
+                pdf_canvas.line(cal_pos['x'], line_y, cal_pos['x'] + calendar_width, line_y)
+
+        # Time slot headers (horizontal across top)
+        if show_time_grid and time_header_height > 0:
+            total_minutes = (time_end_hour - time_start_hour) * 60
+            slots = int(total_minutes / time_slot_minutes)
+            if slots > 0:
+                time_header_y = cal_pos['y'] + calendar_height - header_height - font_size
+                slot_width = cell_width / slots
+
+                for s in range(0, slots + 1):
+                    minutes_from_start = s * time_slot_minutes
+                    if minutes_from_start > total_minutes:
+                        continue
+                    if (minutes_from_start % time_label_interval) != 0:
+                        continue
+                    hour = time_start_hour + (minutes_from_start // 60)
+                    minute = minutes_from_start % 60
+                    label = f"{hour:02d}:{minute:02d}"
+                    x = cal_pos['x'] + weekday_gutter_width + s * slot_width
+
+                    pdf_canvas.setFont(font_name, font_size * 0.75)
+                    pdf_canvas.drawString(x, time_header_y, label)
+                    pdf_canvas.setFont(font_name, font_size)
+
+        # Grid layout starting position
+        grid_start_y = cal_pos['y'] + calendar_height - header_height - time_header_height
+
+        # Draw vertical weekly calendar grid
+        cell_padding = _get_float(props.get('cell_padding', 4.0), 4.0)
+        highlight_today = bool(props.get('highlight_today', False))
+        highlight_date_str = props.get('highlight_date')
+        for day_row in range(7):
+            current_day = week_days[day_row]
+
+            # Calculate cell position
+            cell_x = cal_pos['x'] + weekday_gutter_width
+            cell_y = grid_start_y - ((day_row + 1) * cell_height)
+
+            # Draw weekday label in left gutter
+            if show_weekdays:
+                locale = str(props.get('locale', 'en')).lower()
+                day_label_style = props.get('weekday_label_style', 'short')  # short|narrow|full
+                weekdays = get_weekday_names(locale, style=day_label_style, start=first_day_of_week)
+                day_label = weekdays[day_row]
+
+                # Day number and label
+                day_text = f"{day_label} {current_day.day}"
+                label_x = cal_pos['x'] + cell_padding
+                label_y = cell_y + (cell_height / 2) - (font_size / 2)
+
+                pdf_canvas.setFont(font_name, font_size * 0.8)
+                pdf_canvas.drawString(label_x, label_y, day_text)
+                pdf_canvas.setFont(font_name, font_size)  # Reset to normal size
+
+            # Draw cell border if grid lines enabled
+            if show_grid_lines:
+                stroke_width = self.enforcer.check_stroke_width(0.5)
+                pdf_canvas.setLineWidth(stroke_width)
+                pdf_canvas.rect(cell_x, cell_y, cell_width, cell_height, stroke=1, fill=0)
+
+            # Time grid
+            if show_time_grid:
+                total_minutes = (time_end_hour - time_start_hour) * 60
+                slots = int(total_minutes / time_slot_minutes)
+                if slots > 0:
+                    slot_width = cell_width / slots
+                    stroke_width = self.enforcer.check_stroke_width(0.5)
+                    pdf_canvas.setLineWidth(stroke_width)
+                    for s in range(1, slots):
+                        x = cell_x + s * slot_width
+                        pdf_canvas.line(x, cell_y, x, cell_y + cell_height)
+
+            # Link for day cell
+            if link_strategy != 'no_links':
+                self._create_calendar_date_link(
+                    pdf_canvas, widget, current_day,
+                    cell_x, cell_y, cell_width, cell_height,
+                    link_strategy, props
+                )
+
+            # Highlight today
+            try:
+                target_highlight = None
+                if highlight_date_str:
+                    target_highlight = datetime.strptime(highlight_date_str, '%Y-%m-%d').date()
+                elif highlight_today:
+                    target_highlight = datetime.utcnow().date()
+                if target_highlight and current_day == target_highlight:
+                    stroke_width = self.enforcer.check_stroke_width(1.0)
+                    pdf_canvas.setLineWidth(stroke_width)
+                    pdf_canvas.rect(cell_x + 1.5, cell_y + 1.5, cell_width - 3, cell_height - 3, stroke=1, fill=0)
+            except Exception:
+                pass
 
     def _render_calendar_preview(self, pdf_canvas: canvas.Canvas, widget: Widget,
                                calendar_type: str, start_date: date,

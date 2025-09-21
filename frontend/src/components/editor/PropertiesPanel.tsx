@@ -1189,6 +1189,18 @@ const PropertiesPanel: React.FC = () => {
                 </div>
                 {selectedWidget.properties?.calendar_type === 'weekly' && (
                   <div className="space-y-3">
+                    <h4 className="font-medium">Weekly Layout</h4>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Layout Orientation</label>
+                      <select
+                        {...register('properties.layout_orientation')}
+                        onChange={(e) => handleLiveUpdate('properties.layout_orientation', e.target.value)}
+                        className="input-field w-full"
+                      >
+                        <option value="horizontal">Horizontal (days as columns)</option>
+                        <option value="vertical">Vertical (days as rows)</option>
+                      </select>
+                    </div>
                     <h4 className="font-medium">Weekly Time Grid</h4>
                     <label className="flex items-center space-x-2">
                       <input
