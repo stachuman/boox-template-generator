@@ -204,17 +204,18 @@ class DeterministicPDFRenderer:
     def _group_widgets_by_page(self) -> Dict[int, List[Widget]]:
         """Group widgets by page number."""
         widgets_by_page = {}
-        
+
         for widget in self.template.widgets:
+            # For widgets without page numbers (e.g., master templates), default to page 1
             if not hasattr(widget, 'page') or widget.page is None:
-                raise RenderingError(
-                    f"Widget '{widget.id}' missing required 'page' attribute"
-                )
-            page = widget.page
+                page = 1
+            else:
+                page = widget.page
+
             if page not in widgets_by_page:
                 widgets_by_page[page] = []
             widgets_by_page[page].append(widget)
-        
+
         return widgets_by_page
     
     def _get_total_pages(self, widgets_by_page: Dict[int, List[Widget]]) -> int:
@@ -787,11 +788,12 @@ class DeterministicPDFRenderer:
         else:
             start_x = text_pos['x']
 
+        # Use entire widget area for clickable region (like calendar cells)
         link_rect = (
-            start_x,
-            text_pos['y'] - font_size * 0.2,
-            start_x + text_width,
-            text_pos['y'] + font_size * 0.8,
+            box['x'],
+            box['y'],
+            box['x'] + box['width'],
+            box['y'] + box['height']
         )
 
         pdf_canvas.linkAbsolute("", to_dest, Rect=link_rect, Border='[0 0 0]')

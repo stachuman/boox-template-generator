@@ -160,21 +160,112 @@ const PropertiesPanel: React.FC = () => {
       
       <div className="flex-1 overflow-auto p-4">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* General Properties */}
-          <div>
-            <h4 className="font-medium mb-3">General</h4>
-            <div className="space-y-3">
+          {/* Helper function for common styling properties */}
+          {(() => {
+            const renderAppearanceSection = () => (
               <div>
-                <label className="block text-sm font-medium mb-1">Page</label>
-                <input
-                  type="number"
-                  min="1"
-                  {...register('page', { required: true, min: 1 })}
-                  className="input-field w-full"
-                />
-              </div>
+                <h4 className="font-medium mb-3">Appearance</h4>
+                <div className="space-y-3">
+                  {/* Background Color */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Background Color</label>
+                    <div className="flex space-x-2">
+                      <input
+                        type="color"
+                        {...register('background_color')}
+                        onChange={(e) => handleLiveUpdate('background_color', e.target.value)}
+                        className="w-12 h-10 border border-eink-pale-gray rounded cursor-pointer"
+                        title="Choose background color"
+                        value={selectedWidget.background_color || '#FFFFFF'}
+                      />
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          {...register('background_color')}
+                          onChange={(e) => handleLiveUpdate('background_color', e.target.value)}
+                          className="input-field w-full"
+                          placeholder="Leave empty for transparent background"
+                          pattern="^#[0-9A-Fa-f]{6}$"
+                          value={selectedWidget.background_color || ''}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleLiveUpdate('background_color', '')}
+                        className="px-3 py-2 text-xs border border-eink-pale-gray rounded hover:bg-eink-pale-gray"
+                        title="Clear background color"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <p className="text-xs text-eink-light-gray mt-1">
+                      Background color for the widget (optional, hex format #RRGGBB). Leave empty for transparent.
+                    </p>
+                  </div>
 
-              {selectedWidget.type !== 'divider' && selectedWidget.type !== 'lines' && (
+                  {/* Text Styling - Show for widgets with text */}
+                  {(selectedWidget.type === 'text_block' || selectedWidget.type === 'checkbox' ||
+                    selectedWidget.type === 'internal_link' || selectedWidget.type === 'calendar') && (
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Font</label>
+                          <select
+                            {...register('styling.font')}
+                            onChange={(e) => handleLiveUpdate('styling.font', e.target.value)}
+                            className="input-field w-full"
+                          >
+                            {fontOptions.map(f => (<option key={f} value={f}>{f}</option>))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Size (pt)</label>
+                          <input
+                            type="number"
+                            min="6"
+                            max={selectedWidget.type === 'calendar' ? 24 : 72}
+                            {...register('styling.size', { min: 6, max: selectedWidget.type === 'calendar' ? 24 : 72 })}
+                            onChange={(e) => handleLiveUpdate('styling.size', parseInt(e.target.value) || 12)}
+                            className="input-field w-full"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Color</label>
+                          <input
+                            type="color"
+                            {...register('styling.color')}
+                            onChange={(e) => handleLiveUpdate('styling.color', e.target.value)}
+                            className="w-full h-10 border border-eink-pale-gray rounded"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Text Align</label>
+                          <select
+                            {...register('styling.text_align')}
+                            onChange={(e) => handleLiveUpdate('styling.text_align', e.target.value)}
+                            className="input-field w-full"
+                          >
+                            <option value="left">Left</option>
+                            <option value="center">Center</option>
+                            <option value="right">Right</option>
+                          </select>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+
+            return null; // This is just to define the function
+          })()}
+          {/* 1. BASIC - Core widget properties */}
+          {(selectedWidget.type !== 'divider' && selectedWidget.type !== 'lines' && selectedWidget.type !== 'anchor') && (
+            <div>
+              <h4 className="font-medium mb-3">Basic</h4>
+              <div className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium mb-1">Content</label>
                   <textarea
@@ -184,47 +275,11 @@ const PropertiesPanel: React.FC = () => {
                     placeholder="Enter content..."
                   />
                 </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Background Color</label>
-                <div className="flex space-x-2">
-                  <input
-                    type="color"
-                    {...register('background_color')}
-                    onChange={(e) => handleLiveUpdate('background_color', e.target.value)}
-                    className="w-12 h-10 border border-eink-pale-gray rounded cursor-pointer"
-                    title="Choose background color"
-                    value={selectedWidget.background_color || '#FFFFFF'}
-                  />
-                  <div className="flex-1">
-                    <input
-                      type="text"
-                      {...register('background_color')}
-                      onChange={(e) => handleLiveUpdate('background_color', e.target.value)}
-                      className="input-field w-full"
-                      placeholder="Leave empty for transparent background"
-                      pattern="^#[0-9A-Fa-f]{6}$"
-                      value={selectedWidget.background_color || ''}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleLiveUpdate('background_color', '')}
-                    className="px-3 py-2 text-xs border border-eink-pale-gray rounded hover:bg-eink-pale-gray"
-                    title="Clear background color"
-                  >
-                    Clear
-                  </button>
-                </div>
-                <p className="text-xs text-eink-light-gray mt-1">
-                  Background color for the widget (optional, hex format #RRGGBB). Leave empty for transparent.
-                </p>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Position & Size */}
+          {/* 2. POSITION & SIZE - Layout properties */}
           <div>
             <h4 className="font-medium mb-3">Position & Size</h4>
             <div className="grid grid-cols-2 gap-3">
@@ -290,150 +345,153 @@ const PropertiesPanel: React.FC = () => {
             </div>
           </div>
 
-          {/* Styling (for text_block) */}
-          {selectedWidget.type === 'text_block' && (
-            <div>
-              <h4 className="font-medium mb-3">Styling</h4>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Font</label>
-                  <select {...register('styling.font')} className="input-field w-full">
-                    {fontOptions.map(f => (<option key={f} value={f}>{f}</option>))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Size (pt)</label>
-                  <input
-                    type="number"
-                    min="6"
-                    max="72"
-                    {...register('styling.size', { min: 6, max: 72 })}
-                    className="input-field w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Color</label>
-                  <input
-                    type="color"
-                    {...register('styling.color')}
-                    className="input-field w-full h-10"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Text Align</label>
-                  <select {...register('styling.text_align')} className="input-field w-full">
-                    <option value="left">Left</option>
-                    <option value="center">Center</option>
-                    <option value="right">Right</option>
-                  </select>
-                </div>
-              </div>
-              {/* Extra spacing and cap */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Top Padding (pt)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="200"
-                    {...register('properties.top_padding', { min: 0, max: 200 })}
-                    onChange={(e) => handleLiveUpdate('properties.top_padding', parseInt(e.target.value) || 0)}
-                    className="input-field w-full"
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Line Cap</label>
-                  <select
-                    {...register('properties.line_cap')}
-                    onChange={(e) => handleLiveUpdate('properties.line_cap', e.target.value)}
-                    className="input-field w-full"
-                  >
-                    <option value="butt">Butt</option>
-                    <option value="round">Round</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* 3. APPEARANCE - Visual styling (background, fonts, colors) */}
+          {(() => {
+            const renderAppearanceSection = () => (
+              <div>
+                <h4 className="font-medium mb-3">Appearance</h4>
+                <div className="space-y-3">
+                  {/* Background Color */}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Background Color</label>
+                    <div className="flex space-x-2">
+                      <input
+                        type="color"
+                        {...register('background_color')}
+                        onChange={(e) => handleLiveUpdate('background_color', e.target.value)}
+                        className="w-12 h-10 border border-eink-pale-gray rounded cursor-pointer"
+                        title="Choose background color"
+                        value={selectedWidget.background_color || '#FFFFFF'}
+                      />
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          {...register('background_color')}
+                          onChange={(e) => handleLiveUpdate('background_color', e.target.value)}
+                          className="input-field w-full"
+                          placeholder="Leave empty for transparent background"
+                          pattern="^#[0-9A-Fa-f]{6}$"
+                          value={selectedWidget.background_color || ''}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleLiveUpdate('background_color', '')}
+                        className="px-3 py-2 text-xs border border-eink-pale-gray rounded hover:bg-eink-pale-gray"
+                        title="Clear background color"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <p className="text-xs text-eink-light-gray mt-1">
+                      Background color for the widget (optional, hex format #RRGGBB). Leave empty for transparent.
+                    </p>
+                  </div>
 
-          {/* Link List (composite) */}
+                  {/* Text Styling - Show for widgets with text */}
+                  {(selectedWidget.type === 'text_block' || selectedWidget.type === 'checkbox' ||
+                    selectedWidget.type === 'internal_link' || selectedWidget.type === 'calendar') && (
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Font</label>
+                          <select
+                            {...register('styling.font')}
+                            onChange={(e) => handleLiveUpdate('styling.font', e.target.value)}
+                            className="input-field w-full"
+                          >
+                            {fontOptions.map(f => (<option key={f} value={f}>{f}</option>))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Size (pt)</label>
+                          <input
+                            type="number"
+                            min="6"
+                            max={selectedWidget.type === 'calendar' ? 24 : selectedWidget.type === 'checkbox' ? 24 : 72}
+                            {...register('styling.size', { min: 6, max: selectedWidget.type === 'calendar' ? 24 : selectedWidget.type === 'checkbox' ? 24 : 72 })}
+                            onChange={(e) => handleLiveUpdate('styling.size', parseInt(e.target.value) || 12)}
+                            className="input-field w-full"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Color</label>
+                          <input
+                            type="color"
+                            {...register('styling.color')}
+                            onChange={(e) => handleLiveUpdate('styling.color', e.target.value)}
+                            className="w-full h-10 border border-eink-pale-gray rounded"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Text Align</label>
+                          <select
+                            {...register('styling.text_align')}
+                            onChange={(e) => handleLiveUpdate('styling.text_align', e.target.value)}
+                            className="input-field w-full"
+                          >
+                            <option value="left">Left</option>
+                            <option value="center">Center</option>
+                            <option value="right">Right</option>
+                          </select>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Text Block specific styling */}
+                  {selectedWidget.type === 'text_block' && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Top Padding (pt)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="200"
+                          {...register('properties.top_padding', { min: 0, max: 200 })}
+                          onChange={(e) => handleLiveUpdate('properties.top_padding', parseInt(e.target.value) || 0)}
+                          className="input-field w-full"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Line Cap</label>
+                        <select
+                          {...register('properties.line_cap')}
+                          onChange={(e) => handleLiveUpdate('properties.line_cap', e.target.value)}
+                          className="input-field w-full"
+                        >
+                          <option value="butt">Butt</option>
+                          <option value="round">Round</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+
+            return renderAppearanceSection();
+          })()}
+
+          {/* 4. BEHAVIOR - Widget-specific functionality */}
+
+          {/* Link List Behavior */}
           {selectedWidget.type === 'link_list' && (
             <div>
-              <h4 className="font-medium mb-3">Link List</h4>
-              {/* Styling */}
-              <div className="space-y-3 mb-4">
-                <h5 className="font-medium">Styling</h5>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Font</label>
-                    <select 
-                      {...register('styling.font')} 
-                      onChange={(e) => handleLiveUpdate('styling.font', e.target.value)}
-                      className="input-field w-full"
-                    >
-                      {fontOptions.map(f => (<option key={f} value={f}>{f}</option>))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Size (pt)</label>
-                    <input
-                      type="number"
-                      min={6}
-                      max={48}
-                      {...register('styling.size', { min: 6, max: 48 })}
-                      onChange={(e) => handleLiveUpdate('styling.size', parseInt(e.target.value) || 12)}
-                      className="input-field w-full"
-                      placeholder="12"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Color</label>
-                  <input
-                    type="color"
-                    {...register('styling.color')}
-                    onChange={(e) => handleLiveUpdate('styling.color', e.target.value)}
-                    className="w-full h-10 border border-eink-pale-gray rounded"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Text Align</label>
-                  <select {...register('styling.text_align')} onChange={(e) => handleLiveUpdate('styling.text_align', e.target.value)} className="input-field w-full">
-                    <option value="left">Left</option>
-                    <option value="center">Center</option>
-                    <option value="right">Right</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* List Options */}
+              <h4 className="font-medium mb-3">Behavior</h4>
               <div className="space-y-3">
-                <h5 className="font-medium">List Options</h5>
-                {(!selectedWidget.properties?.bind || String(selectedWidget.properties?.bind).trim() === '') && (
-                  <div className="text-xs text-red-600">
-                    Binding is required. Set <code>bind</code> to a destination expression, e.g. <code>month(@year-@index_padded)</code>.
-                  </div>
-                )}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium mb-1">Count</label>
                     <input
                       type="number"
-                      min={1}
-                      {...register('properties.count', { min: 1 })}
-                      onChange={(e) => handleLiveUpdate('properties.count', Math.max(1, parseInt(e.target.value) || 1))}
-                      className="input-field w-full"
-                      placeholder="10"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Start Index</label>
-                    <input
-                      type="number"
-                      min={1}
-                      {...register('properties.start_index', { min: 1 })}
-                      onChange={(e) => handleLiveUpdate('properties.start_index', Math.max(1, parseInt(e.target.value) || 1))}
+                      min="1"
+                      max="20"
+                      {...register('properties.count', { min: 1, max: 20 })}
+                      onChange={(e) => handleLiveUpdate('properties.count', parseInt(e.target.value) || 1)}
                       className="input-field w-full"
                       placeholder="1"
                     />
@@ -442,76 +500,17 @@ const PropertiesPanel: React.FC = () => {
                     <label className="block text-sm font-medium mb-1">Index Padding</label>
                     <input
                       type="number"
-                      min={1}
-                      max={6}
+                      min="1"
+                      max="6"
                       {...register('properties.index_pad', { min: 1, max: 6 })}
-                      onChange={(e) => handleLiveUpdate('properties.index_pad', Math.max(1, parseInt(e.target.value) || 3))}
+                      onChange={(e) => handleLiveUpdate('properties.index_pad', parseInt(e.target.value) || 3)}
                       className="input-field w-full"
                       placeholder="3"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Columns</label>
-                    <input
-                      type="number"
-                      min={1}
-                      {...register('properties.columns', { min: 1 })}
-                      onChange={(e) => handleLiveUpdate('properties.columns', Math.max(1, parseInt(e.target.value) || 1))}
-                      className="input-field w-full"
-                      placeholder="2"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Gap X (pt)</label>
-                    <input
-                      type="number"
-                      step={1}
-                      min={0}
-                      {...register('properties.gap_x', { min: 0 })}
-                      onChange={(e) => handleLiveUpdate('properties.gap_x', Math.max(0, parseFloat(e.target.value) || 0))}
-                      className="input-field w-full"
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Gap Y (pt)</label>
-                    <input
-                      type="number"
-                      step={1}
-                      min={0}
-                      {...register('properties.gap_y', { min: 0 })}
-                      onChange={(e) => handleLiveUpdate('properties.gap_y', Math.max(0, parseFloat(e.target.value) || 0))}
-                      className="input-field w-full"
-                      placeholder="6"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Item Height (pt)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      {...register('properties.item_height')}
-                      onChange={(e) => handleLiveUpdate('properties.item_height', Math.max(0, parseFloat(e.target.value) || 0))}
-                      className="input-field w-full"
-                      placeholder="24 (or leave empty to auto)"
-                    />
-                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Label Template</label>
-                  <input
-                    type="text"
-                    {...register('properties.label_template')}
-                    onChange={(e) => handleLiveUpdate('properties.label_template', e.target.value)}
-                    className="input-field w-full"
-                    placeholder="Note {index_padded}"
-                  />
-                  <p className="text-xs text-eink-light-gray mt-1">
-                    Supports tokens: {'{index}'}, {'{index_padded}'}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Bind Expression</label>
+                  <label className="block text-sm font-medium mb-1">Link Template</label>
                   <input
                     type="text"
                     {...register('properties.bind')}
@@ -527,10 +526,10 @@ const PropertiesPanel: React.FC = () => {
             </div>
           )}
 
-          {/* Properties (for checkbox) */}
+          {/* Checkbox Behavior */}
           {selectedWidget.type === 'checkbox' && (
             <div>
-              <h4 className="font-medium mb-3">Properties</h4>
+              <h4 className="font-medium mb-3">Behavior</h4>
               <div className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium mb-1">Checkbox Size (pt)</label>
@@ -545,41 +544,15 @@ const PropertiesPanel: React.FC = () => {
                     Checkbox size in points. Size shown in preview matches PDF output exactly.
                   </p>
                 </div>
-                <div className="pt-1">
-                  <h5 className="font-medium mb-2">Label Styling</h5>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Font</label>
-                      <select {...register('styling.font')} onChange={(e) => handleLiveUpdate('styling.font', e.target.value)} className="input-field w-full">
-                        {fontOptions.map(f => (<option key={f} value={f}>{f}</option>))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Size (pt)</label>
-                      <input
-                        type="number"
-                        min="6"
-                        max="24"
-                        {...register('styling.size', { min: 6, max: 24 })}
-                        onChange={(e) => handleLiveUpdate('styling.size', parseInt(e.target.value) || 10)}
-                        className="input-field w-full"
-                        placeholder="10"
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-2">
-                    <label className="block text-sm font-medium mb-1">Color</label>
-                    <input type="color" {...register('styling.color')} onChange={(e) => handleLiveUpdate('styling.color', e.target.value)} className="w-full h-10 border border-eink-pale-gray rounded" />
-                  </div>
-                </div>
               </div>
             </div>
           )}
 
-          {/* Properties (for lines) */}
+
+          {/* Lines Behavior */}
           {selectedWidget.type === 'lines' && (
             <div>
-              <h4 className="font-medium mb-3">Line Properties</h4>
+              <h4 className="font-medium mb-3">Behavior</h4>
               <div className="space-y-3">
                 <div>
                   <button
@@ -1448,6 +1421,26 @@ const PropertiesPanel: React.FC = () => {
           )}
 
           {/* Navigation options removed in pages-only model */}
+
+          {/* 5. ADVANCED - Optional technical settings */}
+          <div>
+            <h4 className="font-medium mb-3">Advanced</h4>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">Page (Optional - auto-assigned during compilation)</label>
+                <input
+                  type="number"
+                  min="1"
+                  {...register('page', { min: 1 })}
+                  className="input-field w-full"
+                  placeholder="Leave blank for master templates"
+                />
+                <p className="text-xs text-eink-light-gray mt-1">
+                  Page number for multi-page documents. Usually left blank for master templates as it gets assigned automatically during compilation.
+                </p>
+              </div>
+            </div>
+          </div>
 
           {/* Submit Button */}
           <button type="submit" className="btn-primary w-full">

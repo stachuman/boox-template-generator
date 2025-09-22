@@ -10,7 +10,6 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
-import Navigation from '@/components/Navigation';
 import ProjectList from '@/components/projects/ProjectList';
 import ProjectEditor from '@/components/projects/ProjectEditor';
 import MasterEditor from '@/components/projects/MasterEditor';
@@ -21,8 +20,7 @@ const App: React.FC = () => {
     <DndProvider backend={HTML5Backend}>
       <Router>
         <div className="min-h-screen bg-eink-off-white">
-          <Navigation />
-          <main className="h-[calc(100vh-4rem)]">
+          <main className="h-screen">
             <Routes>
               {/* Project-based routes */}
               <Route path="/" element={<ProjectList />} />

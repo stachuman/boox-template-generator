@@ -89,20 +89,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
           </button>
         )}
 
-        {/* Template Name and Settings */}
-        <div className="flex items-center space-x-2">
-          <span className="text-sm text-eink-gray">Template:</span>
-          <span className="font-medium text-eink-black">
-            {currentTemplate?.metadata.name || 'Untitled'}
-          </span>
-          <button
-            onClick={() => setShowMetadataEditor(true)}
-            className="p-1 rounded hover:bg-eink-pale-gray transition-colors"
-            title="Edit template metadata"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-        </div>
 
         {onExportPDF && (
           <button
@@ -171,41 +157,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
           </button>
         )}
 
-        <div className="w-px h-6 bg-eink-pale-gray" />
-
-        {/* Panel toggles (text buttons for reliability) */}
-        <button
-          onClick={onToggleWidgetPalette}
-          className={clsx(
-            'px-2 py-1 rounded text-sm transition-colors',
-            showWidgetPalette ? 'bg-eink-black text-eink-white' : 'text-eink-gray hover:bg-eink-pale-gray'
-          )}
-          title={showWidgetPalette ? 'Hide Widget Palette' : 'Show Widget Palette'}
-        >
-          Palette
-        </button>
-        {onTogglePagesPanel && (
-          <button
-            onClick={onTogglePagesPanel}
-            className={clsx(
-              'px-2 py-1 rounded text-sm transition-colors',
-              showPagesPanel ? 'bg-eink-black text-eink-white' : 'text-eink-gray hover:bg-eink-pale-gray'
-            )}
-            title={showPagesPanel ? 'Hide Pages Panel' : 'Show Pages Panel'}
-          >
-            Pages
-          </button>
-        )}
-        <button
-          onClick={onToggleRightPanel}
-          className={clsx(
-            'px-2 py-1 rounded text-sm transition-colors',
-            showRightPanel ? 'bg-eink-black text-eink-white' : 'text-eink-gray hover:bg-eink-pale-gray'
-          )}
-          title={showRightPanel ? 'Hide Right Panel' : 'Show Right Panel'}
-        >
-          Right
-        </button>
       </div>
 
       {/* Right Section - Device Profile */}

@@ -89,7 +89,7 @@ export interface WidgetProperties {
 export interface Widget {
   id: string;
   type: 'text_block' | 'checkbox' | 'divider' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list';
-  page: number;
+  page?: number; // Optional - auto-assigned during compilation for multi-page documents
   content?: string;
   position: Position;
   background_color?: string;

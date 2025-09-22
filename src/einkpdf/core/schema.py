@@ -148,7 +148,7 @@ class Widget(BaseModel):
     """Base widget with position and common properties."""
     id: str = Field(..., min_length=1, pattern=r"^[a-zA-Z0-9_-]+$")
     type: str = Field(..., min_length=1)
-    page: int = Field(1, ge=1, le=10000)
+    page: Optional[int] = Field(None, ge=1, le=10000, description="Page number (assigned during compilation for multi-page documents)")
     position: Position
     background_color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$", description="Background color as hex value")
 

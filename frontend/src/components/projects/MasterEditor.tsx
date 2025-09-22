@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Code, Layout } from 'lucide-react';
+import { ArrowLeft, Save, Code, Layout, Grid } from 'lucide-react';
 import { Project, Master, Template, AddMasterRequest, UpdateMasterRequest } from '@/types';
 import { APIClient } from '@/services/api';
 import TemplateEditor from '@/components/TemplateEditor';
@@ -10,10 +10,7 @@ const MasterEditor: React.FC = () => {
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [currentMaster, setCurrentMaster] = useState<Master | null>(null);
-  const [masterData, setMasterData] = useState({
-    name: '',
-    description: ''
-  });
+  const [masterNameValue, setMasterNameValue] = useState('');
   const [currentTemplate, setCurrentTemplate] = useState<Template | null>(null);
   const [yamlContent, setYamlContent] = useState('');
   const [loading, setLoading] = useState(true);
@@ -21,6 +18,7 @@ const MasterEditor: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isNewMaster, setIsNewMaster] = useState(false);
   const [viewMode, setViewMode] = useState<'visual' | 'yaml'>('visual');
+  const [showGrid, setShowGrid] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -43,10 +41,7 @@ const MasterEditor: React.FC = () => {
         const master = projectData.masters.find(m => m.name === decodedMasterName);
         if (master) {
           setCurrentMaster(master);
-          setMasterData({
-            name: master.name,
-            description: master.description
-          });
+          setMasterNameValue(master.name);
           const template = convertMasterToTemplate(master, projectData);
           setCurrentTemplate(template);
           // Initialize with a basic YAML structure - TemplateEditor will sync properly
@@ -58,10 +53,7 @@ const MasterEditor: React.FC = () => {
       } else {
         // Creating new master
         setIsNewMaster(true);
-        setMasterData({
-          name: '',
-          description: ''
-        });
+        setMasterNameValue('');
         const defaultTemplate = generateDefaultTemplate(projectData);
         setCurrentTemplate(defaultTemplate);
         // Initialize with the default template structure
@@ -138,18 +130,12 @@ const MasterEditor: React.FC = () => {
     setYamlContent(yamlContent);
   };
 
-  const handleInputChange = (field: string, value: string) => {
-    setMasterData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
 
 
   const handleSave = async () => {
     if (!project || !currentTemplate) return;
 
-    if (!masterData.name.trim()) {
+    if (!masterNameValue.trim()) {
       setError('Master name is required');
       return;
     }
@@ -163,9 +149,9 @@ const MasterEditor: React.FC = () => {
       if (isNewMaster) {
         // Create new master
         const request: AddMasterRequest = {
-          name: masterData.name.trim(),
+          name: masterNameValue.trim(),
           template_yaml: templateYaml,
-          description: masterData.description.trim()
+          description: ''
         };
 
         const updatedProject = await APIClient.addMaster(project.id, request);
@@ -177,8 +163,8 @@ const MasterEditor: React.FC = () => {
         // Update existing master
         const request: UpdateMasterRequest = {
           template_yaml: templateYaml,
-          new_name: masterData.name.trim() !== currentMaster.name ? masterData.name.trim() : undefined,
-          description: masterData.description.trim()
+          new_name: masterNameValue.trim() !== currentMaster.name ? masterNameValue.trim() : undefined,
+          description: ''
         };
 
         const updatedProject = await APIClient.updateMaster(project.id, currentMaster.name, request);
@@ -229,25 +215,21 @@ const MasterEditor: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-eink-light-gray bg-white">
-        <div className="flex items-center gap-4">
+      {/* Single Consolidated Toolbar */}
+      <div className="toolbar flex items-center justify-between px-4 py-2 border-b border-eink-light-gray bg-white">
+        <div className="flex items-center gap-3">
+          {/* Navigation */}
           <button
             onClick={() => navigate(`/projects/${project.id}?tab=masters`)}
             className="text-eink-dark-gray hover:text-eink-black transition-colors"
+            title="Back to Projects"
           >
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
-          <div>
-            <h1 className="text-xl font-bold text-eink-black">
-              {isNewMaster ? 'Create Master' : `Edit Master: ${currentMaster?.name}`}
-            </h1>
-            <p className="text-eink-dark-gray text-sm">
-              Project: {project.metadata.name}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
+
+          <div className="w-px h-6 bg-eink-pale-gray" />
+
+          {/* View Mode Toggle */}
           <div className="flex border border-eink-light-gray rounded-lg">
             <button
               onClick={() => setViewMode('visual')}
@@ -272,9 +254,40 @@ const MasterEditor: React.FC = () => {
               YAML
             </button>
           </div>
+
+          {/* Grid Toggle - only in visual mode */}
+          {viewMode === 'visual' && (
+            <>
+              <div className="w-px h-6 bg-eink-pale-gray" />
+              <button
+                onClick={() => setShowGrid(!showGrid)}
+                className={`p-2 rounded transition-colors ${
+                  showGrid
+                    ? 'bg-eink-black text-eink-white'
+                    : 'text-eink-gray hover:bg-eink-pale-gray'
+                }`}
+                title={showGrid ? 'Hide Grid' : 'Show Grid'}
+              >
+                <Grid className="w-4 h-4" />
+              </button>
+            </>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Master Name Input */}
+          <input
+            type="text"
+            value={masterNameValue}
+            onChange={(e) => setMasterNameValue(e.target.value)}
+            placeholder="Master name..."
+            className="px-3 py-2 border border-eink-light-gray rounded-lg focus:outline-none focus:ring-2 focus:ring-eink-black focus:border-transparent text-sm"
+          />
+
+          {/* Save Button */}
           <button
             onClick={handleSave}
-            disabled={saving || !masterData.name.trim()}
+            disabled={saving || !masterNameValue.trim()}
             className="flex items-center gap-2 px-4 py-2 bg-eink-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-5 h-5" />
@@ -290,35 +303,6 @@ const MasterEditor: React.FC = () => {
         </div>
       )}
 
-      {/* Master Details Form */}
-      <div className="p-4 border-b border-eink-light-gray bg-gray-50">
-        <div className="max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-eink-black mb-1">
-              Master Name *
-            </label>
-            <input
-              type="text"
-              value={masterData.name}
-              onChange={(e) => handleInputChange('name', e.target.value)}
-              placeholder="Enter master name..."
-              className="w-full px-3 py-2 border border-eink-light-gray rounded-lg focus:outline-none focus:ring-2 focus:ring-eink-black focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-eink-black mb-1">
-              Description
-            </label>
-            <input
-              type="text"
-              value={masterData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              placeholder="Enter description..."
-              className="w-full px-3 py-2 border border-eink-light-gray rounded-lg focus:outline-none focus:ring-2 focus:ring-eink-black focus:border-transparent"
-            />
-          </div>
-        </div>
-      </div>
 
       {/* Editor Content */}
       <div className="flex-1 min-h-0">
@@ -329,6 +313,9 @@ const MasterEditor: React.FC = () => {
             projectProfile={project.metadata.device_profile}
             hidePageManager={true}
             hideCompilePanel={true}
+            hideToolbar={true}
+            showGrid={showGrid}
+            onToggleGrid={() => setShowGrid(!showGrid)}
           />
         ) : (
           <div className="h-full p-4">

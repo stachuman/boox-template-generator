@@ -350,7 +350,9 @@ export const useEditorStore = create<EditorStore>()(
       getWidgetsForCurrentPage: () => {
         const { currentTemplate, currentPage } = get();
         if (!currentTemplate) return [];
-        const pageWidgets = currentTemplate.widgets.filter(widget => widget.page === currentPage);
+        const pageWidgets = currentTemplate.widgets.filter(widget =>
+          widget.page === currentPage || (widget.page === undefined && currentPage === 1)
+        );
         // Include master widgets assigned to this page
         const assignment = (currentTemplate.page_assignments || []).find(pa => pa.page === currentPage) as any;
         if (!assignment) return pageWidgets;
@@ -365,7 +367,9 @@ export const useEditorStore = create<EditorStore>()(
         const { currentTemplate, totalPages } = get();
         if (!currentTemplate) return [];
         if (pageNumber < 1 || pageNumber > totalPages) return [];
-        return currentTemplate.widgets.filter(widget => widget.page === pageNumber);
+        return currentTemplate.widgets.filter(widget =>
+          widget.page === pageNumber || (widget.page === undefined && pageNumber === 1)
+        );
       },
 
       // Widget manipulation
@@ -375,10 +379,10 @@ export const useEditorStore = create<EditorStore>()(
           throw new Error("No template loaded");
         }
 
-        // Assign widget to current page
+        // Only assign page if not already specified (for master templates, leave undefined)
         const widgetWithPage = {
           ...widget,
-          page: currentPage
+          ...(widget.page === undefined ? { page: currentPage } : {})
         };
 
         set({

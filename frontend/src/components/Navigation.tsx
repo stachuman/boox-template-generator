@@ -25,12 +25,7 @@ const Navigation: React.FC = () => {
   };
 
   return (
-    <nav className="toolbar h-16 flex items-center justify-between">
-      <div className="flex items-center space-x-2">
-        <FileText className="w-6 h-6" />
-        <h1 className="text-xl font-semibold">E-ink PDF Templates</h1>
-      </div>
-      
+    <nav className="toolbar h-12 flex items-center justify-end">
       <div className="flex items-center space-x-1">
         {navItems.map(({ path, label, icon: Icon }) => (
           <Link

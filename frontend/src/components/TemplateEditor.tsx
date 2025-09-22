@@ -26,6 +26,9 @@ interface TemplateEditorProps {
   projectProfile?: string;
   hidePageManager?: boolean;
   hideCompilePanel?: boolean;
+  hideToolbar?: boolean;
+  showGrid?: boolean;
+  onToggleGrid?: () => void;
 }
 
 const TemplateEditor: React.FC<TemplateEditorProps> = ({
@@ -33,30 +36,38 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({
   onTemplateChange,
   projectProfile,
   hidePageManager = false,
-  hideCompilePanel = false
+  hideCompilePanel = false,
+  hideToolbar = false,
+  showGrid: externalShowGrid,
+  onToggleGrid: externalOnToggleGrid
 }) => {
   const { templateId } = useParams<{ templateId: string }>();
   
   const {
     currentTemplate,
     activeProfile,
-    showGrid,
-    showWidgetPalette,
-    showPagesPanel,
-    showRightPanel,
+    showGrid: internalShowGrid,
     selectedIds,
     setCurrentTemplate,
     setActiveProfile,
     setShowGrid,
-    setShowWidgetPalette,
-    setShowPagesPanel,
-    setShowRightPanel,
     updateTemplateMetadata,
     resetEditor,
     alignSelected,
     distributeSelected,
     equalizeSizeSelected,
   } = useEditorStore();
+
+  // Use external grid state if provided, otherwise use internal
+  const showGrid = externalShowGrid !== undefined ? externalShowGrid : internalShowGrid;
+  const onToggleGrid = externalOnToggleGrid || (() => setShowGrid(!showGrid));
+
+  // Sync external grid state with internal store when external control is used
+  useEffect(() => {
+    if (externalShowGrid !== undefined) {
+      setShowGrid(externalShowGrid);
+    }
+  }, [externalShowGrid, setShowGrid]);
 
   const [profiles, setProfiles] = useState<DeviceProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -259,7 +270,8 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({
   return (
     <div className="h-full flex flex-col">
       {/* Main Toolbar */}
-      <Toolbar
+      {!hideToolbar && (
+        <Toolbar
         profiles={profiles}
         activeProfile={activeProfile}
         currentTemplate={currentTemplate}
@@ -270,15 +282,15 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({
         onOpenCompile={onTemplateChange || hideCompilePanel ? undefined : () => setShowCompile(true)}
         saving={saving}
         showGrid={showGrid}
-        onToggleGrid={() => setShowGrid(!showGrid)}
+        onToggleGrid={onToggleGrid}
         onTogglePreview={() => setShowPreview(!showPreview)}
         showPreview={showPreview}
-        showWidgetPalette={showWidgetPalette}
-        showPagesPanel={showPagesPanel}
-        showRightPanel={showRightPanel}
-        onToggleWidgetPalette={() => setShowWidgetPalette(!showWidgetPalette)}
-        onTogglePagesPanel={hidePageManager ? undefined : () => setShowPagesPanel(!showPagesPanel)}
-        onToggleRightPanel={() => setShowRightPanel(!showRightPanel)}
+        showWidgetPalette={true}
+        showPagesPanel={true}
+        showRightPanel={true}
+        onToggleWidgetPalette={() => {}}
+        onTogglePagesPanel={undefined}
+        onToggleRightPanel={() => {}}
         hideProfileSelector={!!onTemplateChange}
         hidePreviewButton={!!onTemplateChange}
         selectedCount={selectedIds?.length || 0}
@@ -292,19 +304,18 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({
         onDistributeV={() => distributeSelected('vertical')}
         onEqualizeW={() => equalizeSizeSelected('width')}
         onEqualizeH={() => equalizeSizeSelected('height')}
-      />
+        />
+      )}
 
       {/* Main Editor Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Widget Palette */}
-        {showWidgetPalette && (
-          <div className="w-64 border-r border-eink-pale-gray bg-eink-white">
-            <WidgetPalette />
-          </div>
-        )}
+        <div className="w-64 border-r border-eink-pale-gray bg-eink-white">
+          <WidgetPalette />
+        </div>
 
         {/* Page Management Panel */}
-        {showPagesPanel && !hidePageManager && <PageManager />}
+        {!hidePageManager && <PageManager />}
 
         {/* Center - Canvas Area */}
         <div className="flex-1 flex flex-col">
@@ -314,15 +325,13 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({
         </div>
 
         {/* Right Sidebar - Properties or Preview */}
-        {showRightPanel && (
-          <div className="w-80 border-l border-eink-pale-gray bg-eink-white">
-            {showPreview ? (
-              <PreviewPanel />
-            ) : (
-              <PropertiesPanel />
-            )}
-          </div>
-        )}
+        <div className="w-80 border-l border-eink-pale-gray bg-eink-white">
+          {showPreview ? (
+            <PreviewPanel />
+          ) : (
+            <PropertiesPanel />
+          )}
+        </div>
       </div>
       {showCompile && !hideCompilePanel && (
         <CompilePanel
