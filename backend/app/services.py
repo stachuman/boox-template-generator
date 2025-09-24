@@ -487,6 +487,30 @@ class PDFService:
         except Exception as e:
             logger.exception("Unexpected error during PDF generation: %s", e)
             raise EinkPDFServiceError(f"Unexpected error during PDF generation: {e}")
+
+    def generate_pdf_with_warnings(self, yaml_content: str, profile: str,
+                                   deterministic: bool = True) -> tuple[bytes, list[str]]:
+        """Generate PDF non-strict and return any constraint warnings.
+
+        Returns (pdf_bytes, warnings) where warnings are human-readable strings.
+        """
+        logger.info(
+            "PDFService.generate_pdf_with_warnings: profile=%s deterministic=%s", profile, deterministic
+        )
+        try:
+            template = parse_yaml_template(yaml_content)
+        except (TemplateParseError, SchemaValidationError) as e:
+            raise EinkPDFServiceError(f"Invalid template YAML: {e}")
+
+        # Render with non-strict enforcer to collect violations
+        from einkpdf.core.renderer import DeterministicPDFRenderer
+        try:
+            renderer = DeterministicPDFRenderer(template, profile_name=profile, strict_mode=False)
+            pdf_bytes = renderer.render_to_bytes(deterministic=deterministic)
+            warnings: list[str] = [str(v) for v in getattr(renderer, 'violations', [])]
+            return pdf_bytes, warnings
+        except RenderingError as e:
+            raise EinkPDFServiceError(f"PDF generation failed: {e}")
     
     def generate_preview(self, yaml_content: str, profile: str, 
                         page_number: int = 1, scale: float = 2.0) -> bytes:

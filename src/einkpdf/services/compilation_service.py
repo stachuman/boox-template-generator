@@ -697,7 +697,27 @@ class CompilationService:
         item_height = None if (isinstance(item_height_raw, str) and not item_height_raw.strip()) else _to_float(item_height_raw, None)
 
         label_template = props.get("label_template", "Note {index_padded}")
+        orientation = props.get("orientation", "horizontal")
         bind_expr = props.get("bind")
+        # Optional: highlight selection and color
+        hi_raw = props.get("highlight_index")
+        hi_color = props.get("highlight_color")
+        bg_color = props.get("background_color")
+
+        # Resolve highlight_index which may be a number or a token like {month}
+        highlight_index: Optional[int] = None
+        if isinstance(hi_raw, (int, float)):
+            try:
+                highlight_index = int(hi_raw)
+            except Exception:
+                highlight_index = None
+        elif isinstance(hi_raw, str):
+            try:
+                resolved_hi = binding_resolver._substitute_tokens(hi_raw, context)
+                if isinstance(resolved_hi, str) and resolved_hi.strip():
+                    highlight_index = int(resolved_hi)
+            except Exception:
+                highlight_index = None
         if not bind_expr or (isinstance(bind_expr, str) and not bind_expr.strip()):
             wid = widget_dict.get("id", f"page_{page_number}_links_{widget_index}")
             raise CompilationServiceError(
@@ -709,11 +729,18 @@ class CompilationService:
         # Calculate cell dimensions
         total_width = _to_float(position.get("width", 400), 400.0)
         total_height = _to_float(position.get("height", 300), 300.0)
-        cell_width = (total_width - (columns - 1) * gap_x) / columns
-        if item_height is not None:
-            cell_height = item_height
+        base_cell_w = (total_width - (columns - 1) * gap_x) / max(1, columns)
+        base_cell_h = (total_height - (rows - 1) * gap_y) / max(1, rows)
+
+        if orientation == 'vertical':
+            # Vertical: swap base dimensions and clamp height to fit available space
+            # Width from item_height or per-row height; height fits rows with gaps
+            cell_height = base_cell_h
+            cell_width = item_height if item_height is not None else base_cell_w
         else:
-            cell_height = (total_height - (rows - 1) * gap_y) / max(1, rows)
+            # Horizontal: standard
+            cell_width = base_cell_w
+            cell_height = item_height if item_height is not None else base_cell_h
 
         base_x = _to_float(position.get("x", 0), 0.0)
         base_y = _to_float(position.get("y", 0), 0.0)
@@ -783,11 +810,21 @@ class CompilationService:
                 "content": label_content,
                 "styling": base_styling,
                 "properties": {
-                    "bind": bexpr
+                    "bind": bexpr,
+                    "orientation": orientation,
+                    # pass colors down so renderer can use them
+                    **({"highlight_color": hi_color} if hi_color else {}),
+                    **({"background_color": bg_color} if bg_color else {})
                 },
                 "page": page_number,
                 "id": f"page_{page_number}_links_{widget_index}_{i+1}"
             }
+
+            # Apply highlight flag if matched
+            if highlight_index is not None and idx == highlight_index:
+                cell_widget["properties"]["highlight"] = True
+                if hi_color:
+                    cell_widget["properties"]["highlight_color"] = hi_color
 
             # Resolve tokens and bind
             resolved_cell = binding_resolver.resolve_widget_bindings(cell_widget, cell_ctx)

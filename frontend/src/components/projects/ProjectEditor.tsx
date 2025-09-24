@@ -21,6 +21,7 @@ const ProjectEditor: React.FC = () => {
   const [previewPage, setPreviewPage] = useState<number>(1);
   const [previewScale, setPreviewScale] = useState<number>(0.7);
   const [totalPages, setTotalPages] = useState<number>(1);
+  const [compileWarnings, setCompileWarnings] = useState<string[]>([]);
   const [profiles, setProfiles] = useState<DeviceProfile[]>([]);
   const [profilesLoading, setProfilesLoading] = useState<boolean>(false);
   const [savingProfile, setSavingProfile] = useState<boolean>(false);
@@ -60,13 +61,44 @@ const ProjectEditor: React.FC = () => {
     loadProfiles();
   }, []);
 
-  // Auto-render preview when page/scale changes (if compiled)
+  // Auto-update iframe page when preview URL is available
   useEffect(() => {
-    if (compiledTemplate && project) {
-      handlePreviewPDF();
+    if (project && previewUrl) {
+      const ts = Date.now();
+      const url = `/api/projects/${project.id}/pdf?inline=1&_=${ts}#page=${previewPage}&zoom=page-width`;
+      setPreviewUrl(url);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previewPage, previewScale]);
+  }, [previewPage]);
+
+  // If a compiled PDF already exists when loading the project, show it automatically
+  useEffect(() => {
+    const checkExistingPDF = async () => {
+      if (!project) return;
+      const exists = await APIClient.hasCompiledPDF(project.id);
+      if (exists) {
+        const ts = Date.now();
+        const url = `/api/projects/${project.id}/pdf?inline=1&_=${ts}#page=1&zoom=page-width`;
+        setPreviewUrl(url);
+        // Do not auto-switch tabs; respect user's current tab selection
+      }
+    };
+    checkExistingPDF();
+  }, [project]);
+
+  // When switching to Preview tab, auto-load existing PDF if available
+  useEffect(() => {
+    const maybeLoad = async () => {
+      if (activeTab !== 'preview' || !project) return;
+      const exists = await APIClient.hasCompiledPDF(project.id);
+      if (exists) {
+        const ts = Date.now();
+        const url = `/api/projects/${project.id}/pdf?inline=1&_=${ts}#page=${previewPage}&zoom=page-width`;
+        setPreviewUrl(url);
+      }
+    };
+    maybeLoad();
+  }, [activeTab, project, previewPage]);
 
   const loadProject = async () => {
     if (!projectId) return;
@@ -96,7 +128,10 @@ const ProjectEditor: React.FC = () => {
       const tp = (result.compilation_stats && result.compilation_stats.total_pages) ? result.compilation_stats.total_pages : 1;
       setTotalPages(tp);
       setPreviewPage(1);
-      setPreviewUrl(null);
+      const ts = Date.now();
+      const url = `/api/projects/${project.id}/pdf?inline=1&_=${ts}#page=1&zoom=page-width`;
+      setPreviewUrl(url);
+      setCompileWarnings(result.warnings || []);
 
       // Show success message or stats
       console.log('Compilation successful:', result.compilation_stats);
@@ -111,50 +146,48 @@ const ProjectEditor: React.FC = () => {
   };
 
   const handlePreviewPDF = async () => {
-    if (!project || !compiledTemplate) return;
-
+    if (!project) return;
     try {
-      const previewBlob = await APIClient.generatePreview({
-        yaml_content: compiledTemplate,
-        profile: project.metadata.device_profile,
-        page_number: previewPage,
-        scale: previewScale
-      });
-
-      // Render inline preview within the app instead of a new tab
-      const dataUrl = await blobToDataURL(previewBlob);
-      setPreviewUrl(dataUrl);
+      // Ensure compiled PDF exists
+      let needCompile = !compiledTemplate;
+      if (!compiledTemplate) {
+        const result: CompilationResult = await APIClient.compileProject(project.id);
+        setCompiledTemplate(result.template_yaml);
+        const tp = (result.compilation_stats && result.compilation_stats.total_pages) ? result.compilation_stats.total_pages : 1;
+        setTotalPages(tp);
+        setPreviewPage(1);
+      }
+      // Check compiled PDF availability; compile if missing (e.g., cleaned up)
+      const available = await APIClient.hasCompiledPDF(project.id);
+      if (!available) {
+        const result: CompilationResult = await APIClient.compileProject(project.id);
+        setCompiledTemplate(result.template_yaml);
+      }
+      const ts = Date.now();
+      const url = `/api/projects/${project.id}/pdf?inline=1&_=${ts}#page=${previewPage}&zoom=page-width`;
+      setPreviewUrl(url);
     } catch (err: any) {
-      setError(err.message || 'Failed to generate preview');
+      setError(err.message || 'Failed to prepare preview');
     }
   };
 
   const handleDownloadPDF = async () => {
     if (!project) return;
-
     try {
       setDownloadingPDF(true);
       setError(null);
-
-      // Use compiled template if available, otherwise compile first
-      let templateYaml = compiledTemplate;
-      if (!templateYaml) {
+      // Ensure compiled PDF exists (or compile if missing)
+      let available = await APIClient.hasCompiledPDF(project.id);
+      if (!available) {
         const result: CompilationResult = await APIClient.compileProject(project.id);
-        templateYaml = result.template_yaml;
-        setCompiledTemplate(templateYaml);
+        setCompiledTemplate(result.template_yaml);
+        available = true;
       }
-
-      // Generate PDF
-      const pdfBlob = await APIClient.generatePDF({
-        yaml_content: templateYaml,
-        profile: project.metadata.device_profile
-      });
-
-      // Download the PDF
-      const filename = `${project.metadata.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-      downloadBlob(pdfBlob, filename);
+      // Trigger browser download from compiled endpoint (no regeneration)
+      const url = `/api/projects/${project.id}/pdf`;
+      window.open(url, '_blank');
     } catch (err: any) {
-      setError(err.message || 'Failed to generate PDF');
+      setError(err.message || 'Failed to download PDF');
     } finally {
       setDownloadingPDF(false);
     }
@@ -252,14 +285,6 @@ const ProjectEditor: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={loadProject}
-            disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 border border-eink-light-gray text-eink-black rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Refresh project data"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
           <button
             onClick={handleCompileProject}
             disabled={compiling || project.masters.length === 0 || project.plan.sections.length === 0}
@@ -452,13 +477,26 @@ const ProjectEditor: React.FC = () => {
           />
 
           <div className="mt-4 p-4 border rounded-lg bg-white">
+            {compileWarnings && compileWarnings.length > 0 && (
+              <div className="mb-3 p-2 border border-yellow-300 bg-yellow-50 rounded text-sm text-yellow-900">
+                <div className="font-medium mb-1">Warnings ({compileWarnings.length}):</div>
+                <ul className="list-disc pl-5">
+                  {compileWarnings.slice(0, 10).map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                  {compileWarnings.length > 10 && (
+                    <li>… and {compileWarnings.length - 10} more</li>
+                  )}
+                </ul>
+              </div>
+            )}
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold">Inline PDF Preview</h3>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1 mr-3 text-sm">
                   <button
                     onClick={() => setPreviewPage(p => Math.max(1, p - 1))}
-                    disabled={!compiledTemplate || previewPage <= 1}
+                    disabled={!previewUrl || previewPage <= 1}
                     className="px-2 py-1 border rounded disabled:opacity-50"
                     title="Previous page"
                   >
@@ -476,47 +514,28 @@ const ProjectEditor: React.FC = () => {
                   <span>of {totalPages}</span>
                   <button
                     onClick={() => setPreviewPage(p => Math.min(totalPages, p + 1))}
-                    disabled={!compiledTemplate || previewPage >= totalPages}
+                    disabled={!previewUrl || previewPage >= totalPages}
                     className="px-2 py-1 border rounded disabled:opacity-50"
                     title="Next page"
                   >
                     ▶
                   </button>
                 </div>
-                <div className="flex items-center gap-1 mr-3 text-sm">
-                  <span>Scale</span>
-                  <input
-                    type="number"
-                    step={0.1}
-                    min={0.2}
-                    max={3}
-                    value={previewScale}
-                    onChange={(e)=>setPreviewScale(Math.max(0.2, Math.min(3, Number(e.target.value)||0.7)))}
-                    className="w-20 px-2 py-1 border rounded"
-                  />
-                </div>
+                {/* Scale control removed; browser PDF viewer handles zoom */}
                 <button
                   onClick={handlePreviewPDF}
-                  disabled={!compiledTemplate}
-                  className="px-3 py-1.5 border rounded disabled:opacity-50"
-                  title={!compiledTemplate ? 'Compile project first to enable preview' : 'Render preview'}
+                  className="px-3 py-1.5 border rounded"
+                  title={'Render preview'}
                 >
                   Render Preview
                 </button>
-                {previewUrl && (
-                  <button
-                    onClick={() => window.open(previewUrl, '_blank')}
-                    className="px-3 py-1.5 border rounded"
-                  >
-                    Open in New Tab
-                  </button>
-                )}
+                {/* Removed Open in New Tab button; separate Download button exists in header */}
               </div>
             </div>
 
             {previewUrl ? (
-              <div className="overflow-auto border rounded bg-gray-50 p-2">
-                <img src={previewUrl} alt="PDF Preview" className="max-w-full h-auto mx-auto" />
+              <div className="overflow-hidden border rounded bg-gray-50 p-2">
+                <iframe title="PDF Preview" src={previewUrl} className="w-full h-[70vh]" style={{ border: 0 }} />
               </div>
             ) : (
               <div className="text-sm text-eink-dark-gray">No preview yet. Click "Render Preview" after compiling to display it here.</div>

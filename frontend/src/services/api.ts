@@ -238,6 +238,16 @@ export class APIClient {
     return response.data;
   }
 
+  // Compiled PDF availability check (HEAD)
+  static async hasCompiledPDF(projectId: string): Promise<boolean> {
+    try {
+      const res = await apiClient.head(`/projects/${projectId}/pdf`);
+      return res.status >= 200 && res.status < 300;
+    } catch (_e) {
+      return false;
+    }
+  }
+
   // Assets
   static async getFonts(): Promise<string[]> {
     const response: AxiosResponse<string[]> = await apiClient.get('/assets/fonts');

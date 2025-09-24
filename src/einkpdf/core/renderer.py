@@ -302,11 +302,18 @@ class DeterministicPDFRenderer:
             page_num: Current page number
         """
         # Draw background color if specified
-        if hasattr(widget, 'background_color') and widget.background_color:
+        # For link_list widgets, skip widget-level background if properties.background_color is set
+        # (individual items will handle their own backgrounds)
+        widget_props = getattr(widget, 'properties', {}) or {}
+        should_draw_widget_bg = (
+            hasattr(widget, 'background_color') and
+            widget.background_color and
+            not (widget.type == 'link_list' and widget_props.get('background_color'))
+        )
+        if should_draw_widget_bg:
             self._draw_widget_background(pdf_canvas, widget)
 
         # Collect explicit anchor destinations (dest_id) for named destinations
-        widget_props = getattr(widget, 'properties', {}) or {}
         if widget.type == "anchor":
             did = widget_props.get('dest_id') if isinstance(widget_props, dict) else None
             if isinstance(did, str) and did.strip():
@@ -361,12 +368,111 @@ class DeterministicPDFRenderer:
             self._render_calendar(pdf_canvas, widget)
         elif widget.type == "image":
             self._render_image(pdf_canvas, widget)
+        elif widget.type == "box":
+            self._render_box(pdf_canvas, widget)
         else:
             # Following CLAUDE.md rule #4: explicit NotImplementedError
             raise UnsupportedWidgetError(
                 f"Widget type '{widget.type}' not implemented. "
-                f"Supported: text_block, checkbox, divider, lines, anchor, internal_link, tap_zone, calendar, image"
+                f"Supported: text_block, checkbox, divider, lines, anchor, internal_link, tap_zone, calendar, image, box"
             )
+
+    def _render_box(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
+        """Render a rectangular box (fill + stroke) with optional rounded corners and link."""
+        props = getattr(widget, 'properties', {}) or {}
+
+        # Defaults optimized for e-ink visibility
+        fill_color = props.get('fill_color')  # hex or None
+        stroke_color = props.get('stroke_color', '#000000')
+        stroke_width = props.get('stroke_width', 1.0)
+        corner_radius = props.get('corner_radius', 0.0)
+        opacity = props.get('opacity', 1.0)
+        to_dest = props.get('to_dest')
+
+        # Validate and clamp
+        try:
+            stroke_width = float(stroke_width)
+        except Exception:
+            stroke_width = 1.0
+        try:
+            corner_radius = max(0.0, float(corner_radius))
+        except Exception:
+            corner_radius = 0.0
+        try:
+            opacity = float(opacity)
+            if opacity < 0.0:
+                opacity = 0.0
+            if opacity > 1.0:
+                opacity = 1.0
+        except Exception:
+            opacity = 1.0
+
+        # Enforce constraints
+        stroke_width = self.enforcer.check_stroke_width(stroke_width)
+        if fill_color:
+            try:
+                fill_color = self.enforcer.validate_color(fill_color)
+            except Exception:
+                fill_color = None
+        try:
+            stroke_color = self.enforcer.validate_color(stroke_color)
+        except Exception:
+            stroke_color = '#000000'
+
+        # Convert position
+        box = self.converter.convert_position_for_drawing(widget.position)
+
+        pdf_canvas.saveState()
+        try:
+            # Set alpha if available
+            if hasattr(pdf_canvas, 'setFillAlpha'):
+                try:
+                    pdf_canvas.setFillAlpha(opacity)
+                except Exception:
+                    pass
+            if hasattr(pdf_canvas, 'setStrokeAlpha'):
+                try:
+                    pdf_canvas.setStrokeAlpha(opacity)
+                except Exception:
+                    pass
+
+            # Apply stroke settings
+            pdf_canvas.setLineWidth(stroke_width)
+            try:
+                pdf_canvas.setStrokeColor(HexColor(stroke_color))
+            except Exception:
+                pass
+
+            # Draw fill first
+            if fill_color:
+                try:
+                    pdf_canvas.setFillColor(HexColor(fill_color))
+                except Exception:
+                    pass
+                if corner_radius and corner_radius > 0:
+                    pdf_canvas.roundRect(box['x'], box['y'], box['width'], box['height'], corner_radius, stroke=0, fill=1)
+                else:
+                    pdf_canvas.rect(box['x'], box['y'], box['width'], box['height'], stroke=0, fill=1)
+
+            # Draw stroke on top (always draw a stroke if stroke_width > 0)
+            if stroke_width > 0:
+                if corner_radius and corner_radius > 0:
+                    pdf_canvas.roundRect(box['x'], box['y'], box['width'], box['height'], corner_radius, stroke=1, fill=0)
+                else:
+                    pdf_canvas.rect(box['x'], box['y'], box['width'], box['height'], stroke=1, fill=0)
+
+        finally:
+            pdf_canvas.restoreState()
+
+        # Optional link region over the box
+        if isinstance(to_dest, str) and to_dest.strip():
+            link_rect = (
+                box['x'],
+                box['y'],
+                box['x'] + box['width'],
+                box['y'] + box['height']
+            )
+            pdf_canvas.linkAbsolute("", to_dest.strip(), Rect=link_rect, Border='[0 0 0]')
 
     def _render_link_list(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
         """
@@ -405,12 +511,63 @@ class DeterministicPDFRenderer:
         label_template = props.get('label_template', 'Note {index_padded}') or 'Note {index_padded}'
         bind_expr = props.get('bind', 'notes(@index)') or 'notes(@index)'
 
+        # Highlight functionality (numeric index only in preview path)
+        highlight_index = props.get('highlight_index')
+        try:
+            # In preview (non-compiled), we only support numeric highlight_index
+            highlight_index = int(highlight_index) if highlight_index is not None else None
+        except Exception:
+            highlight_index = None
+
+        # Get highlight color (default to light blue if not specified)
+        highlight_color = props.get('highlight_color', '#dbeafe')
+
+        # Parse hex color to RGB values
+        def hex_to_rgb(hex_color):
+            """Convert hex color to RGB values (0-1 range for PDF)"""
+            try:
+                hex_color = hex_color.lstrip('#')
+                if len(hex_color) == 6:
+                    r = int(hex_color[0:2], 16) / 255.0
+                    g = int(hex_color[2:4], 16) / 255.0
+                    b = int(hex_color[4:6], 16) / 255.0
+                    return r, g, b
+                else:
+                    return 0.9, 0.9, 1.0  # Default light blue
+            except Exception:
+                return 0.9, 0.9, 1.0  # Default light blue
+
+        bg_r, bg_g, bg_b = hex_to_rgb(highlight_color)
+        # Create a slightly darker border color
+        border_r = max(0, bg_r - 0.3)
+        border_g = max(0, bg_g - 0.3)
+        border_b = max(0, bg_b - 0.1)
+
+        # Check orientation for cell sizing
+        orientation = props.get('orientation', 'horizontal')
+
         # Layout calculations (top-left coordinate system)
         total_w = float(widget.position.width)
         total_h = float(widget.position.height)
         rows = int(math.ceil(count / columns)) if columns > 0 else count
-        cell_w = (total_w - (columns - 1) * gap_x) / max(1, columns)
-        cell_h = item_height if item_height is not None else (total_h - (rows - 1) * gap_y) / max(1, rows)
+
+        # Base cell sizes from the container
+        base_cell_w = (total_w - (columns - 1) * gap_x) / max(1, columns)
+        base_cell_h = (total_h - (rows - 1) * gap_y) / max(1, rows)
+
+        # Locale for month name tokens (if provided)
+        locale = str(props.get('locale', 'en')).lower()
+
+        if orientation == 'vertical':
+            # Vertical: swap base cell dimensions and clamp height to fit available space
+            # Width is constant (from item_height or per-row height); height fits rows with gaps
+            # fit_h = base_cell_h
+            cell_h = base_cell_h
+            cell_w = item_height if item_height is not None else base_cell_w
+        else:
+            # Horizontal text: width fixed by columns; height may be overridden by item_height.
+            cell_w = base_cell_w
+            cell_h = item_height if item_height is not None else base_cell_h
 
         base_x = float(widget.position.x)
         base_y = float(widget.position.y)
@@ -423,16 +580,39 @@ class DeterministicPDFRenderer:
             cell_x = base_x + col * (cell_w + gap_x)
             cell_y = base_y + row * (cell_h + gap_y)
 
-            # Format label
+            # Build label (locale-aware month tokens)
             idx_padded = str(idx).zfill(index_pad)
             content = (label_template or '')
             content = content.replace('{index_padded}', idx_padded).replace('{index}', str(idx))
+            try:
+                if 1 <= idx <= 12:
+                    mn = get_month_names(locale, short=False)[idx - 1]
+                    ma = get_month_names(locale, short=True)[idx - 1]
+                else:
+                    mn = str(idx)
+                    ma = str(idx)
+            except Exception:
+                months_long = [
+                    'January','February','March','April','May','June',
+                    'July','August','September','October','November','December']
+                months_short = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+                if 1 <= idx <= 12:
+                    mn = months_long[idx - 1]
+                    ma = months_short[idx - 1]
+                else:
+                    mn = str(idx)
+                    ma = str(idx)
+            content = (content
+                       .replace('{month_name}', mn)
+                       .replace('{month_abbr}', ma)
+                       .replace('{month_padded}', idx_padded))
 
-            # Resolve bind -> to_dest for this item (support token substitution)
+            # Resolve destination
             bexpr = (bind_expr or '')
             bexpr = bexpr.replace('{index_padded}', idx_padded).replace('{index}', str(idx))
             to_dest = self._resolve_link_list_bind(bexpr, idx, idx_padded)
 
+            # Pass through the link_list orientation to individual items
             temp_widget = Widget(
                 id=f"{widget.id}_item_{i+1}",
                 type="internal_link",
@@ -440,7 +620,15 @@ class DeterministicPDFRenderer:
                 position=type(widget.position)(x=cell_x, y=cell_y, width=cell_w, height=cell_h),
                 content=content,
                 styling=styling,
-                properties={"to_dest": to_dest}
+                properties={
+                    "to_dest": to_dest,
+                    "orientation": orientation,
+                    # Carry highlight flag into internal_link so compiled flow mirrors preview
+                    "highlight": bool(highlight_index is not None and idx == highlight_index),
+                    # Color logic: if highlighted, use highlight_color; otherwise use background_color
+                    **({"highlight_color": props.get('highlight_color')}),
+                    **({"background_color": props.get('background_color')}),
+                }
             )
             self._render_internal_link(pdf_canvas, temp_widget)
 
@@ -512,6 +700,67 @@ class DeterministicPDFRenderer:
         # Restore previous fill color
         pdf_canvas.setFillColor(current_fill)
 
+    def _draw_text_oriented(
+        self,
+        pdf_canvas: canvas.Canvas,
+        box: Dict[str, float],
+        text: str,
+        font_name: str,
+        font_size: float,
+        color: str,
+        text_align: str,
+        orientation: str,
+        underline: bool = False,
+        horiz_y: float = 0.0,
+    ) -> None:
+        """Draw text inside a box with optional vertical orientation and underline.
+
+        - For horizontal, respects horiz_y baseline (from convert_text_position) and text_align.
+        - For vertical, rotate 90° around box center and align accordingly.
+        """
+        try:
+            pdf_canvas.setFont(font_name, font_size)
+            pdf_canvas.setFillColor(HexColor(color))
+        except Exception:
+            pass
+
+        try:
+            text_width = pdf_canvas.stringWidth(text, font_name, font_size)
+        except Exception:
+            text_width = len(text) * (font_size * 0.6)
+
+        if orientation == 'vertical':
+            cx = box['x'] + box['width'] / 2.0
+            cy = box['y'] + box['height'] / 2.0
+            pdf_canvas.saveState()
+            pdf_canvas.translate(cx, cy)
+            pdf_canvas.rotate(90)
+            if text_align == 'center':
+                start_x = -text_width / 2.0
+            elif text_align == 'right':
+                start_x = -text_width
+            else:
+                start_x = -text_width / 2.0
+            start_y = -font_size / 3.0
+            pdf_canvas.drawString(start_x, start_y, text)
+            if underline:
+                uy = start_y - font_size * 0.1
+                pdf_canvas.line(start_x, uy, start_x + text_width, uy)
+            pdf_canvas.restoreState()
+            return
+
+        # Horizontal
+        if text_align == 'center':
+            start_x = box['x'] + max(0.0, (box['width'] - text_width) / 2.0)
+        elif text_align == 'right':
+            start_x = box['x'] + max(0.0, box['width'] - text_width)
+        else:
+            start_x = box['x']
+        pdf_canvas.drawString(start_x, horiz_y, text)
+        if underline:
+            uy = horiz_y - font_size * 0.1
+            pdf_canvas.line(start_x, uy, start_x + text_width, uy)
+
     def _render_text_block(self, pdf_canvas: canvas.Canvas, widget: Widget, page_num: int) -> None:
         """Render text block widget."""
         if not widget.content:
@@ -567,20 +816,29 @@ class DeterministicPDFRenderer:
         except Exception:
             pass
 
+        # Check orientation
+        props = getattr(widget, 'properties', {}) or {}
+        orientation = props.get('orientation', 'horizontal')
+
         # Draw text
         try:
             pdf_canvas.setFillColor(HexColor(color))
         except Exception:
             pass
-        # Horizontal alignment within the widget box
-        text_width = pdf_canvas.stringWidth(content_text, font_name, font_size)
-        if text_align == 'center':
-            start_x = box['x'] + max(0.0, (box['width'] - text_width) / 2)
-        elif text_align == 'right':
-            start_x = box['x'] + max(0.0, box['width'] - text_width)
-        else:
-            start_x = text_pos['x']
-        pdf_canvas.drawString(start_x, text_pos['y'], content_text)
+
+        # Use shared oriented text renderer
+        self._draw_text_oriented(
+            pdf_canvas,
+            box,
+            content_text,
+            font_name,
+            font_size,
+            color,
+            text_align,
+            orientation,
+            underline=False,
+            horiz_y=text_pos['y']
+        )
     
     def _render_checkbox(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
         """Render checkbox widget."""
@@ -780,13 +1038,72 @@ class DeterministicPDFRenderer:
             # In non-strict mode the enforcer tracks violations; continue rendering
             pass
 
-        # Horizontal alignment within the widget box
-        if text_align == 'center':
-            start_x = box['x'] + max(0.0, (box['width'] - text_width) / 2)
-        elif text_align == 'right':
-            start_x = box['x'] + max(0.0, box['width'] - text_width)
-        else:
-            start_x = text_pos['x']
+        # Check orientation
+        orientation = props.get('orientation', 'horizontal')
+
+        # Background/highlight behind the link (supports compiled + preview flows)
+        try:
+            is_highlighted = props.get('highlight', False)
+            highlight_color = props.get('highlight_color')
+            background_color = props.get('background_color')
+
+            if is_highlighted and highlight_color:
+                # Highlighted items: background + border with highlight color
+                pdf_canvas.saveState()
+                try:
+                    color_hex = self.enforcer.validate_color(highlight_color)
+                    # Draw background fill
+                    pdf_canvas.setFillColor(HexColor(color_hex))
+                    pdf_canvas.rect(
+                        box['x'] + 1,
+                        box['y'] + 1,
+                        max(0, box['width'] - 2),
+                        max(0, box['height'] - 2),
+                        stroke=0,
+                        fill=1,
+                    )
+                    # Draw border
+                    stroke_width = self.enforcer.check_stroke_width(2.0)
+                    pdf_canvas.setLineWidth(stroke_width)
+                    pdf_canvas.setStrokeColor(HexColor(color_hex))
+                    pdf_canvas.rect(
+                        box['x'] + 1,
+                        box['y'] + 1,
+                        max(0, box['width'] - 2),
+                        max(0, box['height'] - 2),
+                        stroke=1,
+                        fill=0,
+                    )
+                except Exception:
+                    # Fallback to gray highlight if color validation fails
+                    try:
+                        pdf_canvas.setFillGray(0.85)
+                        pdf_canvas.rect(box['x'] + 1, box['y'] + 1, max(0, box['width'] - 2), max(0, box['height'] - 2), stroke=0, fill=1)
+                    except Exception:
+                        pass
+                pdf_canvas.restoreState()
+
+            elif not is_highlighted and background_color:
+                # Non-highlighted items: background fill only with background color
+                pdf_canvas.saveState()
+                try:
+                    color_hex = self.enforcer.validate_color(background_color)
+                    pdf_canvas.setFillColor(HexColor(color_hex))
+                    pdf_canvas.rect(
+                        box['x'],
+                        box['y'],
+                        box['width'],
+                        box['height'],
+                        stroke=0,
+                        fill=1,
+                    )
+                except Exception:
+                    # Fail fast: if background color is invalid, don't draw anything
+                    pass
+                pdf_canvas.restoreState()
+        except Exception:
+            # Following CLAUDE.md: don't mask errors, but continue rendering
+            pass
 
         # Use entire widget area for clickable region (like calendar cells)
         link_rect = (
@@ -797,9 +1114,19 @@ class DeterministicPDFRenderer:
         )
 
         pdf_canvas.linkAbsolute("", to_dest, Rect=link_rect, Border='[0 0 0]')
-        pdf_canvas.drawString(start_x, text_pos['y'], widget.content)
-        underline_y = text_pos['y'] - font_size * 0.1
-        pdf_canvas.line(start_x, underline_y, start_x + text_width, underline_y)
+
+        self._draw_text_oriented(
+            pdf_canvas,
+            box,
+            widget.content,
+            font_name,
+            font_size,
+            color,
+            text_align,
+            orientation,
+            underline=True,
+            horiz_y=text_pos['y']
+        )
 
     def _render_tap_zone(self, pdf_canvas: canvas.Canvas, widget: Widget, page_num: int) -> None:
         """Render an invisible tap zone that creates a link rectangle."""

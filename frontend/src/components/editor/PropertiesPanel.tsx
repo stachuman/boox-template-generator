@@ -92,6 +92,7 @@ const PropertiesPanel: React.FC = () => {
       case 'link_list': return AlignJustify;
       case 'anchor': return Anchor;
       case 'tap_zone': return Anchor;
+      case 'box': return Square;
       default: return Settings;
     }
   };
@@ -205,7 +206,8 @@ const PropertiesPanel: React.FC = () => {
 
                   {/* Text Styling - Show for widgets with text */}
                   {(selectedWidget.type === 'text_block' || selectedWidget.type === 'checkbox' ||
-                    selectedWidget.type === 'internal_link' || selectedWidget.type === 'calendar') && (
+                    selectedWidget.type === 'internal_link' || selectedWidget.type === 'calendar' ||
+                    selectedWidget.type === 'link_list') && (
                     <>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -270,6 +272,7 @@ const PropertiesPanel: React.FC = () => {
                   <label className="block text-sm font-medium mb-1">Content</label>
                   <textarea
                     {...register('content')}
+                    onChange={(e) => handleLiveUpdate('content', e.target.value)}
                     className="input-field w-full resize-none"
                     rows={3}
                     placeholder="Enter content..."
@@ -288,6 +291,7 @@ const PropertiesPanel: React.FC = () => {
                 <input
                   type="number"
                   {...register('position.x', { required: true, min: 0 })}
+                  onChange={(e) => handleLiveUpdate('position.x', parseInt(e.target.value) || 0)}
                   className="input-field w-full"
                 />
               </div>
@@ -296,6 +300,7 @@ const PropertiesPanel: React.FC = () => {
                 <input
                   type="number"
                   {...register('position.y', { required: true, min: 0 })}
+                  onChange={(e) => handleLiveUpdate('position.y', parseInt(e.target.value) || 0)}
                   className="input-field w-full"
                 />
               </div>
@@ -390,7 +395,8 @@ const PropertiesPanel: React.FC = () => {
 
                   {/* Text Styling - Show for widgets with text */}
                   {(selectedWidget.type === 'text_block' || selectedWidget.type === 'checkbox' ||
-                    selectedWidget.type === 'internal_link' || selectedWidget.type === 'calendar') && (
+                    selectedWidget.type === 'internal_link' || selectedWidget.type === 'calendar' ||
+                    selectedWidget.type === 'link_list') && (
                     <>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -443,29 +449,42 @@ const PropertiesPanel: React.FC = () => {
 
                   {/* Text Block specific styling */}
                   {selectedWidget.type === 'text_block' && (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-3">
                       <div>
-                        <label className="block text-sm font-medium mb-1">Top Padding (pt)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="200"
-                          {...register('properties.top_padding', { min: 0, max: 200 })}
-                          onChange={(e) => handleLiveUpdate('properties.top_padding', parseInt(e.target.value) || 0)}
-                          className="input-field w-full"
-                          placeholder="0"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Line Cap</label>
+                        <label className="block text-sm font-medium mb-1">Orientation</label>
                         <select
-                          {...register('properties.line_cap')}
-                          onChange={(e) => handleLiveUpdate('properties.line_cap', e.target.value)}
+                          {...register('properties.orientation')}
+                          onChange={(e) => handleLiveUpdate('properties.orientation', e.target.value)}
                           className="input-field w-full"
                         >
-                          <option value="butt">Butt</option>
-                          <option value="round">Round</option>
+                          <option value="horizontal">Horizontal (0°)</option>
+                          <option value="vertical">Vertical (90°)</option>
                         </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Top Padding (pt)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="200"
+                            {...register('properties.top_padding', { min: 0, max: 200 })}
+                            onChange={(e) => handleLiveUpdate('properties.top_padding', parseInt(e.target.value) || 0)}
+                            className="input-field w-full"
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Line Cap</label>
+                          <select
+                            {...register('properties.line_cap')}
+                            onChange={(e) => handleLiveUpdate('properties.line_cap', e.target.value)}
+                            className="input-field w-full"
+                          >
+                            <option value="butt">Butt</option>
+                            <option value="round">Round</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -478,11 +497,125 @@ const PropertiesPanel: React.FC = () => {
 
           {/* 4. BEHAVIOR - Widget-specific functionality */}
 
+          {/* Box Behavior & Appearance */}
+          {selectedWidget.type === 'box' && (
+            <div>
+              <h4 className="font-medium mb-3">Box</h4>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Fill Color</label>
+                    <div className="flex space-x-2">
+                      <input
+                        type="color"
+                        {...register('properties.fill_color')}
+                        onChange={(e) => handleLiveUpdate('properties.fill_color', e.target.value)}
+                        className="w-12 h-10 border border-eink-pale-gray rounded cursor-pointer"
+                        value={(selectedWidget as any).properties?.fill_color || '#FFFFFF'}
+                      />
+                      <input
+                        type="text"
+                        {...register('properties.fill_color')}
+                        onChange={(e) => handleLiveUpdate('properties.fill_color', e.target.value)}
+                        className="input-field w-full"
+                        placeholder="#FFFFFF"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Stroke Color</label>
+                    <div className="flex space-x-2">
+                      <input
+                        type="color"
+                        {...register('properties.stroke_color')}
+                        onChange={(e) => handleLiveUpdate('properties.stroke_color', e.target.value)}
+                        className="w-12 h-10 border border-eink-pale-gray rounded cursor-pointer"
+                        value={(selectedWidget as any).properties?.stroke_color || '#000000'}
+                      />
+                      <input
+                        type="text"
+                        {...register('properties.stroke_color')}
+                        onChange={(e) => handleLiveUpdate('properties.stroke_color', e.target.value)}
+                        className="input-field w-full"
+                        placeholder="#000000"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Stroke Width (pt)</label>
+                    <input
+                      type="number"
+                      step="0.25"
+                      min="0"
+                      max="8"
+                      {...register('properties.stroke_width', { min: 0, max: 8 })}
+                      onChange={(e) => handleLiveUpdate('properties.stroke_width', parseFloat(e.target.value) || 0)}
+                      className="input-field w-full"
+                      placeholder="1.0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Corner Radius (pt)</label>
+                    <input
+                      type="number"
+                      step="1"
+                      min="0"
+                      max="60"
+                      {...register('properties.corner_radius', { min: 0, max: 60 })}
+                      onChange={(e) => handleLiveUpdate('properties.corner_radius', parseFloat(e.target.value) || 0)}
+                      className="input-field w-full"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Opacity (0–1)</label>
+                    <input
+                      type="number"
+                      step="0.05"
+                      min="0"
+                      max="1"
+                      {...register('properties.opacity', { min: 0, max: 1 })}
+                      onChange={(e) => handleLiveUpdate('properties.opacity', parseFloat(e.target.value) || 1)}
+                      className="input-field w-full"
+                      placeholder="1"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Destination ID (optional)</label>
+                  <input
+                    type="text"
+                    {...register('properties.to_dest')}
+                    onChange={(e) => handleLiveUpdate('properties.to_dest', e.target.value)}
+                    className="input-field w-full"
+                    placeholder="e.g., home:index or notes:page:001"
+                  />
+                  <p className="text-xs text-eink-light-gray mt-1">Makes the box clickable to a named destination.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Link List Behavior */}
           {selectedWidget.type === 'link_list' && (
             <div>
               <h4 className="font-medium mb-3">Behavior</h4>
               <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Text Orientation</label>
+                  <select
+                    {...register('properties.orientation')}
+                    onChange={(e) => handleLiveUpdate('properties.orientation', e.target.value)}
+                    className="input-field w-full"
+                  >
+                    <option value="horizontal">Horizontal (0°)</option>
+                    <option value="vertical">Vertical (90° text)</option>
+                  </select>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium mb-1">Count</label>
@@ -497,6 +630,20 @@ const PropertiesPanel: React.FC = () => {
                     />
                   </div>
                   <div>
+                    <label className="block text-sm font-medium mb-1">Columns</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      {...register('properties.columns', { min: 1, max: 10 })}
+                      onChange={(e) => handleLiveUpdate('properties.columns', parseInt(e.target.value) || 2)}
+                      className="input-field w-full"
+                      placeholder="2"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
                     <label className="block text-sm font-medium mb-1">Index Padding</label>
                     <input
                       type="number"
@@ -506,6 +653,48 @@ const PropertiesPanel: React.FC = () => {
                       onChange={(e) => handleLiveUpdate('properties.index_pad', parseInt(e.target.value) || 3)}
                       className="input-field w-full"
                       placeholder="3"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Gap Y (pt)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="50"
+                      {...register('properties.gap_y', { min: 0, max: 50 })}
+                      onChange={(e) => handleLiveUpdate('properties.gap_y', parseInt(e.target.value) || 6)}
+                      className="input-field w-full"
+                      placeholder="6"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Gap X (pt)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="50"
+                      {...register('properties.gap_x', { min: 0, max: 50 })}
+                      onChange={(e) => handleLiveUpdate('properties.gap_x', parseInt(e.target.value) || 0)}
+                      className="input-field w-full"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Item Height (pt)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      {...register('properties.item_height')}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        // Allow empty to auto-calc; otherwise number
+                        handleLiveUpdate('properties.item_height', v === '' ? '' : (parseFloat(v) || 0));
+                      }}
+                      className="input-field w-full"
+                      placeholder="Leave empty to auto-calc"
                     />
                   </div>
                 </div>
@@ -521,6 +710,75 @@ const PropertiesPanel: React.FC = () => {
                   <p className="text-xs text-eink-light-gray mt-1">
                     Example: notes(@index) → notes:page:001..; change to day(@index_date)
                   </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Highlight (Index or Token)</label>
+                  <input
+                    type="text"
+                    {...register('properties.highlight_index')}
+                    onChange={(e) => handleLiveUpdate('properties.highlight_index', e.target.value)}
+                    className="input-field w-full"
+                    placeholder="e.g., 2 or {month}"
+                  />
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Accepts a number (e.g., 3) or a token like {"{month}"} resolved during compilation.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Highlight Color (optional)</label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="color"
+                      {...register('properties.highlight_color')}
+                      onChange={(e) => handleLiveUpdate('properties.highlight_color', e.target.value)}
+                      className="w-12 h-10 border border-eink-pale-gray rounded cursor-pointer"
+                      title="Choose highlight color"
+                      value={(selectedWidget.properties && (selectedWidget as any).properties.highlight_color) || '#cccccc'}
+                    />
+                    <input
+                      type="text"
+                      {...register('properties.highlight_color')}
+                      onChange={(e) => handleLiveUpdate('properties.highlight_color', e.target.value)}
+                      className="input-field w-full"
+                      placeholder="#CCCCCC"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleLiveUpdate('properties.highlight_color', '')}
+                      className="px-3 py-2 text-xs border border-eink-pale-gray rounded hover:bg-eink-pale-gray"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <p className="text-xs text-eink-light-gray mt-1">If empty, a readable gray is used.</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Background Color (optional)</label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="color"
+                      {...register('properties.background_color')}
+                      onChange={(e) => handleLiveUpdate('properties.background_color', e.target.value)}
+                      className="w-12 h-10 border border-eink-pale-gray rounded cursor-pointer"
+                      title="Choose background color"
+                      value={(selectedWidget.properties && (selectedWidget as any).properties.background_color) || '#ffffff'}
+                    />
+                    <input
+                      type="text"
+                      {...register('properties.background_color')}
+                      onChange={(e) => handleLiveUpdate('properties.background_color', e.target.value)}
+                      className="input-field w-full"
+                      placeholder="#FFFFFF"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleLiveUpdate('properties.background_color', '')}
+                      className="px-3 py-2 text-xs border border-eink-pale-gray rounded hover:bg-eink-pale-gray"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <p className="text-xs text-eink-light-gray mt-1">Background color for non-highlighted items. If empty, transparent is used.</p>
                 </div>
               </div>
             </div>
@@ -538,6 +796,7 @@ const PropertiesPanel: React.FC = () => {
                     min="4"
                     max="100"
                     {...register('properties.checkbox_size', { min: 4, max: 100 })}
+                    onChange={(e) => handleLiveUpdate('properties.checkbox_size', parseInt(e.target.value) || 16)}
                     className="input-field w-full"
                   />
                   <p className="text-xs text-eink-light-gray mt-1">
@@ -781,6 +1040,17 @@ const PropertiesPanel: React.FC = () => {
             <div>
               <h4 className="font-medium mb-3">Internal Link</h4>
               <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Orientation</label>
+                  <select
+                    {...register('properties.orientation')}
+                    onChange={(e) => handleLiveUpdate('properties.orientation', e.target.value)}
+                    className="input-field w-full"
+                  >
+                    <option value="horizontal">Horizontal (0°)</option>
+                    <option value="vertical">Vertical (90°)</option>
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Link Text</label>
                   <input
@@ -1048,51 +1318,8 @@ const PropertiesPanel: React.FC = () => {
           {/* Styling (for calendar) */}
           {selectedWidget.type === 'calendar' && (
             <div>
-              <h4 className="font-medium mb-3">Calendar Styling</h4>
+              <h4 className="font-medium mb-3">Calendar Options</h4>
               <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Font</label>
-                  <select 
-                    {...register('styling.font')} 
-                    onChange={(e) => handleLiveUpdate('styling.font', e.target.value)}
-                    className="input-field w-full"
-                  >
-                    {fontOptions.map(f => (<option key={f} value={f}>{f}</option>))}
-                  </select>
-                  <p className="text-xs text-eink-light-gray mt-1">
-                    Font family for calendar text
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Size (pt)</label>
-                  <input
-                    type="number"
-                    min="6"
-                    max="24"
-                    {...register('styling.size', { min: 6, max: 24 })}
-                    onChange={(e) => handleLiveUpdate('styling.size', parseInt(e.target.value) || 10)}
-                    className="input-field w-full"
-                    placeholder="10"
-                  />
-                  <p className="text-xs text-eink-light-gray mt-1">
-                    Font size for calendar text (6-24pt for readability)
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Color</label>
-                  <input
-                    type="color"
-                    {...register('styling.color')}
-                    onChange={(e) => handleLiveUpdate('styling.color', e.target.value)}
-                    className="w-full h-10 border border-eink-pale-gray rounded"
-                  />
-                  <p className="text-xs text-eink-light-gray mt-1">
-                    Text color (black recommended for e-ink)
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 space-y-3">
-                <h4 className="font-medium">Calendar Options</h4>
                 <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -1432,6 +1659,7 @@ const PropertiesPanel: React.FC = () => {
                   type="number"
                   min="1"
                   {...register('page', { min: 1 })}
+                  onChange={(e) => handleLiveUpdate('page', parseInt(e.target.value) || undefined)}
                   className="input-field w-full"
                   placeholder="Leave blank for master templates"
                 />

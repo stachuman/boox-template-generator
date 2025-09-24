@@ -70,6 +70,12 @@ export interface WidgetProperties {
   max_image_px?: number;          // Max width/height in px when optimizing
   grayscale_on_import?: boolean;  // Convert to grayscale on import
   image_quality?: number;         // JPEG quality 0.5-0.95 (default 0.8)
+  // Box widget properties
+  fill_color?: string;
+  stroke_color?: string;
+  stroke_width?: number;
+  corner_radius?: number;
+  opacity?: number; // 0..1
   // Calendar widget properties
   calendar_type?: 'monthly' | 'weekly' | 'custom_range';
   start_date?: string;        // ISO 8601 format (YYYY-MM-DD)
@@ -88,7 +94,7 @@ export interface WidgetProperties {
 
 export interface Widget {
   id: string;
-  type: 'text_block' | 'checkbox' | 'divider' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list';
+  type: 'text_block' | 'checkbox' | 'divider' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box';
   page?: number; // Optional - auto-assigned during compilation for multi-page documents
   content?: string;
   position: Position;
@@ -272,6 +278,7 @@ export interface ProjectListItem {
 export interface CompilationResult {
   template_yaml: string;
   compilation_stats: Record<string, any>;
+  warnings?: string[];
 }
 
 // Request types for project API

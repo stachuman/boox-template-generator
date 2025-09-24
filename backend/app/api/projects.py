@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 
@@ -19,6 +20,8 @@ from einkpdf.services.project_service import ProjectService, ProjectServiceError
 from einkpdf.services.compilation_service import CompilationService, CompilationServiceError
 from einkpdf.core.project_schema import Project, ProjectListItem, CompilationResult, Master
 from einkpdf.core.profiles import load_device_profile, DeviceProfileError
+from einkpdf.core.preview import generate_ground_truth_preview, PreviewError
+from ..services import PDFService
 
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -26,6 +29,7 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 # Initialize services
 project_service = ProjectService()
 compilation_service = CompilationService()
+pdf_service = PDFService()
 
 
 # Request/Response models
@@ -64,6 +68,7 @@ class UpdatePlanRequest(BaseModel):
 class CompileProjectResponse(BaseModel):
     template_yaml: str = Field(..., description="Compiled template YAML")
     compilation_stats: Dict[str, Any] = Field(..., description="Compilation statistics")
+    warnings: List[str] = Field(default_factory=list, description="Constraint warnings from PDF rendering")
 
 
 # Project CRUD endpoints
@@ -286,7 +291,8 @@ async def compile_project(project_id: str) -> CompileProjectResponse:
         template_data = convert_enums(result.template.model_dump())
         template_yaml = yaml.safe_dump(template_data, sort_keys=False, allow_unicode=True)
 
-        # Persist compiled template under project directory for diagnostics
+        # Persist compiled template and final PDF (no history, only latest files)
+        warnings: List[str] = []
         try:
             from pathlib import Path
             import os
@@ -295,24 +301,48 @@ async def compile_project(project_id: str) -> CompileProjectResponse:
             if env_base:
                 base_dir = Path(env_base)
             else:
-                # from backend/app/api -> parents[2] == backend
                 backend_dir = Path(__file__).resolve().parents[2]
                 base_dir = backend_dir / "data" / "projects"
             pdir = base_dir / project.id / "compiled"
             pdir.mkdir(parents=True, exist_ok=True)
-            ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-            with open(pdir / f"compiled-{ts}.yaml", "w", encoding="utf-8") as f:
-                f.write(template_yaml)
-            # Also refresh latest.yaml pointer
+
+            # Remove previous outputs to avoid stale previews
+            for old in pdir.glob("*"):
+                try:
+                    old.unlink()
+                except Exception:
+                    pass
+
+            # Write latest.yaml
             with open(pdir / "latest.yaml", "w", encoding="utf-8") as f:
                 f.write(template_yaml)
+
+            # Generate final PDF once during compilation with warnings
+            pdf_bytes, warnings = pdf_service.generate_pdf_with_warnings(
+                yaml_content=template_yaml,
+                profile=project.metadata.device_profile,
+                deterministic=True,
+            )
+            # Atomic write of PDF to prevent partial reads in preview
+            tmp_path = pdir / "latest.pdf.tmp"
+            with open(tmp_path, "wb") as pf:
+                pf.write(pdf_bytes)
+                try:
+                    pf.flush()
+                    import os
+                    os.fsync(pf.fileno())
+                except Exception:
+                    pass
+            import os
+            os.replace(tmp_path, pdir / "latest.pdf")
         except Exception:
             # Non-fatal: continue without blocking response
             pass
 
         return CompileProjectResponse(
             template_yaml=template_yaml,
-            compilation_stats=result.compilation_stats
+            compilation_stats=result.compilation_stats,
+            warnings=warnings or []
         )
 
     except ProjectServiceError as e:
@@ -320,6 +350,103 @@ async def compile_project(project_id: str) -> CompileProjectResponse:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
         )
+
+
+@router.get("/{project_id}/pdf")
+async def get_project_pdf(project_id: str, inline: bool = False):
+    """Return the last compiled PDF for the project."""
+    try:
+        project = project_service.get_project(project_id)
+        if not project:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        import os
+        from pathlib import Path
+        env_base = os.getenv("EINK_PROJECTS_DIR")
+        if env_base:
+            base_dir = Path(env_base)
+        else:
+            backend_dir = Path(__file__).resolve().parents[2]
+            base_dir = backend_dir / "data" / "projects"
+        pdf_path = base_dir / project.id / "compiled" / "latest.pdf"
+        if not pdf_path.exists():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PDF not available. Compile the project first.")
+        data = pdf_path.read_bytes()
+        disp = "inline" if inline else "attachment"
+        return Response(content=data, media_type="application/pdf", headers={
+            "Content-Disposition": f"{disp}; filename={project.metadata.name or 'project'}.pdf",
+            "Content-Length": str(len(data)),
+            # Prevent client/proxy caching so preview always shows the latest PDF
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.head("/{project_id}/pdf")
+async def head_project_pdf(project_id: str):
+    """HEAD probe for compiled PDF availability."""
+    try:
+        project = project_service.get_project(project_id)
+        if not project:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        import os
+        from pathlib import Path
+        env_base = os.getenv("EINK_PROJECTS_DIR")
+        if env_base:
+            base_dir = Path(env_base)
+        else:
+            backend_dir = Path(__file__).resolve().parents[2]
+            base_dir = backend_dir / "data" / "projects"
+        pdf_path = base_dir / project.id / "compiled" / "latest.pdf"
+        if not pdf_path.exists():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PDF not available")
+        # Return 200 with no body for HEAD
+        return Response(status_code=status.HTTP_200_OK)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.get("/{project_id}/preview")
+async def get_project_preview(project_id: str, page: int = 1, scale: float = 2.0):
+    """Return a PNG preview rendered from the last compiled PDF."""
+    try:
+        project = project_service.get_project(project_id)
+        if not project:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        import os
+        from pathlib import Path
+        env_base = os.getenv("EINK_PROJECTS_DIR")
+        if env_base:
+            base_dir = Path(env_base)
+        else:
+            backend_dir = Path(__file__).resolve().parents[2]
+            base_dir = backend_dir / "data" / "projects"
+        pdf_path = base_dir / project.id / "compiled" / "latest.pdf"
+        if not pdf_path.exists():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Preview not available. Compile the project first.")
+        pdf_bytes = pdf_path.read_bytes()
+        try:
+            png = generate_ground_truth_preview(pdf_bytes=pdf_bytes, page_number=page, scale=scale)
+        except PreviewError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Preview failed: {e}")
+        return Response(content=png, media_type="image/png", headers={
+            "Content-Disposition": f"inline; filename=preview-page-{page}.png",
+            "Content-Length": str(len(png)),
+            # Prevent caching of previews derived from the latest compiled PDF
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
     except CompilationServiceError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -5,6 +5,8 @@ einkpdf-env/
 old/
 /.env/
 ._*
+_*.sh
+_*.md
 
 *.tgz
 

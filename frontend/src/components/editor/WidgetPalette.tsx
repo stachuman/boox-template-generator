@@ -11,7 +11,7 @@ import { Type, Square, Minus, AlignJustify, Anchor, Calendar } from 'lucide-reac
 import clsx from 'clsx';
 
 interface WidgetType {
-  type: 'text_block' | 'checkbox' | 'divider' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list';
+  type: 'text_block' | 'checkbox' | 'divider' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box';
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
@@ -28,6 +28,22 @@ interface WidgetType {
 
 const WIDGET_TYPES: WidgetType[] = [
   {
+    type: 'box',
+    label: 'Box (Rect)',
+    icon: Square,
+    description: 'Background block with border and optional link',
+    defaultProps: {
+      position: { width: 240, height: 120 },
+      properties: {
+        fill_color: '#FFFFFF',
+        stroke_color: '#000000',
+        stroke_width: 1,
+        corner_radius: 0,
+        opacity: 1.0
+      }
+    }
+  },
+  {
     type: 'text_block',
     label: 'Text Block',
     icon: Type,
@@ -39,6 +55,9 @@ const WIDGET_TYPES: WidgetType[] = [
         font: 'Helvetica',
         size: 12,
         color: '#000000'
+      },
+      properties: {
+        orientation: 'horizontal'
       }
     }
   },
@@ -62,7 +81,8 @@ const WIDGET_TYPES: WidgetType[] = [
         gap_y: 6,
         item_height: 24,
         label_template: 'Note {index_padded}',
-        bind: 'notes(@index)'
+        bind: 'notes(@index)',
+        orientation: 'horizontal'
       }
     }
   },
@@ -196,7 +216,8 @@ const WIDGET_TYPES: WidgetType[] = [
         color: '#0066CC'
       },
       properties: {
-        to_dest: 'notes:index'
+        to_dest: 'notes:index',
+        orientation: 'horizontal'
       }
     }
   },

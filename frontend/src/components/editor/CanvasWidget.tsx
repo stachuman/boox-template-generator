@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDrag } from 'react-dnd';
 import clsx from 'clsx';
 import { Widget } from '@/types';
+import { getMonthNames } from '@/lib/i18n';
 import { useEditorStore } from '@/stores/editorStore';
 
 interface CanvasWidgetProps {
@@ -145,17 +146,45 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
   };
 
   const renderWidgetContent = () => {
-    switch (widget.type) {
+      switch (widget.type) {
+      case 'box':
+        const bx = widget.properties || {} as any;
+        const fill = (bx.fill_color as string) || 'transparent';
+        const stroke = (bx.stroke_color as string) || '#000000';
+        const bw = typeof bx.stroke_width === 'number' ? bx.stroke_width : 1;
+        const radius = typeof bx.corner_radius === 'number' ? bx.corner_radius : 0;
+        const alpha = (typeof bx.opacity === 'number' ? Math.max(0, Math.min(1, bx.opacity)) : 1);
+
+        const hexToRgba = (hex: string, a: number) => {
+          const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '#000000');
+          const r = m ? parseInt(m[1], 16) : 0;
+          const g = m ? parseInt(m[2], 16) : 0;
+          const b = m ? parseInt(m[3], 16) : 0;
+          return `rgba(${r}, ${g}, ${b}, ${a})`;
+        };
+
+        return (
+          <div className="h-full w-full" style={{
+            backgroundColor: fill && fill !== 'transparent' ? hexToRgba(fill, alpha) : 'transparent',
+            border: `${Math.max(0, bw)}px solid ${hexToRgba(stroke, alpha)}`,
+            borderRadius: `${Math.max(0, radius)}px`
+          }} />
+        );
       case 'text_block':
+        const textOrientation = widget.properties?.orientation || 'horizontal';
+        const isVertical = textOrientation === 'vertical';
         return (
           <div
-            className="h-full flex items-center"
+            className="h-full flex items-center justify-center"
             style={{
               fontFamily: resolveFontFamily(widget.styling?.font),
               fontSize: (widget.styling?.size || 12) / zoom,
               color: widget.styling?.color || '#000000',
               textAlign: (widget.styling?.text_align as any) || 'left',
               justifyContent: mapJustify(widget.styling?.text_align),
+              transform: isVertical ? 'rotate(-90deg)' : 'none',
+              transformOrigin: 'center',
+              whiteSpace: 'nowrap'
             }}
           >
             {widget.content || 'Text Block'}
@@ -327,9 +356,11 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         const linkFontSize = (linkStyling.size || 12) / zoom;
         const linkFontFamily = resolveFontFamily(linkStyling.font);
         const linkColor = linkStyling.color || '#0066CC';
+        const linkOrientation = widget.properties?.orientation || 'horizontal';
+        const isLinkVertical = linkOrientation === 'vertical';
         return (
-          <div 
-            className="h-full flex items-center px-1 cursor-pointer hover:bg-blue-50 transition-colors"
+          <div
+            className="h-full flex items-center justify-center px-1 cursor-pointer hover:bg-blue-50 transition-colors"
             style={{
               fontSize: linkFontSize,
               fontFamily: linkFontFamily,
@@ -337,10 +368,12 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
               textAlign: (widget.styling?.text_align as any) || 'left',
               justifyContent: mapJustify(widget.styling?.text_align),
               textDecoration: 'underline',
-              minHeight: '44px'
+              minHeight: '44px',
+              transform: isLinkVertical ? 'rotate(-90deg)' : 'none',
+              transformOrigin: 'center'
             }}
           >
-            <span className="truncate">{linkContent}</span>
+            <span className={isLinkVertical ? '' : 'truncate'}>{linkContent}</span>
           </div>
         );
 
@@ -965,27 +998,63 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         const boxH = widget.position.height / zoom;
         const gapXz = lGapX / zoom;
         const gapYz = lGapY / zoom;
-        const cellW = (boxW - (lCols - 1) * gapXz) / lCols;
-        const cellH = lItemH != null ? (lItemH / zoom) : (boxH - (rows - 1) * gapYz) / Math.max(1, rows);
+        const listOrientation = lp.orientation || 'horizontal';
+        const isTextVertical = listOrientation === 'vertical';
+
+        // Typography
         const fontSize = Math.max(8, (lSty.size || 12) / zoom);
         const fontFamily = resolveFontFamily(lSty.font);
         const textColor = lSty.color || '#0066CC';
 
-        const monthNames = [ '', 'January','February','March','April','May','June','July','August','September','October','November','December' ];
-        const monthAbbr = [ '', 'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec' ];
+        // Calculate base cell sizes from container box
+        const baseCellW = (boxW - (lCols - 1) * gapXz) / Math.max(1, lCols);
+        const baseCellH = (boxH - (rows - 1) * gapYz) / Math.max(1, rows);
+
+        // Calculate cell dimensions based on orientation (simplified)
+        let cellW: number, cellH: number;
+        if (isTextVertical) {
+          // Vertical: swap base dimensions; fixed width comes from row height (or item_height)
+          cellH = baseCellH;
+          cellW = lItemH != null ? (lItemH / zoom) : baseCellH;
+        } else {
+          // Horizontal: standard
+          cellW = baseCellW;
+          cellH = lItemH != null ? (lItemH / zoom) : baseCellH;
+        }
+
         const formatLabel = (idx: number) => {
           const padded = String(idx).padStart(lPad, '0');
-          const mn = (idx >=1 && idx <=12) ? monthNames[idx] : String(idx);
-          const ma = (idx >=1 && idx <=12) ? monthAbbr[idx] : String(idx);
+          const locale = (lp.locale as string) || 'en';
+          const monthLong = getMonthNames(locale, false);
+          const monthShort = getMonthNames(locale, true);
+          const monthIdx = Math.max(1, Math.min(12, idx));
           return labelTpl
             .replace('{index_padded}', padded)
             .replace('{index}', String(idx))
             .replace('{month_padded}', padded)
-            .replace('{month_name}', mn)
-            .replace('{month_abbr}', ma);
+            .replace('{month_name}', monthLong[monthIdx - 1])
+            .replace('{month_abbr}', monthShort[monthIdx - 1]);
         };
 
         const items = Array.from({ length: lCount }, (_, i) => lStart + i);
+
+        const getJustifyClass = (textAlign: string) => {
+          switch (textAlign) {
+            case 'left': return 'justify-start';
+            case 'center': return 'justify-center';
+            case 'right': return 'justify-end';
+            default: return 'justify-start';
+          }
+        };
+
+        // Highlight functionality
+        const highlightIndex = lp.highlight_index ? parseInt(lp.highlight_index) : null;
+        const highlightColor = lp.highlight_color || '#dbeafe';
+        const backgroundColor = lp.background_color || 'transparent';
+        const isHighlightedItem = (itemIndex: number) => {
+          return highlightIndex !== null && itemIndex === highlightIndex;
+        };
+
         return (
           <div className="h-full w-full bg-white">
             <div className="relative" style={{ width: '100%', height: '100%', fontSize, fontFamily, color: textColor }}>
@@ -994,10 +1063,30 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
                 const col = i % lCols;
                 const left = col * (cellW + gapXz);
                 const top = row * (cellH + gapYz);
+                const isHighlighted = isHighlightedItem(idx);
                 return (
-                  <div key={i} className="absolute px-2 py-1 rounded hover:bg-blue-50 cursor-pointer"
-                    style={{ left, top, width: cellW, height: cellH, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', border: '1px dashed #e5e7eb', textAlign: (lSty.text_align as any) || 'left' }}>
-                    {formatLabel(idx)}
+                  <div key={i} className={`absolute px-2 py-1 rounded cursor-pointer flex items-center ${getJustifyClass((lSty.text_align as any) || 'left')}`}
+                    style={{
+                      left,
+                      top,
+                      width: cellW,
+                      height: cellH,
+                      overflow: 'hidden',
+                      border: isHighlighted ? `2px solid ${highlightColor}` : '1px dashed #e5e7eb',
+                      backgroundColor: isHighlighted ? highlightColor : backgroundColor,
+                      textAlign: (lSty.text_align as any) || 'left'
+                    }}>
+                    <span style={{
+                      display: 'inline-block',
+                      whiteSpace: 'nowrap',
+                      textOverflow: 'ellipsis',
+                      //overflow: 'hidden',
+                      transform: isTextVertical ? 'rotate(-90deg)' : 'none',
+                      transformOrigin: 'center',
+                      fontWeight: isHighlighted ? 'bold' : 'normal'
+                    }}>
+                      {formatLabel(idx)}
+                    </span>
                   </div>
                 );
               })}
