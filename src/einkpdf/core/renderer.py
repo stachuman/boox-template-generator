@@ -845,25 +845,77 @@ class DeterministicPDFRenderer:
         props = getattr(widget, 'properties', {}) or {}
         orientation = props.get('orientation', 'horizontal')
 
-        # Draw text
+        # Draw text (supports multi-line with \n)
         try:
             pdf_canvas.setFillColor(HexColor(color))
         except Exception:
             pass
 
-        # Use shared oriented text renderer
-        self._draw_text_oriented(
-            pdf_canvas,
-            box,
-            content_text,
-            font_name,
-            font_size,
-            color,
-            text_align,
-            orientation,
-            underline=False,
-            horiz_y=text_pos['y']
-        )
+        lines = str(content_text).splitlines() if isinstance(content_text, str) else [str(content_text)]
+        line_height = 1.2
+        try:
+            lh_raw = styling.get('line_height', None)
+            if lh_raw is not None:
+                line_height = max(0.8, float(lh_raw))
+        except Exception:
+            pass
+
+        if len(lines) <= 1:
+            # Single line: use shared oriented renderer
+            self._draw_text_oriented(
+                pdf_canvas,
+                box,
+                lines[0] if lines else '',
+                font_name,
+                font_size,
+                color,
+                text_align,
+                orientation,
+                underline=False,
+                horiz_y=text_pos['y']
+            )
+            return
+
+        # Multi-line rendering (center the block vertically within the box)
+        gap = font_size * line_height
+        if orientation == 'vertical':
+            # Rotate about center and render each line centered
+            cx = box['x'] + box['width'] / 2.0
+            cy = box['y'] + box['height'] / 2.0
+            pdf_canvas.saveState()
+            pdf_canvas.translate(cx, cy)
+            pdf_canvas.rotate(90)
+            # Compute baseline offset so the block is vertically centered
+            # y increases upward in this rotated state
+            base_y = ((len(lines) - 1) / 2.0) * gap
+            for idx, line in enumerate(lines):
+                tw = pdf_canvas.stringWidth(line, font_name, font_size)
+                if text_align == 'center':
+                    start_x = -tw / 2.0
+                elif text_align == 'right':
+                    start_x = -tw
+                else:
+                    start_x = -tw / 2.0  # keep vertical left same as center for symmetry
+                y = base_y - idx * gap - font_size / 3.0
+                pdf_canvas.drawString(start_x, y, line)
+            pdf_canvas.restoreState()
+            return
+
+        # Horizontal orientation
+        # Baseline at vertical center; position lines around it to center the block
+        center_y = box['y'] + box['height'] / 2.0
+        base_y = center_y + ((len(lines) - 1) / 2.0) * gap - font_size / 3.0
+        for idx, line in enumerate(lines):
+            tw = pdf_canvas.stringWidth(line, font_name, font_size)
+            if text_align == 'center':
+                start_x = box['x'] + max(0.0, (box['width'] - tw) / 2.0)
+            elif text_align == 'right':
+                start_x = box['x'] + max(0.0, box['width'] - tw)
+            else:
+                start_x = box['x']
+            y = base_y - idx * gap
+            pdf_canvas.drawString(start_x, y, line)
+        return
     
     def _render_checkbox(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
         """Render checkbox widget."""

@@ -175,7 +175,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         const isVertical = textOrientation === 'vertical';
         return (
           <div
-            className="h-full flex items-center justify-center"
+            className="h-full w-full flex items-center justify-center"
             style={{
               fontFamily: resolveFontFamily(widget.styling?.font),
               fontSize: (widget.styling?.size || 12),
@@ -184,7 +184,8 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
               justifyContent: mapJustify(widget.styling?.text_align),
               transform: isVertical ? 'rotate(-90deg)' : 'none',
               transformOrigin: 'center',
-              whiteSpace: 'nowrap'
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere'
             }}
           >
             {widget.content || 'Text Block'}
