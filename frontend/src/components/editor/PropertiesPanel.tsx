@@ -634,8 +634,8 @@ const PropertiesPanel: React.FC = () => {
                     <input
                       type="number"
                       min="1"
-                      max="10"
-                      {...register('properties.columns', { min: 1, max: 10 })}
+                      max="15"
+                      {...register('properties.columns', { min: 1, max: 15 })}
                       onChange={(e) => handleLiveUpdate('properties.columns', parseInt(e.target.value) || 2)}
                       className="input-field w-full"
                       placeholder="2"
@@ -709,6 +709,19 @@ const PropertiesPanel: React.FC = () => {
                   />
                   <p className="text-xs text-eink-light-gray mt-1">
                     Example: notes(@index) → notes:page:001..; change to day(@index_date)
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Label Template</label>
+                  <input
+                    type="text"
+                    {...register('properties.label_template')}
+                    onChange={(e) => handleLiveUpdate('properties.label_template', e.target.value)}
+                    className="input-field w-full"
+                    placeholder="@index"
+                  />
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Template for link display text. Use @index for numbers, @index_date for dates.
                   </p>
                 </div>
                 <div>
@@ -979,7 +992,7 @@ const PropertiesPanel: React.FC = () => {
                       type="number"
                       min="0"
                       max="12"
-                      {...register('properties.columns', { min: 0, max: 12 })}
+                      {...register('properties.columns', { min: 0, max: 15 })}
                       onChange={(e) => handleLiveUpdate('properties.columns', parseInt(e.target.value) || 0)}
                       className="input-field w-full"
                       placeholder="0"
@@ -1566,7 +1579,7 @@ const PropertiesPanel: React.FC = () => {
                         type="number"
                         min="1"
                         max="10"
-                        {...register('properties.pages_per_date', { min: 1, max: 10 })}
+                        {...register('properties.pages_per_date', { min: 1, max: 15 })}
                         onChange={(e) => handleLiveUpdate('properties.pages_per_date', parseInt(e.target.value) || 1)}
                         className="input-field w-full"
                         placeholder="1"

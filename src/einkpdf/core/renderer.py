@@ -378,7 +378,31 @@ class DeterministicPDFRenderer:
             )
 
     def _render_box(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
-        """Render a rectangular box (fill + stroke) with optional rounded corners and link."""
+        """Render a rectangular box with minimal state management."""
+        props = getattr(widget, 'properties', {}) or {}
+        opacity = props.get('opacity', 1.0)
+
+        try:
+            opacity = float(opacity)
+            if opacity < 0.0:
+                opacity = 0.0
+            if opacity > 1.0:
+                opacity = 1.0
+        except Exception:
+            opacity = 1.0
+
+        # Only use save/restore if alpha transparency is needed
+        if opacity != 1.0:
+            pdf_canvas.saveState()
+            try:
+                self._render_box_core(pdf_canvas, widget, opacity)
+            finally:
+                pdf_canvas.restoreState()
+        else:
+            self._render_box_core(pdf_canvas, widget, opacity)
+
+    def _render_box_core(self, pdf_canvas: canvas.Canvas, widget: Widget, opacity: float) -> None:
+        """Core box rendering logic without state management."""
         props = getattr(widget, 'properties', {}) or {}
 
         # Defaults optimized for e-ink visibility
@@ -386,7 +410,6 @@ class DeterministicPDFRenderer:
         stroke_color = props.get('stroke_color', '#000000')
         stroke_width = props.get('stroke_width', 1.0)
         corner_radius = props.get('corner_radius', 0.0)
-        opacity = props.get('opacity', 1.0)
         to_dest = props.get('to_dest')
 
         # Validate and clamp
@@ -398,14 +421,6 @@ class DeterministicPDFRenderer:
             corner_radius = max(0.0, float(corner_radius))
         except Exception:
             corner_radius = 0.0
-        try:
-            opacity = float(opacity)
-            if opacity < 0.0:
-                opacity = 0.0
-            if opacity > 1.0:
-                opacity = 1.0
-        except Exception:
-            opacity = 1.0
 
         # Enforce constraints
         stroke_width = self.enforcer.check_stroke_width(stroke_width)
@@ -422,9 +437,8 @@ class DeterministicPDFRenderer:
         # Convert position
         box = self.converter.convert_position_for_drawing(widget.position)
 
-        pdf_canvas.saveState()
-        try:
-            # Set alpha if available
+        # Set alpha if available and different from 1.0
+        if opacity != 1.0:
             if hasattr(pdf_canvas, 'setFillAlpha'):
                 try:
                     pdf_canvas.setFillAlpha(opacity)
@@ -436,33 +450,30 @@ class DeterministicPDFRenderer:
                 except Exception:
                     pass
 
-            # Apply stroke settings
-            pdf_canvas.setLineWidth(stroke_width)
+        # Apply stroke settings
+        pdf_canvas.setLineWidth(stroke_width)
+        try:
+            pdf_canvas.setStrokeColor(HexColor(stroke_color))
+        except Exception:
+            pass
+
+        # Draw fill first
+        if fill_color:
             try:
-                pdf_canvas.setStrokeColor(HexColor(stroke_color))
+                pdf_canvas.setFillColor(HexColor(fill_color))
             except Exception:
                 pass
+            if corner_radius and corner_radius > 0:
+                pdf_canvas.roundRect(box['x'], box['y'], box['width'], box['height'], corner_radius, stroke=0, fill=1)
+            else:
+                pdf_canvas.rect(box['x'], box['y'], box['width'], box['height'], stroke=0, fill=1)
 
-            # Draw fill first
-            if fill_color:
-                try:
-                    pdf_canvas.setFillColor(HexColor(fill_color))
-                except Exception:
-                    pass
-                if corner_radius and corner_radius > 0:
-                    pdf_canvas.roundRect(box['x'], box['y'], box['width'], box['height'], corner_radius, stroke=0, fill=1)
-                else:
-                    pdf_canvas.rect(box['x'], box['y'], box['width'], box['height'], stroke=0, fill=1)
-
-            # Draw stroke on top (always draw a stroke if stroke_width > 0)
-            if stroke_width > 0:
-                if corner_radius and corner_radius > 0:
-                    pdf_canvas.roundRect(box['x'], box['y'], box['width'], box['height'], corner_radius, stroke=1, fill=0)
-                else:
-                    pdf_canvas.rect(box['x'], box['y'], box['width'], box['height'], stroke=1, fill=0)
-
-        finally:
-            pdf_canvas.restoreState()
+        # Draw stroke on top (always draw a stroke if stroke_width > 0)
+        if stroke_width > 0:
+            if corner_radius and corner_radius > 0:
+                pdf_canvas.roundRect(box['x'], box['y'], box['width'], box['height'], corner_radius, stroke=1, fill=0)
+            else:
+                pdf_canvas.rect(box['x'], box['y'], box['width'], box['height'], stroke=1, fill=0)
 
         # Optional link region over the box
         if isinstance(to_dest, str) and to_dest.strip():
@@ -581,7 +592,8 @@ class DeterministicPDFRenderer:
             cell_y = base_y + row * (cell_h + gap_y)
 
             # Build label (locale-aware month tokens)
-            idx_padded = str(idx).zfill(index_pad)
+            idx_padded = str(idx).zfill(2)
+            idx_padded3 = str(idx).zfill(3)
             content = (label_template or '')
             content = content.replace('{index_padded}', idx_padded).replace('{index}', str(idx))
             try:
@@ -605,7 +617,8 @@ class DeterministicPDFRenderer:
             content = (content
                        .replace('{month_name}', mn)
                        .replace('{month_abbr}', ma)
-                       .replace('{month_padded}', idx_padded))
+                       .replace('{month_padded}', idx_padded)
+                       .replace('{month_padded3}', idx_padded3))
 
             # Resolve destination
             bexpr = (bind_expr or '')
@@ -713,43 +726,55 @@ class DeterministicPDFRenderer:
         underline: bool = False,
         horiz_y: float = 0.0,
     ) -> None:
-        """Draw text inside a box with optional vertical orientation and underline.
-
-        - For horizontal, respects horiz_y baseline (from convert_text_position) and text_align.
-        - For vertical, rotate 90° around box center and align accordingly.
-        """
-        try:
-            pdf_canvas.setFont(font_name, font_size)
-            pdf_canvas.setFillColor(HexColor(color))
-        except Exception:
-            pass
-
+        """Draw text with minimal state management - only save/restore for vertical orientation."""
         try:
             text_width = pdf_canvas.stringWidth(text, font_name, font_size)
         except Exception:
             text_width = len(text) * (font_size * 0.6)
 
+        # Only use save/restore for vertical orientation (rotation needed)
         if orientation == 'vertical':
-            cx = box['x'] + box['width'] / 2.0
-            cy = box['y'] + box['height'] / 2.0
             pdf_canvas.saveState()
-            pdf_canvas.translate(cx, cy)
-            pdf_canvas.rotate(90)
-            if text_align == 'center':
-                start_x = -text_width / 2.0
-            elif text_align == 'right':
-                start_x = -text_width
-            else:
-                start_x = -text_width / 2.0
-            start_y = -font_size / 3.0
-            pdf_canvas.drawString(start_x, start_y, text)
-            if underline:
-                uy = start_y - font_size * 0.1
-                pdf_canvas.line(start_x, uy, start_x + text_width, uy)
-            pdf_canvas.restoreState()
-            return
+            try:
+                # Set font and color inside save/restore for vertical text
+                pdf_canvas.setFont(font_name, font_size)
+                pdf_canvas.setFillColor(HexColor(color))
+                self._draw_text_vertical_core(pdf_canvas, box, text, text_width, font_size, text_align, underline)
+            except Exception:
+                pass
+            finally:
+                pdf_canvas.restoreState()
+        else:
+            # Set font and color for horizontal text (no state management needed)
+            try:
+                pdf_canvas.setFont(font_name, font_size)
+                pdf_canvas.setFillColor(HexColor(color))
+            except Exception:
+                pass
+            self._draw_text_horizontal_core(pdf_canvas, box, text, text_width, font_size, text_align, underline, horiz_y)
 
-        # Horizontal
+    def _draw_text_vertical_core(self, pdf_canvas: canvas.Canvas, box: Dict[str, float], text: str,
+                                text_width: float, font_size: float, text_align: str, underline: bool) -> None:
+        """Core vertical text rendering with rotation."""
+        cx = box['x'] + box['width'] / 2.0
+        cy = box['y'] + box['height'] / 2.0
+        pdf_canvas.translate(cx, cy)
+        pdf_canvas.rotate(90)
+        if text_align == 'center':
+            start_x = -text_width / 2.0
+        elif text_align == 'right':
+            start_x = -text_width
+        else:
+            start_x = -text_width / 2.0
+        start_y = -font_size / 3.0
+        pdf_canvas.drawString(start_x, start_y, text)
+        if underline:
+            uy = start_y - font_size * 0.1
+            pdf_canvas.line(start_x, uy, start_x + text_width, uy)
+
+    def _draw_text_horizontal_core(self, pdf_canvas: canvas.Canvas, box: Dict[str, float], text: str,
+                                  text_width: float, font_size: float, text_align: str, underline: bool, horiz_y: float) -> None:
+        """Core horizontal text rendering without state management."""
         if text_align == 'center':
             start_x = box['x'] + max(0.0, (box['width'] - text_width) / 2.0)
         elif text_align == 'right':
@@ -1041,69 +1066,8 @@ class DeterministicPDFRenderer:
         # Check orientation
         orientation = props.get('orientation', 'horizontal')
 
-        # Background/highlight behind the link (supports compiled + preview flows)
-        try:
-            is_highlighted = props.get('highlight', False)
-            highlight_color = props.get('highlight_color')
-            background_color = props.get('background_color')
-
-            if is_highlighted and highlight_color:
-                # Highlighted items: background + border with highlight color
-                pdf_canvas.saveState()
-                try:
-                    color_hex = self.enforcer.validate_color(highlight_color)
-                    # Draw background fill
-                    pdf_canvas.setFillColor(HexColor(color_hex))
-                    pdf_canvas.rect(
-                        box['x'] + 1,
-                        box['y'] + 1,
-                        max(0, box['width'] - 2),
-                        max(0, box['height'] - 2),
-                        stroke=0,
-                        fill=1,
-                    )
-                    # Draw border
-                    stroke_width = self.enforcer.check_stroke_width(2.0)
-                    pdf_canvas.setLineWidth(stroke_width)
-                    pdf_canvas.setStrokeColor(HexColor(color_hex))
-                    pdf_canvas.rect(
-                        box['x'] + 1,
-                        box['y'] + 1,
-                        max(0, box['width'] - 2),
-                        max(0, box['height'] - 2),
-                        stroke=1,
-                        fill=0,
-                    )
-                except Exception:
-                    # Fallback to gray highlight if color validation fails
-                    try:
-                        pdf_canvas.setFillGray(0.85)
-                        pdf_canvas.rect(box['x'] + 1, box['y'] + 1, max(0, box['width'] - 2), max(0, box['height'] - 2), stroke=0, fill=1)
-                    except Exception:
-                        pass
-                pdf_canvas.restoreState()
-
-            elif not is_highlighted and background_color:
-                # Non-highlighted items: background fill only with background color
-                pdf_canvas.saveState()
-                try:
-                    color_hex = self.enforcer.validate_color(background_color)
-                    pdf_canvas.setFillColor(HexColor(color_hex))
-                    pdf_canvas.rect(
-                        box['x'],
-                        box['y'],
-                        box['width'],
-                        box['height'],
-                        stroke=0,
-                        fill=1,
-                    )
-                except Exception:
-                    # Fail fast: if background color is invalid, don't draw anything
-                    pass
-                pdf_canvas.restoreState()
-        except Exception:
-            # Following CLAUDE.md: don't mask errors, but continue rendering
-            pass
+        # Background/highlight rendering with minimal state management
+        self._render_internal_link_background(pdf_canvas, box, props)
 
         # Use entire widget area for clickable region (like calendar cells)
         link_rect = (
@@ -1127,6 +1091,78 @@ class DeterministicPDFRenderer:
             underline=True,
             horiz_y=text_pos['y']
         )
+
+    def _render_internal_link_background(self, pdf_canvas: canvas.Canvas, box: Dict[str, float], props: Dict[str, Any]) -> None:
+        """Render background/highlight for internal link with minimal state management."""
+        try:
+            is_highlighted = props.get('highlight', False)
+            highlight_color = props.get('highlight_color')
+            background_color = props.get('background_color')
+
+            # Only use save/restore if we actually need to draw background colors
+            if (is_highlighted and highlight_color) or (not is_highlighted and background_color):
+                pdf_canvas.saveState()
+                try:
+                    if is_highlighted and highlight_color:
+                        self._draw_highlight_background(pdf_canvas, box, highlight_color)
+                    elif not is_highlighted and background_color:
+                        self._draw_plain_background(pdf_canvas, box, background_color)
+                finally:
+                    pdf_canvas.restoreState()
+        except Exception:
+            # Following CLAUDE.md: don't mask errors, but continue rendering
+            pass
+
+    def _draw_highlight_background(self, pdf_canvas: canvas.Canvas, box: Dict[str, float], highlight_color: str) -> None:
+        """Draw highlighted background with border - no state management."""
+        try:
+            color_hex = self.enforcer.validate_color(highlight_color)
+            # Draw background fill
+            pdf_canvas.setFillColor(HexColor(color_hex))
+            pdf_canvas.rect(
+                box['x'] + 1,
+                box['y'] + 1,
+                max(0, box['width'] - 2),
+                max(0, box['height'] - 2),
+                stroke=0,
+                fill=1,
+            )
+            # Draw border
+            stroke_width = self.enforcer.check_stroke_width(2.0)
+            pdf_canvas.setLineWidth(stroke_width)
+            pdf_canvas.setStrokeColor(HexColor(color_hex))
+            pdf_canvas.rect(
+                box['x'] + 1,
+                box['y'] + 1,
+                max(0, box['width'] - 2),
+                max(0, box['height'] - 2),
+                stroke=1,
+                fill=0,
+            )
+        except Exception:
+            # Fallback to gray highlight if color validation fails
+            try:
+                pdf_canvas.setFillGray(0.85)
+                pdf_canvas.rect(box['x'] + 1, box['y'] + 1, max(0, box['width'] - 2), max(0, box['height'] - 2), stroke=0, fill=1)
+            except Exception:
+                pass
+
+    def _draw_plain_background(self, pdf_canvas: canvas.Canvas, box: Dict[str, float], background_color: str) -> None:
+        """Draw plain background fill - no state management."""
+        try:
+            color_hex = self.enforcer.validate_color(background_color)
+            pdf_canvas.setFillColor(HexColor(color_hex))
+            pdf_canvas.rect(
+                box['x'],
+                box['y'],
+                box['width'],
+                box['height'],
+                stroke=0,
+                fill=1,
+            )
+        except Exception:
+            # Fail fast: if background color is invalid, don't draw anything
+            pass
 
     def _render_tap_zone(self, pdf_canvas: canvas.Canvas, widget: Widget, page_num: int) -> None:
         """Render an invisible tap zone that creates a link rectangle."""
@@ -1348,6 +1384,10 @@ class DeterministicPDFRenderer:
         if color is None:
             color = '#000000'  # Black for maximum e-ink contrast
         color = self.enforcer.validate_color(color)
+
+        text_align = str(styling.get('text_align', 'center')).lower()
+        if text_align not in ('left', 'center', 'right'):
+            text_align = 'center'  # Default center for calendar readability
         
         # Get layout properties with explicit documented defaults
         show_weekdays = props.get('show_weekdays')
@@ -1411,17 +1451,22 @@ class DeterministicPDFRenderer:
         
         # Convert widget position for drawing
         cal_pos = self.converter.convert_position_for_drawing(widget.position)
-        
+
         # Set text properties (with font registration)
         font_name = ensure_font_registered(font_name)
         pdf_canvas.setFont(font_name, font_size)
-        
+        # Set text color from widget styling
+        try:
+            pdf_canvas.setFillColor(HexColor(color))
+        except Exception:
+            pass
+
         # Render based on calendar type
         if calendar_type == 'monthly':
             self._render_monthly_calendar(
                 pdf_canvas, widget, start_date, cal_pos, font_name, font_size,
                 show_weekdays, show_month_year, show_grid_lines, cell_min_size,
-                first_day_of_week, link_strategy, props
+                first_day_of_week, link_strategy, text_align, props
             )
         elif calendar_type == 'weekly':
             # Check layout orientation for weekly calendars
@@ -1430,29 +1475,40 @@ class DeterministicPDFRenderer:
                 self._render_weekly_calendar_vertical(
                     pdf_canvas, widget, start_date, cal_pos, font_name, font_size,
                     show_weekdays, show_month_year, show_grid_lines, cell_min_size,
-                    first_day_of_week, link_strategy, props
+                    first_day_of_week, link_strategy, text_align, props
                 )
             else:
                 self._render_weekly_calendar(
                     pdf_canvas, widget, start_date, cal_pos, font_name, font_size,
                     show_weekdays, show_month_year, show_grid_lines, cell_min_size,
-                    first_day_of_week, link_strategy, props
+                    first_day_of_week, link_strategy, text_align, props
                 )
         else:
             # Simplified preview for custom_range (not fully implemented)
             self._render_calendar_preview(
-                pdf_canvas, widget, calendar_type, start_date, cal_pos, 
-                font_name, font_size, link_strategy, props
+                pdf_canvas, widget, calendar_type, start_date, cal_pos,
+                font_name, font_size, link_strategy, text_align, props
             )
-    
-    def _render_monthly_calendar(self, pdf_canvas: canvas.Canvas, widget: Widget, 
+
+    def _calculate_text_x_for_alignment(self, text_width: float, container_x: float,
+                                       container_width: float, alignment: str) -> float:
+        """Calculate x position based on text alignment."""
+        if alignment == 'center':
+            return container_x + (container_width - text_width) / 2
+        elif alignment == 'right':
+            return container_x + container_width - text_width
+        else:  # left
+            return container_x
+
+    def _render_monthly_calendar(self, pdf_canvas: canvas.Canvas, widget: Widget,
                                start_date: date, cal_pos: Dict[str, float],
                                font_name: str, font_size: float,
-                               show_weekdays: bool, show_month_year: bool, 
+                               show_weekdays: bool, show_month_year: bool,
                                show_grid_lines: bool, cell_min_size: float,
-                               first_day_of_week: str, link_strategy: str, 
-                               props: Dict[str, Any]) -> None:
+                               first_day_of_week: str, link_strategy: str,
+                               text_align: str, props: Dict[str, Any]) -> None:
         """Render a monthly calendar layout."""
+
 
         def _get_float(v: Any, default: float) -> float:
             try:
@@ -1533,9 +1589,9 @@ class DeterministicPDFRenderer:
             month_names = get_month_names(locale, short=(month_name_format != 'long'))
             header_text = f"{month_names[month - 1]} {year}"
             
-            # Center the header text
+            # Position header text according to alignment
             text_width = pdf_canvas.stringWidth(header_text, font_name, font_size)
-            header_x = cal_pos['x'] + (calendar_width - text_width) / 2
+            header_x = self._calculate_text_x_for_alignment(text_width, cal_pos['x'], calendar_width, text_align)
             header_y = cal_pos['y'] + calendar_height - font_size
             
             pdf_canvas.drawString(header_x, header_y, header_text)
@@ -1604,7 +1660,9 @@ class DeterministicPDFRenderer:
                 # Draw day label (current month or trailing/leading if enabled)
                 if is_current_month or (show_trailing_days and current_date):
                     day_text = str((current_date.day if current_date else day_number))
-                    day_x = cell_x + cell_padding
+                    day_text_width = pdf_canvas.stringWidth(day_text, font_name, font_size)
+                    day_x = self._calculate_text_x_for_alignment(day_text_width, cell_x + cell_padding,
+                                                               cell_width - 2*cell_padding, text_align)
                     day_y = cell_y + cell_height - font_size - cell_padding
                     if not is_current_month:
                         prev_fill = pdf_canvas._fillColorObj
@@ -1726,10 +1784,10 @@ class DeterministicPDFRenderer:
     def _render_weekly_calendar(self, pdf_canvas: canvas.Canvas, widget: Widget,
                                start_date: date, cal_pos: Dict[str, float],
                                font_name: str, font_size: float,
-                               show_weekdays: bool, show_month_year: bool, 
+                               show_weekdays: bool, show_month_year: bool,
                                show_grid_lines: bool, cell_min_size: float,
-                               first_day_of_week: str, link_strategy: str, 
-                               props: Dict[str, Any]) -> None:
+                               first_day_of_week: str, link_strategy: str,
+                               text_align: str, props: Dict[str, Any]) -> None:
         """Render a weekly calendar layout."""
 
         def _get_float(v: Any, default: float) -> float:
@@ -1930,7 +1988,7 @@ class DeterministicPDFRenderer:
                                        show_weekdays: bool, show_month_year: bool,
                                        show_grid_lines: bool, cell_min_size: float,
                                        first_day_of_week: str, link_strategy: str,
-                                       props: Dict[str, Any]) -> None:
+                                       text_align: str, props: Dict[str, Any]) -> None:
         """Render a vertical weekly calendar layout (7 rows for days)."""
 
         def _get_float(v: Any, default: float) -> float:
@@ -2121,9 +2179,9 @@ class DeterministicPDFRenderer:
 
     def _render_calendar_preview(self, pdf_canvas: canvas.Canvas, widget: Widget,
                                calendar_type: str, start_date: date,
-                               cal_pos: Dict[str, float], font_name: str, 
+                               cal_pos: Dict[str, float], font_name: str,
                                font_size: float, link_strategy: str,
-                               props: Dict[str, Any]) -> None:
+                               text_align: str, props: Dict[str, Any]) -> None:
         """Render simplified preview for custom_range calendars."""
         
         # Draw a simple preview box with calendar type information

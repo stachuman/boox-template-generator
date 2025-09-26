@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Play, Download, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Play, Download, RefreshCw, Edit2, Check, X } from 'lucide-react';
 import { Project, Master, Plan, CompilationResult, DeviceProfile } from '@/types';
 import { APIClient, downloadBlob, blobToDataURL } from '@/services/api';
 import PlanEditor from './PlanEditor';
@@ -27,6 +27,8 @@ const ProjectEditor: React.FC = () => {
   const [profilesLoading, setProfilesLoading] = useState<boolean>(false);
   const [savingProfile, setSavingProfile] = useState<boolean>(false);
   const [showCreateMasterModal, setShowCreateMasterModal] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [tempName, setTempName] = useState<string>('');
 
   useEffect(() => {
     if (projectId) {
@@ -185,14 +187,54 @@ const ProjectEditor: React.FC = () => {
         setCompiledTemplate(result.template_yaml);
         available = true;
       }
-      // Trigger browser download from compiled endpoint (no regeneration)
-      const url = `/api/projects/${project.id}/pdf`;
-      window.open(url, '_blank');
+      // Download PDF with proper filename
+      const response = await fetch(`/api/projects/${project.id}/pdf`);
+      if (!response.ok) throw new Error('Failed to download PDF');
+      const blob = await response.blob();
+      // Create filename from project name, sanitizing for filesystem
+      const filename = `${project.metadata.name.replace(/[^a-zA-Z0-9\-_\s]/g, '').trim()}.pdf`;
+      downloadBlob(blob, filename);
     } catch (err: any) {
       setError(err.message || 'Failed to download PDF');
     } finally {
       setDownloadingPDF(false);
     }
+  };
+
+  const handleUpdateProjectName = async (newName: string) => {
+    if (!project || !newName.trim()) return;
+
+    try {
+      setSavingProfile(true); // Reuse loading state
+      setError(null);
+      const updatedProject = await APIClient.updateProject(project.id, { name: newName.trim() });
+      setProject(updatedProject);
+      setEditingName(false);
+    } catch (err: any) {
+      setError(err.message || 'Failed to update project name');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleNameEdit = () => {
+    if (project) {
+      setTempName(project.metadata.name);
+      setEditingName(true);
+    }
+  };
+
+  const handleNameSave = () => {
+    if (tempName.trim() !== project?.metadata.name) {
+      handleUpdateProjectName(tempName);
+    } else {
+      setEditingName(false);
+    }
+  };
+
+  const handleNameCancel = () => {
+    setTempName(project?.metadata.name || '');
+    setEditingName(false);
   };
 
   const handleChangeProfile = async (newProfile: string) => {
@@ -296,7 +338,49 @@ const ProjectEditor: React.FC = () => {
             <ArrowLeft className="w-6 h-6" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-eink-black">{project.metadata.name}</h1>
+            <div className="flex items-center gap-3">
+              {editingName ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={tempName}
+                    onChange={(e) => setTempName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleNameSave();
+                      if (e.key === 'Escape') handleNameCancel();
+                    }}
+                    className="text-2xl font-bold text-eink-black bg-white border border-eink-light-gray rounded px-2 py-1 focus:outline-none focus:border-eink-black"
+                    autoFocus
+                    disabled={savingProfile}
+                  />
+                  <button
+                    onClick={handleNameSave}
+                    disabled={savingProfile || !tempName.trim()}
+                    className="text-green-600 hover:text-green-700 disabled:opacity-50"
+                  >
+                    <Check className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={handleNameCancel}
+                    disabled={savingProfile}
+                    className="text-red-600 hover:text-red-700 disabled:opacity-50"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-eink-black">{project.metadata.name}</h1>
+                  <button
+                    onClick={handleNameEdit}
+                    className="text-eink-dark-gray hover:text-eink-black transition-colors"
+                    title="Edit project name"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
             <p className="text-eink-dark-gray mt-1">
               {project.metadata.description || 'No description'}
             </p>

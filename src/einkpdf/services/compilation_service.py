@@ -89,6 +89,7 @@ class PlanEnumerator:
             context.year = date_obj.year
             context.month = date_obj.month
             context.month_padded = f"{date_obj.month:02d}"
+            context.month_padded3 = f"{date_obj.month:03d}"
             # Localized names
             try:
                 context.month_name = get_month_names(plan_locale, short=False)[date_obj.month - 1]
@@ -762,7 +763,8 @@ class CompilationService:
             # Pre-format label to avoid relying solely on downstream substitution
             label_content = str(label_template or "")
             try:
-                padded = f"{idx:0{index_pad}d}"
+                padded = f"{idx:02d}"
+                padded3 = f"{idx:03d}"
             except Exception:
                 padded = str(idx)
             # Basic tokens
@@ -788,7 +790,8 @@ class CompilationService:
             label_content = (label_content
                              .replace("{month_name}", mn)
                              .replace("{month_abbr}", ma)
-                             .replace("{month_padded}", padded))
+                             .replace("{month_padded}", padded)
+                             .replace("{month_padded3}", padded3))
             # Year token (if provided in context)
             try:
                 year_val = context.to_dict().get('year')

@@ -318,26 +318,37 @@ async def compile_project(project_id: str) -> CompileProjectResponse:
                 f.write(template_yaml)
 
             # Generate final PDF once during compilation with warnings
-            pdf_bytes, warnings = pdf_service.generate_pdf_with_warnings(
-                yaml_content=template_yaml,
-                profile=project.metadata.device_profile,
-                deterministic=True,
-            )
-            # Atomic write of PDF to prevent partial reads in preview
-            tmp_path = pdir / "latest.pdf.tmp"
-            with open(tmp_path, "wb") as pf:
-                pf.write(pdf_bytes)
-                try:
-                    pf.flush()
-                    import os
-                    os.fsync(pf.fileno())
-                except Exception:
-                    pass
-            import os
-            os.replace(tmp_path, pdir / "latest.pdf")
-        except Exception:
-            # Non-fatal: continue without blocking response
-            pass
+            try:
+                pdf_bytes, warnings = pdf_service.generate_pdf_with_warnings(
+                    yaml_content=template_yaml,
+                    profile=project.metadata.device_profile,
+                    deterministic=True,
+                )
+                # Atomic write of PDF to prevent partial reads in preview
+                tmp_path = pdir / "latest.pdf.tmp"
+                with open(tmp_path, "wb") as pf:
+                    pf.write(pdf_bytes)
+                    try:
+                        pf.flush()
+                        import os
+                        os.fsync(pf.fileno())
+                    except Exception:
+                        pass
+                import os
+                os.replace(tmp_path, pdir / "latest.pdf")
+            except Exception as e:
+                # PDF generation failed - this is a critical error that should be reported
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"PDF generation failed: {e}"
+                )
+        except HTTPException:
+            # Re-raise HTTP exceptions (like PDF generation failures)
+            raise
+        except Exception as e:
+            # File system errors are non-fatal: continue without blocking response but log warning
+            warnings = warnings or []
+            warnings.append(f"Failed to save compiled files: {e}")
 
         return CompileProjectResponse(
             template_yaml=template_yaml,
@@ -349,6 +360,16 @@ async def compile_project(project_id: str) -> CompileProjectResponse:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e)
+        )
+    except CompilationServiceError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Compilation failed: {e}"
         )
 
 

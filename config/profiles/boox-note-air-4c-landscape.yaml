@@ -13,6 +13,6 @@ profile:
   constraints:
     min_font_pt: 10.0
     min_stroke_pt: 0.75
-    min_touch_target_pt: 44.0
+    min_touch_target_pt: 30.0
     grayscale_levels: 16
     max_gray_fill_area: 0.15  # Avoid slow refresh

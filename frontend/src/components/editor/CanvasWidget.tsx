@@ -1023,7 +1023,8 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         }
 
         const formatLabel = (idx: number) => {
-          const padded = String(idx).padStart(lPad, '0');
+          const padded = String(idx).padStart(2, '0');
+          const padded3 = String(idx).padStart(3, '0');
           const locale = (lp.locale as string) || 'en';
           const monthLong = getMonthNames(locale, false);
           const monthShort = getMonthNames(locale, true);
@@ -1032,6 +1033,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
             .replace('{index_padded}', padded)
             .replace('{index}', String(idx))
             .replace('{month_padded}', padded)
+            .replace('{month_padded3}', padded3)
             .replace('{month_name}', monthLong[monthIdx - 1])
             .replace('{month_abbr}', monthShort[monthIdx - 1]);
         };

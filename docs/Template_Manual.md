@@ -12,7 +12,7 @@ This document summarizes the variables, binding grammar, and where each can be u
 
 ## Available Variables (Tokens)
 - Date/sequence
-  - `{year}`, `{month}`, `{month_padded}`, `{month_name}`, `{month_abbr}`
+  - `{year}`, `{month}`, `{month_padded}`, `{month_name}`, `{month_abbr}`, `{month_padded3}`
   - `{day}`, `{day_padded}`, `{weekday}`
   - `{date}` (YYYY-MM-DD), `{date_long}` (localized long date; WIP), `{index}`, `{index_padded}`
   - `{page}`, `{total_pages}` (renderer-side in text_block)
@@ -20,11 +20,13 @@ This document summarizes the variables, binding grammar, and where each can be u
   - Any variables set in a plan section `context` are available as `{var}` and `@var`.
 - Locale
   - Plan `locale` (e.g., `en`, `pl`) is injected into context; calendars and month/weekday names follow it.
+  {month_padded} is padded to 2 digits
+  {month_padded3} is padded to 3 digits
 
 ## Where Tokens Are Allowed
 - Content/labels: `{...}` only
   - text_block `content`: e.g., `Rok {year}`, `{page}/{total_pages}`
-  - link_list `label_template`: `{index}`, `{index_padded}`, `{month_name}`, `{month_abbr}`, `{month_padded}`, `{year}`
+  - link_list `label_template`: `{index}`, `{index_padded}`, `{month_name}`, `{month_abbr}`, `{month_padded}`, `{month_padded3}`, `{year}`
 - IDs (Anchor dest_id): `{...}` only
   - Examples: `day:{date}`, `month:{year}-{month_padded}`, `notes:page:{index_padded}`
   - Do not use `@` in IDs.

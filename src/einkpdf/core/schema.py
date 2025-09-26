@@ -49,7 +49,7 @@ class DeviceConstraints(BaseModel):
     """Device-specific constraint limits."""
     min_font_pt: float = Field(10.0, ge=8.0, le=14.0)
     min_stroke_pt: float = Field(0.75, ge=0.25, le=2.0)
-    min_touch_target_pt: float = Field(44.0, ge=32.0, le=64.0)
+    min_touch_target_pt: float = Field(44.0, ge=30.0, le=64.0)
     grayscale_levels: int = Field(16, ge=2, le=256)
     max_gray_fill_area: float = Field(0.2, ge=0.0, le=1.0)
 

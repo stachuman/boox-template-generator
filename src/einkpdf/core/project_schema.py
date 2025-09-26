@@ -179,6 +179,7 @@ class BindingContext(BaseModel):
     year: Optional[int] = None
     month: Optional[int] = None
     month_padded: Optional[str] = None
+    month_padded3: Optional[str] = None
     month_name: Optional[str] = None
     day: Optional[int] = None
     day_padded: Optional[str] = None
