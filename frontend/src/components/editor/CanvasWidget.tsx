@@ -178,7 +178,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
             className="h-full flex items-center justify-center"
             style={{
               fontFamily: resolveFontFamily(widget.styling?.font),
-              fontSize: (widget.styling?.size || 12) / zoom,
+              fontSize: (widget.styling?.size || 12),
               color: widget.styling?.color || '#000000',
               textAlign: (widget.styling?.text_align as any) || 'left',
               justifyContent: mapJustify(widget.styling?.text_align),
@@ -199,13 +199,13 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
             <div
               className="border border-eink-black"
               style={{
-                width: checkboxSize / zoom,
-                height: checkboxSize / zoom
+                width: checkboxSize,
+                height: checkboxSize
               }}
             />
             <span
               style={{
-                fontSize: (widget.styling?.size || 10) / zoom,
+                fontSize: (widget.styling?.size || 10),
                 fontFamily: resolveFontFamily(widget.styling?.font),
                 color: widget.styling?.color || '#000000'
               }}
@@ -220,7 +220,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
           <div className="h-full flex items-center">
             <div
               className="w-full bg-eink-black"
-              style={{ height: 1 / zoom }}
+              style={{ height: 1 }}
             />
           </div>
         );
@@ -245,17 +245,17 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         for (let i = 0; i < lineCount; i++) {
           const yAbs = topPadding + i * lineSpacing;
           if (yAbs > heightPt - bottomPad) break;
-          const yPosition = yAbs / zoom;
+          const yPosition = yAbs;
           
           let lineClass = 'absolute bg-eink-black';
           let borderStyle = '';
           
           if (lineStyle === 'dotted') {
             lineClass = 'absolute';
-            borderStyle = `${lineThickness / zoom}px dotted #000000`;
+            borderStyle = `${lineThickness}px dotted #000000`;
           } else if (lineStyle === 'dashed') {
             lineClass = 'absolute';
-            borderStyle = `${lineThickness / zoom}px dashed #000000`;
+            borderStyle = `${lineThickness}px dashed #000000`;
           }
           
           elements.push(
@@ -263,10 +263,10 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
               key={`h-${i}`}
               className={lineClass}
               style={{
-                left: marginLeft / zoom,
-                right: marginRight / zoom,
+                left: marginLeft,
+                right: marginRight,
                 top: yPosition,
-                height: lineStyle === 'solid' ? lineThickness / zoom : 0,
+                height: lineStyle === 'solid' ? lineThickness : 0,
                 borderTop: borderStyle || undefined,
               }}
             />
@@ -278,12 +278,12 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
           const availableWidth = widget.position.width - marginLeft - marginRight;
           const verticalLineCount = Math.floor(availableWidth / gridSpacing);
           for (let i = 0; i <= verticalLineCount; i++) {
-            const xPosition = (marginLeft + i * gridSpacing) / zoom;
+            const xPosition = (marginLeft + i * gridSpacing);
             elements.push(
               <div
                 key={`v-${i}`}
                 className="absolute bg-eink-black"
-                style={{ left: xPosition, top: 0, width: lineThickness / zoom, height: '100%' }}
+                style={{ left: xPosition, top: 0, width: lineThickness, height: '100%' }}
               />
             );
           }
@@ -291,12 +291,12 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
           const availableWidth = widget.position.width - marginLeft - marginRight;
           const colWidth = availableWidth / columns;
           for (let c = 1; c < columns; c++) {
-            const xPosition = (marginLeft + c * colWidth) / zoom;
+            const xPosition = (marginLeft + c * colWidth);
             elements.push(
               <div
                 key={`col-${c}`}
                 className="absolute bg-eink-black"
-                style={{ left: xPosition, top: 0, width: lineThickness / zoom, height: '100%' }}
+                style={{ left: xPosition, top: 0, width: lineThickness, height: '100%' }}
               />
             );
           }
@@ -307,12 +307,12 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
           properties.vertical_guides.forEach((ratio: number, idx: number) => {
             const r = Math.max(0, Math.min(1, ratio || 0));
             if (r <= 0 || r >= 1) return;
-            const xPosition = (marginLeft + availableWidth * r) / zoom;
+            const xPosition = (marginLeft + availableWidth * r);
             elements.push(
               <div
                 key={`vg-${idx}`}
                 className="absolute bg-eink-black"
-                style={{ left: xPosition, top: 0, width: lineThickness / zoom, height: '100%' }}
+                style={{ left: xPosition, top: 0, width: lineThickness, height: '100%' }}
               />
             );
           });
@@ -326,7 +326,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
 
       case 'anchor':
         // Make anchors easy to find/select in the editor (visual-only)
-        const minSize = Math.max(18, 24 / zoom); // keep roughly ~24px on screen
+        const minSize = 24; // base minimum in points; scaled by canvas
         const anchorLabel = (widget.properties?.dest_id as string) || 'anchor';
         return (
           <div
@@ -353,7 +353,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
       case 'internal_link':
         const linkContent = widget.content || 'Internal Link';
         const linkStyling = widget.styling || {};
-        const linkFontSize = (linkStyling.size || 12) / zoom;
+        const linkFontSize = (linkStyling.size || 12);
         const linkFontFamily = resolveFontFamily(linkStyling.font);
         const linkColor = linkStyling.color || '#0066CC';
         const linkOrientation = widget.properties?.orientation || 'horizontal';
@@ -383,7 +383,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         return (
           <div
             className={clsx('w-full h-full flex items-center justify-center text-xs text-eink-gray', showOutline ? 'border-2 border-dashed border-blue-400 bg-blue-50 bg-opacity-10' : '')}
-            style={{ minHeight: 44 / zoom }}
+            style={{ minHeight: 44 }}
           >
             {showOutline && 'Tap Zone'}
           </div>
@@ -418,8 +418,8 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         const showMonthYear = calendarProps.show_month_year !== false;
         const showGridLines = calendarProps.show_grid_lines !== false;
         const weekStartDay = calendarProps.first_day_of_week || 'monday'; // European default
-        const cellMinSize = Math.max(20, calendarProps.cell_min_size || 44) / zoom;
-        const calendarFontSize = Math.max(6, (calendarStyling.size || 10) / zoom);
+        const cellMinSize = Math.max(20, calendarProps.cell_min_size || 44);
+        const calendarFontSize = Math.max(6, (calendarStyling.size || 10));
         const calendarFontFamily = resolveFontFamily(calendarStyling.font);
         
         // Pre-calculate dimensions for height validation
@@ -436,7 +436,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
           const weeksNeeded = Math.ceil((daysInMonth + firstDayOfWeek) / 7);
           const actualWeeks = Math.max(4, Math.min(6, weeksNeeded));
           
-          const gridHeight = widget.position.height / zoom;
+          const gridHeight = widget.position.height;
           const headerHeight = showMonthYear ? calendarFontSize * 2 : 0;
           const weekdayHeight = showWeekdays ? calendarFontSize * 1.5 : 0;
           const minRequiredHeight = headerHeight + weekdayHeight + (actualWeeks * cellMinSize);
@@ -478,8 +478,8 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
           const slotMinutes = Math.max(5, Math.min(120, calendarProps.time_slot_minutes || 60));
           const labelEvery = Math.max(slotMinutes, Math.min(240, calendarProps.time_label_interval || 60));
           const gutterWidth = showTimeGutter ? calendarFontSize * 2.2 : 0;
-          const gridWidth = widget.position.width / zoom - gutterWidth;
-          const gridHeight = widget.position.height / zoom;
+          const gridWidth = widget.position.width - gutterWidth;
+          const gridHeight = widget.position.height;
           
           const headerHeight = showMonthYear ? calendarFontSize * 2 : 0;
           const weekdayHeight = showWeekdays ? calendarFontSize * 1.5 : 0;
@@ -566,7 +566,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
                   const dayNumber = day.getDate();
                   return (
                     <div key={index} className={`relative ${isClickable ? 'cursor-pointer hover:bg-blue-50' : ''}`}
-                      style={{ width: cellWidth, height: cellHeight, border: showGridLines ? '1px solid #ccc' : 'none', backgroundColor: 'transparent', padding: `${Math.max(0,(calendarProps.cell_padding||4)/zoom)}px` }}
+                      style={{ width: cellWidth, height: cellHeight, border: showGridLines ? '1px solid #ccc' : 'none', backgroundColor: 'transparent', padding: `${Math.max(0,(calendarProps.cell_padding||4))}px` }}
                     >
                       <div className="font-semibold" style={{ fontSize: calendarFontSize }}>{dayNumber}</div>
                       {showTimeGrid && (() => {
@@ -614,8 +614,8 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
           const labelEvery = Math.max(slotMinutes, Math.min(240, calendarProps.time_label_interval || 60));
 
           const weekdayGutterWidth = showWeekdays ? calendarFontSize * 4.0 : 0;
-          const gridWidth = widget.position.width / zoom - weekdayGutterWidth;
-          const gridHeight = widget.position.height / zoom;
+          const gridWidth = widget.position.width - weekdayGutterWidth;
+          const gridHeight = widget.position.height;
 
           const headerHeight = showMonthYear ? calendarFontSize * 2 : 0;
           const timeHeaderHeight = showTimeGrid ? calendarFontSize * 1.5 : 0;
@@ -711,7 +711,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
                           width: weekdayGutterWidth,
                           borderRight: showGridLines ? '1px solid #ccc' : 'none',
                           borderBottom: showGridLines ? '1px solid #ccc' : 'none',
-                          padding: `${Math.max(0, (calendarProps.cell_padding || 4) / zoom)}px`
+                          padding: `${Math.max(0, (calendarProps.cell_padding || 4))}px`
                         }}
                       >
                         {weekdays[dayIndex]} {currentDay.getDate()}
@@ -776,8 +776,8 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
             // Calculate grid dimensions
             const weekNumbers = !!calendarProps.week_numbers;
             const weekColWidth = weekNumbers ? calendarFontSize * 2.2 : 0;
-            const gridWidth = widget.position.width / zoom - weekColWidth;
-            const gridHeight = widget.position.height / zoom;
+            const gridWidth = widget.position.width - weekColWidth;
+            const gridHeight = widget.position.height;
             
             // Reserve space for headers
             const headerHeight = showMonthYear ? calendarFontSize * 2 : 0;
@@ -907,7 +907,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
                           border: showGridLines ? '1px solid #ccc' : 'none',
                           backgroundColor: isCurrentMonth ? 'transparent' : '#f9f9f9',
                           color: isCurrentMonth ? (calendarStyling.color || '#000000') : '#ccc',
-                          padding: `${Math.max(0, (calendarProps.cell_padding || 4) / zoom)}px`
+                          padding: `${Math.max(0, (calendarProps.cell_padding || 4))}px`
                         }}
                       >
                         {isCurrentMonth && (
@@ -994,15 +994,15 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         const lItemH = (rawItemH === null || rawItemH === undefined || String(rawItemH).trim() === '') ? null : toFloat(rawItemH, 0);
         const labelTpl = lp.label_template || 'Note {index_padded}';
         const rows = Math.ceil(lCount / lCols);
-        const boxW = widget.position.width / zoom;
-        const boxH = widget.position.height / zoom;
-        const gapXz = lGapX / zoom;
-        const gapYz = lGapY / zoom;
+        const boxW = widget.position.width;
+        const boxH = widget.position.height;
+        const gapXz = lGapX;
+        const gapYz = lGapY;
         const listOrientation = lp.orientation || 'horizontal';
         const isTextVertical = listOrientation === 'vertical';
 
         // Typography
-        const fontSize = Math.max(8, (lSty.size || 12) / zoom);
+        const fontSize = Math.max(8, (lSty.size || 12));
         const fontFamily = resolveFontFamily(lSty.font);
         const textColor = lSty.color || '#0066CC';
 
@@ -1015,11 +1015,11 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         if (isTextVertical) {
           // Vertical: swap base dimensions; fixed width comes from row height (or item_height)
           cellH = baseCellH;
-          cellW = lItemH != null ? (lItemH / zoom) : baseCellH;
+          cellW = lItemH != null ? (lItemH) : baseCellH;
         } else {
           // Horizontal: standard
           cellW = baseCellW;
-          cellH = lItemH != null ? (lItemH / zoom) : baseCellH;
+          cellH = lItemH != null ? (lItemH) : baseCellH;
         }
 
         const formatLabel = (idx: number) => {

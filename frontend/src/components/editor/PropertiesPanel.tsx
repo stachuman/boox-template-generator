@@ -42,6 +42,60 @@ const PropertiesPanel: React.FC = () => {
     }
   };
 
+  // Helper functions for link template preview
+  const generateDestinationPreview = (bindTemplate: string): string => {
+    if (!bindTemplate) return '';
+
+    // Simulate the backend binding resolution logic
+    // Replace @index with sample numbers, @index_date with sample dates
+    let preview = bindTemplate;
+
+    // Add colon after the first part (this is what the backend does)
+    const colonIndex = preview.indexOf('(');
+    if (colonIndex > 0) {
+      const prefix = preview.substring(0, colonIndex);
+      const suffix = preview.substring(colonIndex);
+      preview = prefix + ':' + suffix.replace(/[()]/g, '');
+    }
+
+    // Replace common variables with sample values
+    preview = preview
+      .replace(/@index_padded/g, '001')
+      .replace(/@index/g, '1')
+      .replace(/@index_date/g, '2026-01-15')
+      .replace(/@year/g, '2026')
+      .replace(/@month_padded/g, '01')
+      .replace(/@month/g, '1');
+
+    return preview + ', ' + preview.replace(/001|01|1$/, '002') + '...';
+  };
+
+  const generateAnchorTemplate = (bindTemplate: string): string => {
+    if (!bindTemplate) return '';
+
+    // Convert link template to anchor template format
+    let anchorTemplate = bindTemplate;
+
+    // Add colon after the first part
+    const colonIndex = anchorTemplate.indexOf('(');
+    if (colonIndex > 0) {
+      const prefix = anchorTemplate.substring(0, colonIndex);
+      const suffix = anchorTemplate.substring(colonIndex);
+      anchorTemplate = prefix + ':' + suffix.replace(/[()]/g, '');
+    }
+
+    // Convert @variables to {variables}
+    anchorTemplate = anchorTemplate
+      .replace(/@index_padded/g, '{index_padded}')
+      .replace(/@index_date/g, '{date}')
+      .replace(/@index/g, '{index}')
+      .replace(/@year/g, '{year}')
+      .replace(/@month_padded/g, '{month_padded}')
+      .replace(/@month/g, '{month}');
+
+    return anchorTemplate;
+  };
+
   // Live update handler for immediate feedback
   const handleLiveUpdate = React.useCallback((field: string, value: any) => {
     if (!selectedWidget) return;
@@ -707,9 +761,27 @@ const PropertiesPanel: React.FC = () => {
                     className="input-field w-full"
                     placeholder="notes(@index)"
                   />
-                  <p className="text-xs text-eink-light-gray mt-1">
-                    Example: notes(@index) → notes:page:001..; change to day(@index_date)
-                  </p>
+                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                    <div className="font-medium text-blue-800 mb-1">Destination Preview:</div>
+                    {selectedWidget.properties?.bind ? (
+                      <div className="space-y-1">
+                        <div className="text-blue-700">
+                          <span className="font-mono bg-white px-1 rounded border">
+                            {selectedWidget.properties.bind}
+                          </span>
+                          <span className="mx-2">→</span>
+                          <span className="font-mono bg-white px-1 rounded border text-green-700">
+                            {generateDestinationPreview(selectedWidget.properties.bind)}
+                          </span>
+                        </div>
+                        <div className="text-blue-600 mt-1">
+                          Create anchors with: <code className="bg-white px-1 rounded border">dest_id: "{generateAnchorTemplate(selectedWidget.properties.bind)}"</code>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-blue-600 italic">Enter a link template to see generated destinations</div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Label Template</label>
@@ -1017,6 +1089,7 @@ const PropertiesPanel: React.FC = () => {
                     className="input-field w-full"
                   >
                     <option value="page_link">Go to Page</option>
+                    <option value="destination_link">Go to Destination</option>
                     <option value="prev_page">Previous Page</option>
                     <option value="next_page">Next Page</option>
                   </select>
@@ -1032,6 +1105,39 @@ const PropertiesPanel: React.FC = () => {
                       className="input-field w-full"
                       placeholder="2"
                     />
+                  </div>
+                )}
+                {selectedWidget.properties?.tap_action === 'destination_link' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Bind (Destination)</label>
+                    <input
+                      type="text"
+                      {...register('properties.bind')}
+                      onChange={(e) => handleLiveUpdate('properties.bind', e.target.value)}
+                      className="input-field w-full"
+                      placeholder="e.g., day(@date) or notes(@index)"
+                    />
+                    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                      <div className="font-medium text-blue-800 mb-1">Destination Preview:</div>
+                      {selectedWidget.properties?.bind ? (
+                        <div className="space-y-1">
+                          <div className="text-blue-700">
+                            <span className="font-mono bg-white px-1 rounded border">
+                              {selectedWidget.properties.bind}
+                            </span>
+                            <span className="mx-2">→</span>
+                            <span className="font-mono bg-white px-1 rounded border text-green-700">
+                              {generateDestinationPreview(selectedWidget.properties.bind)}
+                            </span>
+                          </div>
+                          <div className="text-blue-600 mt-1">
+                            Create anchors with: <code className="bg-white px-1 rounded border">dest_id: "{generateAnchorTemplate(selectedWidget.properties.bind)}"</code>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-blue-600 italic">Enter a bind template to see generated destinations</div>
+                      )}
+                    </div>
                   </div>
                 )}
                 
@@ -1117,7 +1223,27 @@ const PropertiesPanel: React.FC = () => {
                     className="input-field w-full"
                     placeholder="e.g., day(@date) or notes(@index)"
                   />
-                  <p className="text-xs text-eink-light-gray mt-1">Use function-like binds; @vars allowed in args. Example: month(@year-@month_padded).</p>
+                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                    <div className="font-medium text-blue-800 mb-1">Destination Preview:</div>
+                    {selectedWidget.properties?.bind ? (
+                      <div className="space-y-1">
+                        <div className="text-blue-700">
+                          <span className="font-mono bg-white px-1 rounded border">
+                            {selectedWidget.properties.bind}
+                          </span>
+                          <span className="mx-2">→</span>
+                          <span className="font-mono bg-white px-1 rounded border text-green-700">
+                            {generateDestinationPreview(selectedWidget.properties.bind)}
+                          </span>
+                        </div>
+                        <div className="text-blue-600 mt-1">
+                          Create anchors with: <code className="bg-white px-1 rounded border">dest_id: "{generateAnchorTemplate(selectedWidget.properties.bind)}"</code>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-blue-600 italic">Enter a bind template to see generated destinations</div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Or Destination ID</label>

@@ -21,6 +21,94 @@ interface SectionPreview {
   sampleContexts: Array<Record<string, any>>;
 }
 
+interface VariableGroup {
+  category: string;
+  variables: Array<{
+    name: string;
+    description: string;
+  }>;
+}
+
+const getAvailableVariables = (generateMode: GenerateMode): VariableGroup[] => {
+  const baseVariables: VariableGroup = {
+    category: "Common Variables",
+    variables: [
+      { name: "custom", description: "Custom context variables from section configuration" }
+    ]
+  };
+
+  switch (generateMode) {
+    case GenerateMode.ONCE:
+      return [baseVariables];
+
+    case GenerateMode.COUNT:
+      return [
+        baseVariables,
+        {
+          category: "Sequence Variables",
+          variables: [
+            { name: "index", description: "Current instance number (1, 2, 3...)" },
+            { name: "index_padded", description: "Zero-padded index (001, 002, 003)" },
+            { name: "total", description: "Total number of instances" },
+            { name: "subpage", description: "Subpage number for multi-page items" }
+          ]
+        }
+      ];
+
+    case GenerateMode.EACH_DAY:
+      return [
+        baseVariables,
+        {
+          category: "Date Variables",
+          variables: [
+            { name: "date", description: "ISO date string (2026-01-15)" },
+            { name: "date_long", description: "Long format (Wednesday, January 15, 2026)" },
+            { name: "year", description: "Year number (2026)" },
+            { name: "month", description: "Month number (1-12)" },
+            { name: "month_padded", description: "Zero-padded month (01-12)" },
+            { name: "month_padded3", description: "Three-digit padded month (001-012)" },
+            { name: "month_name", description: "Localized month name (January)" },
+            { name: "day", description: "Day number (1-31)" },
+            { name: "day_padded", description: "Zero-padded day (01-31)" },
+            { name: "weekday", description: "Localized weekday name (Wednesday)" }
+          ]
+        }
+      ];
+
+    case GenerateMode.EACH_MONTH:
+      return [
+        baseVariables,
+        {
+          category: "Date Variables",
+          variables: [
+            { name: "year", description: "Year number (2026)" },
+            { name: "month", description: "Month number (1-12)" },
+            { name: "month_padded", description: "Zero-padded month (01-12)" },
+            { name: "month_padded3", description: "Three-digit padded month (001-012)" },
+            { name: "month_name", description: "Localized month name (January)" }
+          ]
+        }
+      ];
+
+    case GenerateMode.EACH_WEEK:
+      return [
+        baseVariables,
+        {
+          category: "Date Variables",
+          variables: [
+            { name: "iso_week", description: "ISO week string (2026-W03)" },
+            { name: "year", description: "Year number (2026)" },
+            { name: "week", description: "ISO week number (1-53)" },
+            { name: "week_padded", description: "Zero-padded week (01-53)" }
+          ]
+        }
+      ];
+
+    default:
+      return [baseVariables];
+  }
+};
+
 export const PlanPreview: React.FC<PlanPreviewProps> = ({
   plan,
   masters,
@@ -95,9 +183,12 @@ export const PlanPreview: React.FC<PlanPreviewProps> = ({
               }),
               year: currentDate.getFullYear(),
               month: currentDate.getMonth() + 1,
-              'month:02d': String(currentDate.getMonth() + 1).padStart(2, '0'),
+              month_padded: String(currentDate.getMonth() + 1).padStart(2, '0'),
+              month_padded3: String(currentDate.getMonth() + 1).padStart(3, '0'),
               month_name: currentDate.toLocaleDateString('en-US', { month: 'long' }),
-              day: currentDate.getDate()
+              day: currentDate.getDate(),
+              day_padded: String(currentDate.getDate()).padStart(2, '0'),
+              weekday: currentDate.toLocaleDateString('en-US', { weekday: 'long' })
             });
           }
         }
@@ -125,7 +216,8 @@ export const PlanPreview: React.FC<PlanPreviewProps> = ({
               ...section.context,
               year,
               month,
-              'month:02d': String(month).padStart(2, '0'),
+              month_padded: String(month).padStart(2, '0'),
+              month_padded3: String(month).padStart(3, '0'),
               month_name: currentDate.toLocaleDateString('en-US', { month: 'long' })
             });
           }
@@ -277,15 +369,39 @@ export const PlanPreview: React.FC<PlanPreviewProps> = ({
                     </div>
                   </div>
 
-                  {/* Sample Contexts */}
+                  {/* Available Variables */}
+                  <div>
+                    <h5 className="font-medium text-sm mb-2">Available Variables</h5>
+                    <div className="bg-green-50 border border-green-200 rounded p-3 text-sm">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {getAvailableVariables(preview.section.generate).map((varGroup) => (
+                          <div key={varGroup.category}>
+                            <h6 className="font-medium text-green-800 mb-1">{varGroup.category}</h6>
+                            <div className="space-y-1">
+                              {varGroup.variables.map((variable) => (
+                                <div key={variable.name} className="flex items-start gap-1">
+                                  <code className="bg-white border px-1 rounded text-xs font-mono text-green-700">
+                                    {`{${variable.name}}`}
+                                  </code>
+                                  <span className="text-green-600 text-xs">{variable.description}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sample Context Values */}
                   {preview.sampleContexts.length > 0 && (
                     <div>
-                      <h5 className="font-medium text-sm mb-2">Sample Context Variables</h5>
+                      <h5 className="font-medium text-sm mb-2">Sample Values</h5>
                       <div className="space-y-2">
-                        {preview.sampleContexts.slice(0, 3).map((context, i) => (
+                        {preview.sampleContexts.slice(0, 2).map((context, i) => (
                           <div key={i} className="bg-gray-50 rounded p-2 text-xs">
                             <div className="font-mono text-gray-600 mb-1">Instance {i + 1}:</div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                               {Object.entries(context).map(([key, value]) => (
                                 <div key={key} className="flex items-center gap-1">
                                   <span className="text-gray-500">{key}:</span>
