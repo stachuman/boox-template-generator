@@ -24,6 +24,9 @@ const Canvas: React.FC = () => {
     showGrid,
     snapEnabled,
     zoom,
+    setZoom,
+    wheelMode,
+    setCanvasContainerSize,
     addWidget,
     updateWidget,
     removeWidget,
@@ -401,6 +404,46 @@ const Canvas: React.FC = () => {
   };
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const [origin, setOrigin] = useState<{x:number; y:number}>({ x: 0, y: 0 });
+
+  // Attach a non-passive wheel listener so we can prevent page scroll/zoom
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      // Only handle if the wheel event originated inside the canvas container
+      if (!el.contains(e.target as Node)) return;
+      if (wheelMode === 'zoom') {
+        e.preventDefault();
+        // Compute pivot relative to canvas element to keep cursor as zoom focus
+        const rect = (canvasRef.current || el).getBoundingClientRect();
+        const localX = (e.clientX - rect.left);
+        const localY = (e.clientY - rect.top);
+        setOrigin({ x: localX, y: localY });
+        const factor = e.deltaY > 0 ? 0.9 : 1.1; // smooth multiplicative zoom
+        const next = Math.max(0.1, Math.min(3, zoom * factor));
+        setZoom(next);
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', onWheel as any);
+    };
+  }, [zoom, setZoom, wheelMode]);
+
+  // Track container size for fit-to-screen calculations
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const cr = entry.contentRect;
+        setCanvasContainerSize({ width: cr.width, height: cr.height });
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [setCanvasContainerSize]);
 
   return (
     <div 
@@ -408,6 +451,8 @@ const Canvas: React.FC = () => {
       className="relative flex items-center justify-center min-h-full"
       onClick={handleCanvasClick}
       onKeyDown={handleKeyDown}
+      // Note: actual zoom handling attached via non-passive listener below
+      onWheel={() => { /* handled in effect to allow preventDefault */ }}
       tabIndex={0}
     >
       {/* Canvas */}
@@ -423,7 +468,7 @@ const Canvas: React.FC = () => {
           width: canvasWidth,
           height: canvasHeight,
           transform: `scale(${zoom})`,
-          transformOrigin: 'center',
+          transformOrigin: `${origin.x}px ${origin.y}px`,
         }}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}

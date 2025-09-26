@@ -42,6 +42,11 @@ interface EditorStore extends EditorState {
   setShowGrid: (showGrid: boolean) => void;
   setSnapEnabled: (snapEnabled: boolean) => void;
   setZoom: (zoom: number) => void;
+  // Wheel behavior
+  wheelMode: 'scroll' | 'zoom';
+  setWheelMode: (mode: 'scroll' | 'zoom') => void;
+  canvasContainerSize: { width: number; height: number } | null;
+  setCanvasContainerSize: (size: { width: number; height: number }) => void;
   // Panel visibility
   setShowWidgetPalette: (show: boolean) => void;
   setShowPagesPanel: (show: boolean) => void;
@@ -134,6 +139,8 @@ export const useEditorStore = create<EditorStore>()(
       showGrid: true,
       snapEnabled: true,
       zoom: 1,
+      wheelMode: 'scroll',
+      canvasContainerSize: null,
       // Panel visibility
       showWidgetPalette: true,
       showPagesPanel: true,
@@ -191,6 +198,8 @@ export const useEditorStore = create<EditorStore>()(
       setShowRightPanel: (show) => set({ showRightPanel: show }),
       setSnapEnabled: (snapEnabled) => set({ snapEnabled }),
       setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(3, zoom)) }),
+      setWheelMode: (mode) => set({ wheelMode: mode }),
+      setCanvasContainerSize: (size) => set({ canvasContainerSize: size }),
 
       // Multi-page operations
       setCurrentPage: (page) => {

@@ -9,6 +9,7 @@ import React, { useState } from 'react';
 import { Save, Download, Eye, Grid, Monitor, Settings, Hammer } from 'lucide-react';
 import clsx from 'clsx';
 import { DeviceProfile, Template } from '@/types';
+import { useEditorStore } from '@/stores/editorStore';
 
 interface ToolbarProps {
   profiles: DeviceProfile[];
@@ -71,6 +72,24 @@ const Toolbar: React.FC<ToolbarProps> = ({
   hidePreviewButton = false,
 }) => {
   const [showMetadataEditor, setShowMetadataEditor] = useState(false);
+  const { zoom, setZoom, wheelMode, setWheelMode, canvasContainerSize } = useEditorStore() as any;
+  const zoomOut = () => setZoom((zoom || 1) - 0.1);
+  const zoomIn = () => setZoom((zoom || 1) + 0.1);
+  const resetZoom = () => setZoom(1);
+  const fitWidth = () => {
+    if (!currentTemplate || !canvasContainerSize) return;
+    const cw = currentTemplate.canvas.dimensions.width;
+    const vw = canvasContainerSize.width;
+    if (cw > 0 && vw > 0) setZoom(Math.max(0.1, Math.min(3, vw / cw)));
+  };
+  const fitPage = () => {
+    if (!currentTemplate || !canvasContainerSize) return;
+    const cw = currentTemplate.canvas.dimensions.width;
+    const ch = currentTemplate.canvas.dimensions.height;
+    const vw = canvasContainerSize.width;
+    const vh = canvasContainerSize.height;
+    if (cw > 0 && ch > 0 && vw > 0 && vh > 0) setZoom(Math.max(0.1, Math.min(3, Math.min(vw / cw, vh / ch))));
+  };
   return (
     <div className="toolbar flex items-center justify-between">
       {/* Left Section - Actions */}
@@ -141,6 +160,24 @@ const Toolbar: React.FC<ToolbarProps> = ({
         >
           <Grid className="w-4 h-4" />
         </button>
+
+        {/* Zoom controls */}
+        <div className="flex items-center space-x-1 ml-1">
+          <button onClick={zoomOut} className="px-2 py-1 text-xs border rounded" title="Zoom Out">−</button>
+          <button onClick={resetZoom} className="px-2 py-1 text-xs border rounded w-16" title="Reset Zoom">
+            {Math.round((zoom || 1) * 100)}%
+          </button>
+          <button onClick={zoomIn} className="px-2 py-1 text-xs border rounded" title="Zoom In">+</button>
+          <button onClick={fitWidth} className="px-2 py-1 text-xs border rounded" title="Fit to Width">Fit W</button>
+          <button onClick={fitPage} className="px-2 py-1 text-xs border rounded" title="Fit to Page">Fit Page</button>
+          <button
+            onClick={() => setWheelMode(wheelMode === 'zoom' ? 'scroll' : 'zoom')}
+            className={clsx('px-2 py-1 text-xs border rounded', wheelMode === 'zoom' ? 'bg-eink-black text-white' : '')}
+            title="Toggle Wheel Mode: Scroll/Zoom"
+          >
+            {wheelMode === 'zoom' ? 'Wheel: Zoom' : 'Wheel: Scroll'}
+          </button>
+        </div>
 
         {!hidePreviewButton && (
           <button

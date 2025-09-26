@@ -5,6 +5,7 @@ import { Project, Master, Plan, CompilationResult, DeviceProfile } from '@/types
 import { APIClient, downloadBlob, blobToDataURL } from '@/services/api';
 import PlanEditor from './PlanEditor';
 import PlanPreview from './PlanPreview';
+import CreateMasterModal from './CreateMasterModal';
 
 const ProjectEditor: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -25,6 +26,7 @@ const ProjectEditor: React.FC = () => {
   const [profiles, setProfiles] = useState<DeviceProfile[]>([]);
   const [profilesLoading, setProfilesLoading] = useState<boolean>(false);
   const [savingProfile, setSavingProfile] = useState<boolean>(false);
+  const [showCreateMasterModal, setShowCreateMasterModal] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -233,6 +235,22 @@ const ProjectEditor: React.FC = () => {
     }
   };
 
+  const handleCreateMaster = (masterName: string) => {
+    if (!project) {
+      setError('Project not loaded');
+      return;
+    }
+
+    if (!masterName.trim()) {
+      setError('Master name is required');
+      return;
+    }
+
+    setShowCreateMasterModal(false);
+    // Navigate to master editor with the pre-filled name
+    navigate(`/projects/${project.id}/masters/new?name=${encodeURIComponent(masterName)}`);
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -383,10 +401,7 @@ const ProjectEditor: React.FC = () => {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-eink-black">Master Templates</h2>
             <button
-              onClick={() => {
-                // Navigate to template editor for creating new master
-                navigate(`/projects/${project.id}/masters/new`);
-              }}
+              onClick={() => setShowCreateMasterModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-eink-black text-white rounded-lg hover:bg-gray-800 transition-colors"
             >
               <Plus className="w-5 h-5" />
@@ -401,7 +416,7 @@ const ProjectEditor: React.FC = () => {
                 Create your first master template to start building your project
               </p>
               <button
-                onClick={() => navigate(`/projects/${project.id}/masters/new`)}
+                onClick={() => setShowCreateMasterModal(true)}
                 className="px-4 py-2 bg-eink-black text-white rounded-lg hover:bg-gray-800 transition-colors"
               >
                 Create First Master
@@ -542,6 +557,14 @@ const ProjectEditor: React.FC = () => {
             )}
           </div>
         </div>
+      )}
+
+      {/* Create Master Modal */}
+      {showCreateMasterModal && (
+        <CreateMasterModal
+          onClose={() => setShowCreateMasterModal(false)}
+          onSubmit={handleCreateMaster}
+        />
       )}
     </div>
   );

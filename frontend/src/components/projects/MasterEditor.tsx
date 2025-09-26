@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Save, Code, Layout, Grid } from 'lucide-react';
+import { useEditorStore } from '@/stores/editorStore';
 import { Project, Master, Template, AddMasterRequest, UpdateMasterRequest } from '@/types';
 import { APIClient } from '@/services/api';
 import TemplateEditor from '@/components/TemplateEditor';
@@ -8,6 +9,7 @@ import TemplateEditor from '@/components/TemplateEditor';
 const MasterEditor: React.FC = () => {
   const { projectId, masterName } = useParams<{ projectId: string; masterName?: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [project, setProject] = useState<Project | null>(null);
   const [currentMaster, setCurrentMaster] = useState<Master | null>(null);
   const [masterNameValue, setMasterNameValue] = useState('');
@@ -24,7 +26,7 @@ const MasterEditor: React.FC = () => {
     if (projectId) {
       loadProject();
     }
-  }, [projectId, masterName]);
+  }, [projectId, masterName, searchParams]);
 
   const loadProject = async () => {
     if (!projectId) return;
@@ -53,7 +55,9 @@ const MasterEditor: React.FC = () => {
       } else {
         // Creating new master
         setIsNewMaster(true);
-        setMasterNameValue('');
+        // Check for pre-filled name from search params
+        const prefilledName = searchParams.get('name');
+        setMasterNameValue(prefilledName || '');
         const defaultTemplate = generateDefaultTemplate(projectData);
         setCurrentTemplate(defaultTemplate);
         // Initialize with the default template structure
@@ -270,6 +274,11 @@ const MasterEditor: React.FC = () => {
               >
                 <Grid className="w-4 h-4" />
               </button>
+
+              {/* Zoom controls (design canvas) */}
+              <div className="flex items-center space-x-1 ml-1">
+                <ZoomControls />
+              </div>
             </>
           )}
         </div>
@@ -333,3 +342,38 @@ const MasterEditor: React.FC = () => {
 };
 
 export default MasterEditor;
+
+// Inline zoom controls reusing editor store
+const ZoomControls: React.FC = () => {
+  const { zoom, setZoom, wheelMode, setWheelMode, currentTemplate, canvasContainerSize } = useEditorStore() as any;
+  const fitWidth = () => {
+    if (!currentTemplate || !canvasContainerSize) return;
+    const cw = currentTemplate.canvas.dimensions.width;
+    const vw = canvasContainerSize.width;
+    if (cw > 0 && vw > 0) setZoom(Math.max(0.1, Math.min(3, vw / cw)));
+  };
+  const fitPage = () => {
+    if (!currentTemplate || !canvasContainerSize) return;
+    const cw = currentTemplate.canvas.dimensions.width;
+    const ch = currentTemplate.canvas.dimensions.height;
+    const vw = canvasContainerSize.width;
+    const vh = canvasContainerSize.height;
+    if (cw > 0 && ch > 0 && vw > 0 && vh > 0) setZoom(Math.max(0.1, Math.min(3, Math.min(vw / cw, vh / ch))));
+  };
+  return (
+    <div className="flex items-center space-x-1">
+      <button onClick={() => setZoom((zoom || 1) - 0.1)} className="px-2 py-1 text-xs border rounded" title="Zoom Out">−</button>
+      <button onClick={() => setZoom(1)} className="px-2 py-1 text-xs border rounded w-16" title="Reset Zoom">{Math.round((zoom || 1) * 100)}%</button>
+      <button onClick={() => setZoom((zoom || 1) + 0.1)} className="px-2 py-1 text-xs border rounded" title="Zoom In">+</button>
+      <button onClick={fitWidth} className="px-2 py-1 text-xs border rounded" title="Fit to Width">Fit W</button>
+      <button onClick={fitPage} className="px-2 py-1 text-xs border rounded" title="Fit to Page">Fit Page</button>
+      <button
+        onClick={() => setWheelMode(wheelMode === 'zoom' ? 'scroll' : 'zoom')}
+        className={`px-2 py-1 text-xs border rounded ${wheelMode === 'zoom' ? 'bg-eink-black text-white' : ''}`}
+        title="Toggle Wheel Mode: Scroll/Zoom"
+      >
+        {wheelMode === 'zoom' ? 'Wheel: Zoom' : 'Wheel: Scroll'}
+      </button>
+    </div>
+  );
+};
