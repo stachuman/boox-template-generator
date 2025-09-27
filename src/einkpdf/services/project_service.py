@@ -14,6 +14,7 @@ Follows CLAUDE.md standards - no dummy implementations.
 
 import json
 import os
+import shutil
 import yaml
 import uuid
 from datetime import datetime, timezone
@@ -25,6 +26,7 @@ from ..core.project_schema import (
     ProjectListItem, LinkResolution
 )
 from ..core.schema import Template, Widget
+from ..core.utils import convert_enums_for_serialization
 from ..validation.yaml_validator import parse_yaml_template, TemplateParseError, SchemaValidationError
 
 
@@ -76,27 +78,36 @@ class ProjectService:
         needs_save = False
         for project_id, entry in self._index.items():
             # Add missing fields with actual counts if they don't exist
+            try:
+                project_file = self._get_project_file(project_id)
+                project_data = None
+                if project_file.exists():
+                    with open(project_file, 'r') as f:
+                        project_data = json.load(f)
+            except (IOError, json.JSONDecodeError):
+                project_data = None
+
             if 'masters_count' not in entry or 'plan_sections_count' not in entry:
-                try:
-                    # Load the actual project to get correct counts
-                    project_file = self._get_project_file(project_id)
-                    if project_file.exists():
-                        with open(project_file, 'r') as f:
-                            project_data = json.load(f)
+                if project_data:
+                    entry['masters_count'] = len(project_data.get('masters', []))
+                    entry['plan_sections_count'] = len(project_data.get('plan', {}).get('sections', []))
+                else:
+                    entry.setdefault('masters_count', 0)
+                    entry.setdefault('plan_sections_count', 0)
+                needs_save = True
 
-                        masters_count = len(project_data.get('masters', []))
-                        plan_sections_count = len(project_data.get('plan', {}).get('sections', []))
-
-                        entry['masters_count'] = masters_count
-                        entry['plan_sections_count'] = plan_sections_count
-                        needs_save = True
-                except (IOError, json.JSONDecodeError, KeyError):
-                    # Fallback to default values if project file can't be read
-                    if 'masters_count' not in entry:
-                        entry['masters_count'] = 0
-                    if 'plan_sections_count' not in entry:
-                        entry['plan_sections_count'] = 0
-                    needs_save = True
+            if 'is_public' not in entry:
+                entry['is_public'] = False
+                needs_save = True
+            if 'public_url_slug' not in entry:
+                entry['public_url_slug'] = None
+                needs_save = True
+            if 'clone_count' not in entry:
+                entry['clone_count'] = 0
+                needs_save = True
+            if 'file_path' not in entry and project_data is not None:
+                entry['file_path'] = str(self._get_project_file(project_id))
+                needs_save = True
 
         if needs_save:
             self._save_index()
@@ -109,6 +120,27 @@ class ProjectService:
         except IOError as e:
             raise ProjectServiceError(f"Failed to save project index: {e}")
 
+    def _build_index_entry(self, project: Project) -> Dict[str, Any]:
+        """Construct the index payload for a project."""
+        return {
+            "id": project.id,
+            "name": project.metadata.name,
+            "description": project.metadata.description,
+            "masters_count": len(project.masters),
+            "plan_sections_count": len(project.plan.sections),
+            "created_at": project.metadata.created_at,
+            "updated_at": project.metadata.updated_at,
+            "is_public": project.metadata.is_public,
+            "public_url_slug": project.metadata.public_url_slug,
+            "clone_count": project.metadata.clone_count,
+            "file_path": str(self._get_project_file(project.id)),
+        }
+
+    def _refresh_index_entry(self, project: Project) -> None:
+        """Persist the latest project metadata to the index."""
+        self._index[project.id] = self._build_index_entry(project)
+        self._save_index()
+
     def _get_project_dir(self, project_id: str) -> Path:
         """Get or create the directory for a project (and standard subdirs)."""
         pdir = self.storage_dir / project_id
@@ -116,6 +148,12 @@ class ProjectService:
         (pdir / "masters").mkdir(parents=True, exist_ok=True)
         (pdir / "compiled").mkdir(parents=True, exist_ok=True)
         return pdir
+
+    def _replace_directory(self, target: Path, source: Path) -> None:
+        """Replace directory contents atomically with the source directory."""
+        if target.exists():
+            shutil.rmtree(target)
+        shutil.copytree(source, target)
 
     def _get_project_file(self, project_id: str) -> Path:
         """Get file path for project.json within its directory."""
@@ -154,14 +192,20 @@ class ProjectService:
         project_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
 
+        cleaned_author = author.strip()
         metadata = ProjectMetadata(
             name=name.strip(),
             description=description.strip(),
             device_profile=device_profile,
-            author=author.strip(),
+            author=cleaned_author,
             category=category.strip(),
             created_at=now,
-            updated_at=now
+            updated_at=now,
+            is_public=False,
+            public_url_slug=None,
+            original_author=cleaned_author or None,
+            cloned_from=None,
+            clone_count=0,
         )
 
         # Create default calendar for one month
@@ -207,17 +251,7 @@ class ProjectService:
             raise ProjectServiceError(f"Failed to save project file: {e}")
 
         # Update index
-        self._index[project_id] = {
-            "id": project_id,
-            "name": name.strip(),
-            "description": description.strip(),
-            "masters_count": 0,
-            "plan_sections_count": 0,
-            "created_at": now,
-            "updated_at": now,
-            "file_path": str(project_file)
-        }
-        self._save_index()
+        self._refresh_index_entry(project)
 
         return project
 
@@ -268,8 +302,20 @@ class ProjectService:
             ProjectServiceError: If listing fails
         """
         projects = []
-        for project_info in self._index.values():
-            projects.append(ProjectListItem(**project_info))
+        for project_id, project_info in self._index.items():
+            # Ensure all required fields are present for ProjectListItem
+            list_item_data = {
+                "id": project_id,
+                "name": project_info.get("name", "Unnamed Project"),
+                "description": project_info.get("description", ""),
+                "masters_count": project_info.get("masters_count", 0),
+                "plan_sections_count": project_info.get("plan_sections_count", 0),
+                "created_at": project_info.get("created_at", ""),
+                "updated_at": project_info.get("updated_at", ""),
+                "is_public": project_info.get("is_public", False),
+                "public_url_slug": project_info.get("public_url_slug")
+            }
+            projects.append(ProjectListItem(**list_item_data))
 
         # Sort by creation date, newest first
         projects.sort(key=lambda p: p.created_at, reverse=True)
@@ -295,10 +341,16 @@ class ProjectService:
 
         # Update metadata fields
         updated_fields = {}
-        for field in ['name', 'description', 'device_profile', 'author', 'category']:
+        for field in ['name', 'description', 'device_profile', 'author', 'category', 'is_public', 'public_url_slug', 'original_author', 'cloned_from', 'clone_count']:
             if field in kwargs:
-                setattr(project.metadata, field, kwargs[field])
-                updated_fields[field] = kwargs[field]
+                value = kwargs[field]
+                if field == 'clone_count' and value is not None:
+                    try:
+                        value = int(value)
+                    except (TypeError, ValueError) as exc:
+                        raise ProjectServiceError('clone_count must be an integer') from exc
+                setattr(project.metadata, field, value)
+                updated_fields[field] = value
 
         if not updated_fields:
             return project  # No changes
@@ -307,15 +359,7 @@ class ProjectService:
 
         # Save project
         self._save_project(project)
-
-        # Update index if name or description changed
-        if 'name' in updated_fields or 'description' in updated_fields:
-            self._index[project_id].update({
-                'name': project.metadata.name,
-                'description': project.metadata.description,
-                'updated_at': project.metadata.updated_at
-            })
-            self._save_index()
+        self._refresh_index_entry(project)
 
         return project
 
@@ -412,9 +456,7 @@ class ProjectService:
             raise ProjectServiceError(f"Failed to save master YAML: {e}")
 
         # Update index master count
-        self._index[project_id]['masters_count'] = len(project.masters)
-        self._index[project_id]['updated_at'] = now
-        self._save_index()
+        self._refresh_index_entry(project)
 
         return project
 
@@ -487,10 +529,7 @@ class ProjectService:
 
         # Save project
         self._save_project(project)
-
-        # Update index
-        self._index[project_id]['updated_at'] = now
-        self._save_index()
+        self._refresh_index_entry(project)
 
         # Update master YAML file if provided; handle rename
         pdir = self._get_project_dir(project_id)
@@ -569,10 +608,7 @@ class ProjectService:
                 pass
 
         # Update index
-        self._index[project_id]['masters_count'] = len(project.masters)
-        self._index[project_id]['plan_sections_count'] = len(project.plan.sections)
-        self._index[project_id]['updated_at'] = now
-        self._save_index()
+        self._refresh_index_entry(project)
 
         return project
 
@@ -611,30 +647,45 @@ class ProjectService:
 
         # Save project
         self._save_project(project)
-
-        # Update index
-        self._index[project_id]['plan_sections_count'] = len(plan.sections)
-        self._index[project_id]['updated_at'] = project.metadata.updated_at
-        self._save_index()
+        self._refresh_index_entry(project)
 
         # Also persist plan.yaml for easier debugging
         pdir = self._get_project_dir(project_id)
         try:
             # Convert enums to raw values for YAML serialization
-            def _convert(obj):
-                if isinstance(obj, dict):
-                    return {k: _convert(v) for k, v in obj.items()}
-                if isinstance(obj, list):
-                    return [_convert(x) for x in obj]
-                # Enum: prefer .value if present
-                return getattr(obj, 'value', obj)
-
-            serializable = {"plan": _convert(plan.model_dump())}
+            serializable = {"plan": convert_enums_for_serialization(plan.model_dump())}
             with open(pdir / "plan.yaml", "w", encoding="utf-8") as f:
                 yaml.safe_dump(serializable, f, sort_keys=False, allow_unicode=True)
         except OSError as e:
             raise ProjectServiceError(f"Failed to save plan.yaml: {e}")
 
+        return project
+
+    def import_project(
+        self,
+        project: Project,
+        masters_source_dir: Optional[Path] = None,
+        plan_source_path: Optional[Path] = None,
+        compiled_source_dir: Optional[Path] = None,
+    ) -> Project:
+        """Import a fully-populated project into the workspace."""
+        pdir = self._get_project_dir(project.id)
+        self._save_project(project)
+        masters_dir = pdir / "masters"
+        compiled_dir = pdir / "compiled"
+        masters_dir.mkdir(parents=True, exist_ok=True)
+        compiled_dir.mkdir(parents=True, exist_ok=True)
+        if masters_source_dir and masters_source_dir.exists():
+            self._replace_directory(masters_dir, masters_source_dir)
+        if compiled_source_dir and compiled_source_dir.exists():
+            self._replace_directory(compiled_dir, compiled_source_dir)
+        if plan_source_path and plan_source_path.exists():
+            target_plan = pdir / "plan.yaml"
+            try:
+                shutil.copy2(plan_source_path, target_plan)
+            except OSError as exc:
+                raise ProjectServiceError(f"Failed to copy plan file: {exc}") from exc
+        self._refresh_index_entry(project)
         return project
 
     def _save_project(self, project: Project) -> None:

@@ -22,6 +22,7 @@ from einkpdf.core.project_schema import (
     GenerateMode, Master as ProjectMaster
 )
 from einkpdf.core.schema import Widget as TemplateWidget
+from ..utils import convert_enums_for_serialization
 
 
 router = APIRouter()
@@ -133,17 +134,7 @@ def compile_build(req: CompileRequest) -> CompileResponse:
         compiled = CompilationService().compile_project(project)
 
         # Convert enum values to strings and dump YAML
-        def convert_enums(obj):
-            if isinstance(obj, dict):
-                return {k: convert_enums(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [convert_enums(item) for item in obj]
-            elif hasattr(obj, 'value'):
-                return obj.value
-            else:
-                return obj
-
-        template_data = convert_enums(compiled.template.model_dump())
+        template_data = convert_enums_for_serialization(compiled.template.model_dump())
         yaml_out = yaml.safe_dump(template_data, sort_keys=False, allow_unicode=True)
         return CompileResponse(yaml_content=yaml_out, parsed_template=template_data)
     except (ValueError) as e:

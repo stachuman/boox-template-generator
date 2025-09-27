@@ -6,6 +6,7 @@
  */
 
 import axios, { AxiosResponse } from 'axios';
+import { TokenStorage } from './storage';
 import {
   DeviceProfile,
   TemplateResponse,
@@ -20,16 +21,32 @@ import {
   UpdateCompilationRulesRequest,
   AddMasterRequest,
   UpdateMasterRequest,
-  Plan
+  Plan,
+  MakeProjectPublicRequest
 } from '@/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
-const apiClient = axios.create({
+export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+apiClient.interceptors.request.use((config) => {
+  const token = TokenStorage.getToken();
+  if (token) {
+    if (TokenStorage.isTokenExpired(token)) {
+      TokenStorage.removeToken();
+    } else {
+      if (!config.headers) {
+        config.headers = {};
+      }
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
 });
 
 // Response interceptor for error handling
@@ -39,10 +56,13 @@ apiClient.interceptors.response.use(
     // Try to normalize backend error
     const resp = error.response;
     if (resp) {
+      if (resp.status === 401) {
+        TokenStorage.removeToken();
+        window.dispatchEvent(new CustomEvent('auth:logout'));
+        throw new APIClientError({ error: 'UNAUTHORIZED', message: 'Authentication required' });
+      }
       const ct = resp.headers?.['content-type'] || '';
-      // JSON error
       if (ct.includes('application/json') && resp.data && typeof resp.data === 'object') {
-        // FastAPI often returns { detail: string | object }
         const data = resp.data as any;
         const message = typeof data.detail === 'string'
           ? data.detail
@@ -51,7 +71,6 @@ apiClient.interceptors.response.use(
             : JSON.stringify(data);
         throw new APIClientError({ error: 'HTTP_ERROR', message });
       }
-      // Blob or text fallback
       const message = error.message || `HTTP ${resp.status}`;
       throw new APIClientError({ error: 'HTTP_ERROR', message });
     }
@@ -222,14 +241,21 @@ export class APIClient {
   }
 
   // Plans
-  static async updatePlan(projectId: string, plan: Plan): Promise<Project> {
-    const response: AxiosResponse<Project> = await apiClient.put(`/projects/${projectId}/plan`, { plan_data: plan });
+  static async shareProject(projectId: string, request: MakeProjectPublicRequest): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.post(`/projects/${projectId}/share`, request);
     return response.data;
   }
 
   // Compilation
   static async updateCompilationRules(projectId: string, request: UpdateCompilationRulesRequest): Promise<Project> {
     const response: AxiosResponse<Project> = await apiClient.put(`/projects/${projectId}/compilation`, request);
+    return response.data;
+  }
+
+  static async updatePlan(projectId: string, plan: Plan): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.put(`/projects/${projectId}/plan`, {
+      plan_data: plan
+    });
     return response.data;
   }
 
@@ -246,6 +272,24 @@ export class APIClient {
     } catch (_e) {
       return false;
     }
+  }
+
+  // Download compiled PDF
+  static async downloadProjectPDF(projectId: string, inline: boolean = false): Promise<Blob> {
+    const response = await apiClient.get(`/projects/${projectId}/pdf`, {
+      responseType: 'blob',
+      params: { inline: inline ? '1' : '0' }
+    });
+    return response.data;
+  }
+
+  // Get project preview image
+  static async getProjectPreview(projectId: string, page: number = 1, scale: number = 2.0): Promise<Blob> {
+    const response = await apiClient.get(`/projects/${projectId}/preview`, {
+      responseType: 'blob',
+      params: { page, scale }
+    });
+    return response.data;
   }
 
   // Assets

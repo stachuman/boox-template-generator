@@ -2,15 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Play, Download, RefreshCw, Edit2, Check, X } from 'lucide-react';
 import { Project, Master, Plan, CompilationResult, DeviceProfile } from '@/types';
+import { useProjectStore } from '@/stores/projectStore';
 import { APIClient, downloadBlob, blobToDataURL } from '@/services/api';
 import PlanEditor from './PlanEditor';
 import PlanPreview from './PlanPreview';
 import CreateMasterModal from './CreateMasterModal';
+import ProjectSharingControls from './ProjectSharingControls';
 
 const ProjectEditor: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const updateProjectList = useProjectStore((state) => state.updateProject);
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +32,17 @@ const ProjectEditor: React.FC = () => {
   const [showCreateMasterModal, setShowCreateMasterModal] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState<string>('');
+
+  // Helper function to create authenticated PDF preview URL
+  const createPreviewUrl = async (projectId: string): Promise<string> => {
+    try {
+      const blob = await APIClient.downloadProjectPDF(projectId, true);
+      return URL.createObjectURL(blob);
+    } catch (error) {
+      console.error('Failed to create preview URL:', error);
+      throw error;
+    }
+  };
 
   useEffect(() => {
     if (projectId) {
@@ -68,9 +82,14 @@ const ProjectEditor: React.FC = () => {
   // Auto-update iframe page when preview URL is available
   useEffect(() => {
     if (project && previewUrl) {
-      const ts = Date.now();
-      const url = `/api/projects/${project.id}/pdf?inline=1&_=${ts}#page=${previewPage}&zoom=page-width`;
-      setPreviewUrl(url);
+      // Clean up previous blob URL to prevent memory leaks
+      URL.revokeObjectURL(previewUrl);
+      createPreviewUrl(project.id).then(url => {
+        setPreviewUrl(url);
+      }).catch(err => {
+        console.error('Failed to update preview URL:', err);
+        setPreviewUrl(null);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewPage]);
@@ -81,9 +100,12 @@ const ProjectEditor: React.FC = () => {
       if (!project) return;
       const exists = await APIClient.hasCompiledPDF(project.id);
       if (exists) {
-        const ts = Date.now();
-        const url = `/api/projects/${project.id}/pdf?inline=1&_=${ts}#page=1&zoom=page-width`;
-        setPreviewUrl(url);
+        try {
+          const url = await createPreviewUrl(project.id);
+          setPreviewUrl(url);
+        } catch (err) {
+          console.error('Failed to load existing PDF preview:', err);
+        }
         // Do not auto-switch tabs; respect user's current tab selection
       }
     };
@@ -96,13 +118,25 @@ const ProjectEditor: React.FC = () => {
       if (activeTab !== 'preview' || !project) return;
       const exists = await APIClient.hasCompiledPDF(project.id);
       if (exists) {
-        const ts = Date.now();
-        const url = `/api/projects/${project.id}/pdf?inline=1&_=${ts}#page=${previewPage}&zoom=page-width`;
-        setPreviewUrl(url);
+        try {
+          const url = await createPreviewUrl(project.id);
+          setPreviewUrl(url);
+        } catch (err) {
+          console.error('Failed to load preview when switching tabs:', err);
+        }
       }
     };
     maybeLoad();
   }, [activeTab, project, previewPage]);
+
+  // Cleanup blob URLs when component unmounts to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   const loadProject = async () => {
     if (!projectId) return;
@@ -112,6 +146,7 @@ const ProjectEditor: React.FC = () => {
       setError(null);
       const projectData = await APIClient.getProject(projectId);
       setProject(projectData);
+      updateProjectList(projectData.id, { metadata: projectData.metadata, masters: projectData.masters, plan: projectData.plan });
     } catch (err: any) {
       setError(err.message || 'Failed to load project');
     } finally {
@@ -132,9 +167,12 @@ const ProjectEditor: React.FC = () => {
       const tp = (result.compilation_stats && result.compilation_stats.total_pages) ? result.compilation_stats.total_pages : 1;
       setTotalPages(tp);
       setPreviewPage(1);
-      const ts = Date.now();
-      const url = `/api/projects/${project.id}/pdf?inline=1&_=${ts}#page=1&zoom=page-width`;
-      setPreviewUrl(url);
+      try {
+        const url = await createPreviewUrl(project.id);
+        setPreviewUrl(url);
+      } catch (err) {
+        console.error('Failed to create preview after compilation:', err);
+      }
       setCompileWarnings(result.warnings || []);
 
       // Show success message or stats
@@ -167,9 +205,13 @@ const ProjectEditor: React.FC = () => {
         const result: CompilationResult = await APIClient.compileProject(project.id);
         setCompiledTemplate(result.template_yaml);
       }
-      const ts = Date.now();
-      const url = `/api/projects/${project.id}/pdf?inline=1&_=${ts}#page=${previewPage}&zoom=page-width`;
-      setPreviewUrl(url);
+      try {
+        const url = await createPreviewUrl(project.id);
+        setPreviewUrl(url);
+      } catch (urlErr) {
+        console.error('Failed to create preview URL:', urlErr);
+        throw new Error('Failed to create preview URL');
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to prepare preview');
     }
@@ -188,9 +230,7 @@ const ProjectEditor: React.FC = () => {
         available = true;
       }
       // Download PDF with proper filename
-      const response = await fetch(`/api/projects/${project.id}/pdf`);
-      if (!response.ok) throw new Error('Failed to download PDF');
-      const blob = await response.blob();
+      const blob = await APIClient.downloadProjectPDF(project.id);
       // Create filename from project name, sanitizing for filesystem
       const filename = `${project.metadata.name.replace(/[^a-zA-Z0-9\-_\s]/g, '').trim()}.pdf`;
       downloadBlob(blob, filename);
@@ -209,6 +249,7 @@ const ProjectEditor: React.FC = () => {
       setError(null);
       const updatedProject = await APIClient.updateProject(project.id, { name: newName.trim() });
       setProject(updatedProject);
+      updateProjectList(updatedProject.id, { metadata: updatedProject.metadata });
       setEditingName(false);
     } catch (err: any) {
       setError(err.message || 'Failed to update project name');
@@ -237,6 +278,11 @@ const ProjectEditor: React.FC = () => {
     setEditingName(false);
   };
 
+  const handleProjectUpdated = (updatedProject: Project) => {
+    setProject(updatedProject);
+    updateProjectList(updatedProject.id, { metadata: updatedProject.metadata, masters: updatedProject.masters, plan: updatedProject.plan });
+  };
+
   const handleChangeProfile = async (newProfile: string) => {
     if (!project || newProfile === project.metadata.device_profile) return;
     try {
@@ -244,7 +290,7 @@ const ProjectEditor: React.FC = () => {
       setError(null);
       const updated = await APIClient.updateProject(project.id, { device_profile: newProfile });
       setProject(updated);
-      // Clear compiledTemplate to avoid mismatch with previous profile
+      updateProjectList(updated.id, { metadata: updated.metadata, plan: updated.plan, masters: updated.masters });
       setCompiledTemplate(null);
     } catch (err: any) {
       setError(err.message || 'Failed to update device profile');
@@ -259,6 +305,7 @@ const ProjectEditor: React.FC = () => {
     try {
       const updatedProject = await APIClient.removeMaster(project.id, masterName);
       setProject(updatedProject);
+      updateProjectList(updatedProject.id, { metadata: updatedProject.metadata, masters: updatedProject.masters, plan: updatedProject.plan });
     } catch (err: any) {
       setError(err.message || 'Failed to delete master');
     }
@@ -271,6 +318,7 @@ const ProjectEditor: React.FC = () => {
       setError(null);
       const updatedProject = await APIClient.updatePlan(project.id, plan);
       setProject(updatedProject);
+      updateProjectList(updatedProject.id, { metadata: updatedProject.metadata, plan: updatedProject.plan });
     } catch (err: any) {
       setError(err.message || 'Failed to save plan');
       throw err; // Re-throw to let PlanEditor handle it
@@ -413,6 +461,10 @@ const ProjectEditor: React.FC = () => {
           <p className="text-red-800">{error}</p>
         </div>
       )}
+
+      <div className="mb-6">
+        <ProjectSharingControls project={project} onProjectUpdated={handleProjectUpdated} />
+      </div>
 
       {/* Project Stats */}
       <div className="mb-6 p-4 bg-gray-50 border border-eink-light-gray rounded-lg">

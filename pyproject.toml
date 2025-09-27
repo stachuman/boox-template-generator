@@ -51,6 +51,9 @@ dependencies = [
     # Utilities
     "python-multipart==0.0.6",       # Form data handling
     "python-dotenv==1.0.0",          # Environment configuration
+    "python-jose[cryptography]==3.3.0",  # JWT token handling
+    "bcrypt==5.0.0",                      # Password hashing
+    "email-validator==2.3.0",             # Email validation for pydantic
 ]
 
 [project.optional-dependencies]

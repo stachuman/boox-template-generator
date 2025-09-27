@@ -140,6 +140,11 @@ class ProjectMetadata(BaseModel):
     device_profile: str = Field(..., description="Target device profile")
     created_at: str = Field(..., description="Creation timestamp")
     updated_at: str = Field(..., description="Last update timestamp")
+    is_public: bool = Field(False, description="Whether project is shared publicly")
+    public_url_slug: Optional[str] = Field(None, description="Custom slug for public URL")
+    original_author: Optional[str] = Field(None, description="Original author for cloned projects")
+    cloned_from: Optional[str] = Field(None, description="Source project ID if cloned")
+    clone_count: int = Field(0, ge=0, description="Number of times the project has been cloned")
 
 
 class Project(BaseModel):
@@ -161,6 +166,9 @@ class ProjectListItem(BaseModel):
     plan_sections_count: int = Field(..., description="Number of plan sections")
     created_at: str = Field(..., description="Creation timestamp")
     updated_at: str = Field(..., description="Update timestamp")
+    is_public: bool = Field(False, description="Whether the project is shared publicly")
+    public_url_slug: Optional[str] = Field(None, description="Custom slug for public gallery access")
+    clone_count: int = Field(0, ge=0, description="Number of recorded clones")
 
 
 class CompilationResult(BaseModel):

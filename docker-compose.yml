@@ -6,12 +6,36 @@ services:
       context: .
       dockerfile: Dockerfile.backend
     environment:
+      # Core application settings
       - EINK_CLEANUP_TTL_DAYS=14
       - EINK_PROFILE_DIR=/app/config/profiles
+      - EINK_DATA_DIR=/app/backend/data
       # - EINK_CLEANUP_MAX_TEMPLATES=500
+
+      # JWT Authentication settings
+      - EINK_JWT_SECRET_FILE=/app/backend/data/users/jwt_secret.txt
+      - EINK_JWT_ALGORITHM=HS256
+      - EINK_JWT_EXPIRES_MINUTES=43200  # 30 days
+
+      # Password reset settings
+      - EINK_PASSWORD_RESET_TTL_MINUTES=60
+      - EINK_PASSWORD_RESET_URL=${PASSWORD_RESET_URL:-http://localhost:3000/reset-password}
+
+      # Email settings (for password reset)
+      # For development, emails will be saved to files
+      - EINK_EMAIL_OUTPUT_DIR=/app/backend/data/emails
+      # For production, configure SMTP:
+      # - EINK_SMTP_HOST=smtp.example.com
+      # - EINK_SMTP_PORT=587
+      # - EINK_SMTP_USERNAME=noreply@example.com
+      # - EINK_SMTP_PASSWORD=your_smtp_password
+      # - EINK_SMTP_FROM=noreply@example.com
+      # - EINK_SMTP_USE_TLS=true
     volumes:
       - eink_data:/app/backend/data
       - ./config/profiles:/app/config/profiles:ro
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
 
   frontend:
     build:
@@ -21,6 +45,8 @@ services:
       - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       - backend
+    environment:
+      - VITE_API_BASE_URL=http://localhost:${BACKEND_PORT:-8000}/api
 
 volumes:
   eink_data: {}

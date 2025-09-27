@@ -11,6 +11,14 @@ fastapi-cors==0.0.6
 # File handling
 aiofiles==23.2.1
 
+# Authentication and security
+python-jose[cryptography]==3.3.0
+bcrypt==5.0.0
+
+# Email support
+pydantic[email]==2.5.3
+email-validator==2.3.0
+
 # Existing einkpdf dependencies (reference)
 # These will be imported from the parent einkpdf package
 # reportlab==4.0.9

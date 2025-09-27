@@ -71,9 +71,13 @@ export const useProjectStore = create<ProjectStore>()(
           id: project.id,
           name: project.metadata.name,
           description: project.metadata.description,
-          page_count: project.pages.length,
+          masters_count: project.masters?.length ?? 0,
+          plan_sections_count: project.plan?.sections?.length ?? 0,
           created_at: project.metadata.created_at,
-          updated_at: project.metadata.updated_at
+          updated_at: project.metadata.updated_at,
+          is_public: project.metadata.is_public,
+          public_url_slug: project.metadata.public_url_slug,
+          clone_count: project.metadata.clone_count,
         };
 
         set((state) => ({
@@ -98,10 +102,14 @@ export const useProjectStore = create<ProjectStore>()(
 
             return {
               ...project,
-              name: updates.metadata?.name || project.name,
-              description: updates.metadata?.description || project.description,
-              page_count: updates.pages?.length || project.page_count,
-              updated_at: updates.metadata?.updated_at || project.updated_at
+              name: updates.metadata?.name ?? project.name,
+              description: updates.metadata?.description ?? project.description,
+              masters_count: updates.masters ? updates.masters.length : project.masters_count,
+              plan_sections_count: updates.plan ? updates.plan.sections.length : project.plan_sections_count,
+              updated_at: updates.metadata?.updated_at ?? project.updated_at,
+              is_public: updates.metadata?.is_public ?? project.is_public,
+              public_url_slug: updates.metadata?.public_url_slug ?? project.public_url_slug,
+              clone_count: updates.metadata?.clone_count ?? project.clone_count,
             };
           });
 

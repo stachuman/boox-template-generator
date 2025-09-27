@@ -1,0 +1,23 @@
+profile:
+  name: "remarkable-2"
+  display:
+    screen_size: [1404, 1872]  # 10.3" at 226 PPI
+    ppi: 226
+    physical_size: "10.3-inch"
+    color: false
+    technology: "E Ink Carta with Canvas"
+  pdf_settings:
+    page_size: "A4"
+    orientation: "portrait"
+    safe_margins: [36, 36, 36, 36]  # 0.5" margins for 10.3" screen
+  constraints:
+    min_font_pt: 10.0
+    min_stroke_pt: 0.75
+    min_touch_target_pt: 30.0
+    grayscale_levels: 16
+    max_gray_fill_area: 0.2
+  features:
+    stylus_support: true
+    frontlight: false
+    note_taking: true
+    document_annotation: true

@@ -1,0 +1,24 @@
+profile:
+  name: "supernote-a6x"
+  display:
+    screen_size: [1080, 1440]  # 7.8" at 300 PPI (estimated resolution)
+    ppi: 300
+    physical_size: "7.8-inch"
+    color: false
+    technology: "E Ink Mobius Carta"
+  pdf_settings:
+    page_size: "A5"  # Smaller device, A5 is more appropriate
+    orientation: "portrait"
+    safe_margins: [28, 28, 28, 28]  # Smaller margins for compact device
+  constraints:
+    min_font_pt: 8.0   # Higher PPI allows smaller fonts
+    min_stroke_pt: 0.5
+    min_touch_target_pt: 26.0  # Smaller but still usable
+    grayscale_levels: 16
+    max_gray_fill_area: 0.25
+  features:
+    stylus_support: true
+    frontlight: false
+    note_taking: true
+    document_annotation: true
+    compact_size: true

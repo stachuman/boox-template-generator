@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Folder, Calendar, User } from 'lucide-react';
+import { Plus, Folder, Calendar, User, Globe, CopyPlus } from 'lucide-react';
 import { ProjectListItem, CreateProjectRequest } from '@/types';
 import { APIClient } from '@/services/api';
 import CreateProjectModal from './CreateProjectModal';
@@ -39,16 +39,20 @@ const ProjectList: React.FC = () => {
   const handleCreateProject = async (request: CreateProjectRequest) => {
     try {
       const newProject = await APIClient.createProject(request);
-      setProjects(prev => [
+      setProjects((prev) => [
         {
           id: newProject.id,
           name: newProject.metadata.name,
           description: newProject.metadata.description,
-          page_count: newProject.pages.length,
+          masters_count: newProject.masters.length,
+          plan_sections_count: newProject.plan.sections.length,
           created_at: newProject.metadata.created_at,
-          updated_at: newProject.metadata.updated_at
+          updated_at: newProject.metadata.updated_at,
+          is_public: newProject.metadata.is_public,
+          public_url_slug: newProject.metadata.public_url_slug,
+          clone_count: newProject.metadata.clone_count,
         },
-        ...prev
+        ...prev,
       ]);
       setShowCreateModal(false);
       // Navigate to the new project
@@ -141,34 +145,53 @@ const ProjectList: React.FC = () => {
                   <h3 className="text-lg font-semibold text-eink-black mb-1">
                     {project.name}
                   </h3>
-                  {project.description && (
+                  {project.description ? (
                     <p className="text-eink-dark-gray text-sm line-clamp-2">
                       {project.description}
                     </p>
-                  )}
+                  ) : null}
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteProject(project.id);
-                  }}
-                  className="text-eink-light-gray hover:text-red-600 transition-colors p-1"
-                  title="Delete project"
-                >
-                  ×
-                </button>
+                <div className="flex flex-col items-end gap-2">
+                  {project.is_public ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700">
+                      <Globe className="h-3 w-3" /> Public
+                    </span>
+                  ) : null}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteProject(project.id);
+                    }}
+                    className="text-eink-light-gray hover:text-red-600 transition-colors p-1"
+                    title="Delete project"
+                  >
+                    ×
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-4 text-sm text-eink-dark-gray">
-                <div className="flex items-center gap-1">
-                  <Folder className="w-4 h-4" />
-                  <span>{project.page_count} pages</span>
+              <div className="flex flex-col gap-2 text-sm text-eink-dark-gray">
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center gap-1">
+                    <Folder className="w-4 h-4" />
+                    {project.masters_count} masters
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <CopyPlus className="w-4 h-4" />
+                    {project.plan_sections_count} sections
+                  </span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  <span>{formatDate(project.updated_at)}</span>
+                <div className="flex items-center gap-3 text-xs text-eink-dark-gray">
+                  <span>Updated {formatDate(project.updated_at)}</span>
+                  {project.clone_count > 0 ? (
+                    <span className="inline-flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      {project.clone_count} clones
+                    </span>
+                  ) : null}
                 </div>
               </div>
+              <div className="mt-2 text-xs text-eink-dark-gray">Created {formatDate(project.created_at)}</div>
             </div>
           ))}
         </div>

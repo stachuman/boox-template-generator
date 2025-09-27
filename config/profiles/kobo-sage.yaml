@@ -1,0 +1,24 @@
+profile:
+  name: "kobo-sage"
+  display:
+    screen_size: [1440, 1920]  # 8" at 300 PPI
+    ppi: 300
+    physical_size: "8-inch"
+    color: false
+    technology: "E Ink Carta 1200"
+  pdf_settings:
+    page_size: "A5"  # 8" screen better suited for A5
+    orientation: "portrait"
+    safe_margins: [28, 28, 28, 28]
+  constraints:
+    min_font_pt: 8.0   # High PPI allows smaller fonts
+    min_stroke_pt: 0.5
+    min_touch_target_pt: 26.0
+    grayscale_levels: 16
+    max_gray_fill_area: 0.25
+  features:
+    stylus_support: true
+    frontlight: true
+    note_taking: true
+    document_annotation: true
+    ebook_optimized: true

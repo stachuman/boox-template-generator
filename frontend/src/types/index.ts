@@ -185,6 +185,11 @@ export interface ProjectMetadata {
   device_profile: string;
   created_at: string;
   updated_at: string;
+  is_public: boolean;
+  public_url_slug: string | null;
+  original_author: string | null;
+  cloned_from: string | null;
+  clone_count: number;
 }
 
 export interface NamedPage {
@@ -263,6 +268,7 @@ export interface Project {
   plan: Plan;
   link_resolution: LinkResolution;
   default_canvas: Record<string, any>;
+  pages: NamedPage[];
 }
 
 export interface ProjectListItem {
@@ -273,6 +279,9 @@ export interface ProjectListItem {
   plan_sections_count: number;
   created_at: string;
   updated_at: string;
+  is_public: boolean;
+  public_url_slug: string | null;
+  clone_count: number;
 }
 
 export interface CompilationResult {
@@ -296,6 +305,16 @@ export interface UpdateProjectRequest {
   device_profile?: string;
   author?: string;
   category?: string;
+}
+
+export interface MakeProjectPublicRequest {
+  is_public: boolean;
+  url_slug?: string | null;
+}
+
+export interface CloneProjectRequestPayload {
+  new_name: string;
+  new_description?: string;
 }
 
 export interface AddPageRequest {

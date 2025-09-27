@@ -13,7 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .models import HealthResponse, APIError
-from .api import templates, pdf, profiles, compile as compile_api, projects, assets
+from .api import templates, pdf, profiles, compile as compile_api, projects, assets, auth as auth_api
+from .api import public as public_api
 from .services import TemplateService
 import os
 from .websockets import handle_websocket_connection
@@ -50,6 +51,8 @@ app.include_router(profiles.router, prefix="/api")
 app.include_router(compile_api.router, prefix="/api")
 app.include_router(projects.router, prefix="/api")
 app.include_router(assets.router, prefix="/api")
+app.include_router(public_api.router, prefix="/api")
+app.include_router(auth_api.router, prefix="/api")
 
 
 @app.get("/", response_model=HealthResponse)

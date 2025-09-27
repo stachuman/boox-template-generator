@@ -1,0 +1,24 @@
+profile:
+  name: "kindle-scribe"
+  display:
+    screen_size: [1860, 2480]  # 10.2" at 300 PPI
+    ppi: 300
+    physical_size: "10.2-inch"
+    color: false
+    technology: "E Ink Carta 1200"
+  pdf_settings:
+    page_size: "A4"
+    orientation: "portrait"
+    safe_margins: [32, 32, 32, 32]  # Smaller margins due to higher PPI
+  constraints:
+    min_font_pt: 8.0   # Smaller fonts possible with 300 PPI
+    min_stroke_pt: 0.5  # Thinner strokes possible
+    min_touch_target_pt: 28.0  # Slightly smaller touch targets
+    grayscale_levels: 16
+    max_gray_fill_area: 0.25  # Better grayscale handling
+  features:
+    stylus_support: true
+    frontlight: true
+    note_taking: true
+    document_annotation: true
+    premium_display: true

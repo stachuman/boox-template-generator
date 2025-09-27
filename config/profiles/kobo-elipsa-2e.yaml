@@ -1,0 +1,25 @@
+profile:
+  name: "kobo-elipsa-2e"
+  display:
+    screen_size: [1404, 1872]  # 10.3" at 227 PPI
+    ppi: 227
+    physical_size: "10.3-inch"
+    color: false
+    technology: "E Ink Carta 1200"
+  pdf_settings:
+    page_size: "A4"
+    orientation: "portrait"
+    safe_margins: [36, 36, 36, 36]
+  constraints:
+    min_font_pt: 10.0
+    min_stroke_pt: 0.75
+    min_touch_target_pt: 30.0
+    grayscale_levels: 16
+    max_gray_fill_area: 0.2
+  features:
+    stylus_support: true
+    frontlight: true
+    note_taking: true
+    document_annotation: true
+    ebook_optimized: true
+    comfortlight_pro: true

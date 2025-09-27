@@ -1,0 +1,25 @@
+profile:
+  name: "supernote-manta"
+  display:
+    screen_size: [1920, 2560]  # 10.7" at 300 PPI
+    ppi: 300
+    physical_size: "10.7-inch"
+    color: false
+    technology: "Flexible E Ink Carta"
+  pdf_settings:
+    page_size: "A4"
+    orientation: "portrait"
+    safe_margins: [32, 32, 32, 32]  # High PPI allows smaller margins
+  constraints:
+    min_font_pt: 8.0   # High PPI supports smaller fonts
+    min_stroke_pt: 0.5
+    min_touch_target_pt: 28.0
+    grayscale_levels: 16
+    max_gray_fill_area: 0.25
+  features:
+    stylus_support: true
+    frontlight: false
+    note_taking: true
+    document_annotation: true
+    flexible_screen: true
+    latest_generation: true
