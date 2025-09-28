@@ -331,7 +331,8 @@ const MasterEditor: React.FC = () => {
             <textarea
               value={yamlContent}
               onChange={(e) => setYamlContent(e.target.value)}
-              className="w-full h-full font-mono text-sm border border-eink-light-gray rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-eink-black"
+              rows={25}
+              className="w-full h-full min-h-[600px] font-mono text-sm border border-eink-light-gray rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-eink-black resize-y"
               placeholder="YAML content will appear here..."
             />
           </div>

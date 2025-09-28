@@ -94,16 +94,31 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await AuthAPI.register(username, email, password);
-      await get().login(username, password);
-    } catch (error) {
+      // Registration successful, now login automatically
+      try {
+        await get().login(username, password);
+      } catch (loginError) {
+        // If login fails after successful registration, show login error
+        set({
+          user: null,
+          token: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: `Registration successful, but login failed: ${extractErrorMessage(loginError)}`,
+        });
+        throw loginError;
+      }
+    } catch (registrationError) {
+      // Registration failed, show registration error
+      const errorMessage = extractErrorMessage(registrationError);
       set({
         user: null,
         token: null,
         isAuthenticated: false,
         isLoading: false,
-        error: extractErrorMessage(error),
+        error: errorMessage,
       });
-      throw error;
+      throw registrationError;
     }
   },
 

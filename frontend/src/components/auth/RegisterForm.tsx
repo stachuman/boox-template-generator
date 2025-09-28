@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/auth/useAuth';
 import type { RegisterFormData } from '@/auth/types';
@@ -22,9 +21,6 @@ const RegisterForm = () => {
 
   const passwordValue = watch('password');
 
-  useEffect(() => {
-    clearError();
-  }, [clearError]);
 
   const onSubmit = async (values: RegisterFormData) => {
     if (values.password !== values.confirmPassword) {

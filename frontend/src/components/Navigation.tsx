@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, Folder, Globe, BookOpen, ExternalLink } from 'lucide-react';
+import { LogOut, Folder, Globe, BookOpen, ExternalLink, Heart } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '@/auth/useAuth';
 
@@ -57,6 +57,17 @@ const Navigation: React.FC = () => {
         >
           <BookOpen className="h-4 w-4" />
           <span>Tutorial</span>
+          <ExternalLink className="h-3 w-3" />
+        </a>
+        <a
+          href="https://paypal.me/StachuMan"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center space-x-1 rounded-md border border-red-200 px-3 py-2 text-sm text-red-600 transition-colors hover:border-red-400 hover:text-red-700"
+          title="Support this project"
+        >
+          <Heart className="h-4 w-4" />
+          <span>Donate</span>
           <ExternalLink className="h-3 w-3" />
         </a>
         <span className="text-sm text-eink-dark-gray">{user ? `Signed in as ${user.username}` : ''}</span>

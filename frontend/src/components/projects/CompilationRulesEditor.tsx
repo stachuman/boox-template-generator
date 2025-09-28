@@ -363,7 +363,7 @@ const CompilationRulesEditor: React.FC = () => {
                       // Invalid JSON, keep as string for now
                     }
                   }}
-                  rows={3}
+                  rows={8}
                   className="w-full px-3 py-2 border border-eink-light-gray rounded-lg focus:outline-none focus:ring-2 focus:ring-eink-black focus:border-transparent text-sm font-mono"
                   placeholder="{}"
                 />

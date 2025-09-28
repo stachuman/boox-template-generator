@@ -7,6 +7,7 @@ old/
 ._*
 _*.sh
 _*.md
+AGENTS.md
 
 *.tgz
 
@@ -25,6 +26,7 @@ dist/
 *.log
 tmp/
 temp/
+planning/
 
 # IDE/editor
 .idea/

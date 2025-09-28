@@ -9,10 +9,12 @@ interface PublicProjectsStore {
   total: number;
   isLoading: boolean;
   cloningId: string | null;
+  downloadingId: string | null;
   error: string | null;
   fetchProjects: () => Promise<void>;
   cloneProject: (projectId: string, payload: CloneProjectRequestPayload) => Promise<Project>;
   cloneProjectBySlug: (slug: string, payload: CloneProjectRequestPayload) => Promise<Project>;
+  downloadProjectPdf: (projectId: string, projectName?: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -31,6 +33,7 @@ export const usePublicProjectsStore = create<PublicProjectsStore>((set) => ({
   total: 0,
   isLoading: false,
   cloningId: null,
+  downloadingId: null,
   error: null,
 
   async fetchProjects() {
@@ -81,6 +84,18 @@ export const usePublicProjectsStore = create<PublicProjectsStore>((set) => ({
       return project;
     } catch (error) {
       set({ cloningId: null, error: extractErrorMessage(error) });
+      throw error;
+    }
+  },
+
+  async downloadProjectPdf(projectId, projectName) {
+    set({ downloadingId: projectId, error: null });
+    try {
+      const filename = projectName ? `${projectName}.pdf` : 'project.pdf';
+      await PublicAPI.downloadProjectPdf(projectId, filename);
+      set({ downloadingId: null });
+    } catch (error) {
+      set({ downloadingId: null, error: extractErrorMessage(error) });
       throw error;
     }
   },

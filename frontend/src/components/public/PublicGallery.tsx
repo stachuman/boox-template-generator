@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Github, ExternalLink } from 'lucide-react';
+import { Github, ExternalLink, Heart } from 'lucide-react';
 import { usePublicProjectsStore } from '@/stores/public';
 import PublicProjectCard from './PublicProjectCard';
 import type { Project } from '@/types';
@@ -86,16 +86,28 @@ const PublicGallery = ({ onCloneSuccess }: PublicGalleryProps) => {
       ) : null}
 
       <div className="mt-8 border-t border-gray-200 pt-6 text-center">
-        <a
-          href="https://github.com/stachuman/boox-template-generator"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-sm text-eink-dark-gray hover:text-eink-black transition-colors"
-        >
-          <Github className="h-4 w-4" />
-          <span>Contribute to this project on GitHub</span>
-          <ExternalLink className="h-3 w-3" />
-        </a>
+        <div className="flex items-center justify-center gap-6 text-sm flex-wrap">
+          <a
+            href="https://github.com/stachuman/boox-template-generator"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-eink-dark-gray hover:text-eink-black transition-colors"
+          >
+            <Github className="h-4 w-4" />
+            <span>Contribute on GitHub</span>
+            <ExternalLink className="h-3 w-3" />
+          </a>
+          <a
+            href="https://paypal.me/StachuMan"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-red-600 hover:text-red-700 transition-colors"
+          >
+            <Heart className="h-4 w-4" />
+            <span>Support this project</span>
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
       </div>
     </section>
   );

@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/auth/useAuth';
 import type { LoginFormData } from '@/auth/types';
@@ -16,9 +15,6 @@ const LoginForm = () => {
     },
   });
 
-  useEffect(() => {
-    clearError();
-  }, [clearError]);
 
   const onSubmit = async (values: LoginFormData) => {
     try {
