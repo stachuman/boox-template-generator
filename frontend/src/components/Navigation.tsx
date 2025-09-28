@@ -10,6 +10,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { LogOut, Folder, Globe, BookOpen, ExternalLink, Heart } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '@/auth/useAuth';
+import { VersionService } from '@/services/version';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
@@ -70,6 +71,7 @@ const Navigation: React.FC = () => {
           <span>Donate</span>
           <ExternalLink className="h-3 w-3" />
         </a>
+        <span className="text-xs text-eink-dark-gray">{VersionService.getVersionString()}</span>
         <span className="text-sm text-eink-dark-gray">{user ? `Signed in as ${user.username}` : ''}</span>
         <button
           type="button"

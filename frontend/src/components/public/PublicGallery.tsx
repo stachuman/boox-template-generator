@@ -4,6 +4,7 @@ import { Github, ExternalLink, Heart } from 'lucide-react';
 import { usePublicProjectsStore } from '@/stores/public';
 import PublicProjectCard from './PublicProjectCard';
 import type { Project } from '@/types';
+import { VersionService } from '@/services/version';
 
 interface PublicGalleryProps {
   onCloneSuccess?: (project: Project) => void;
@@ -107,6 +108,9 @@ const PublicGallery = ({ onCloneSuccess }: PublicGalleryProps) => {
             <span>Support this project</span>
             <ExternalLink className="h-3 w-3" />
           </a>
+        </div>
+        <div className="text-xs text-eink-dark-gray">
+          {VersionService.getAppName()} {VersionService.getVersionString()}
         </div>
       </div>
     </section>

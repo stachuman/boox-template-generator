@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Github, BookOpen, ExternalLink, Heart } from 'lucide-react';
 import AuthLayout from './AuthLayout';
 import RegisterForm from './RegisterForm';
+import { VersionService } from '@/services/version';
 
 const RegisterPage = () => {
   return (
@@ -50,6 +51,9 @@ const RegisterPage = () => {
                 <span>Donate</span>
                 <ExternalLink className="h-3 w-3" />
               </a>
+            </div>
+            <div className="text-center text-xs text-eink-dark-gray mt-2">
+              {VersionService.getAppName()} {VersionService.getVersionString()}
             </div>
           </div>
         </div>
