@@ -6,7 +6,7 @@ A quick look at the editor and output:
 
 ![Calendar - example](/docs/examples/)
 
-[Sample demo server](https://dokumenty.cgpsmapper.com)
+[Sample demo server](https://eink.cgpsmapper.com)
 
 ![Tutorial](TUTORIAL.md)
 
