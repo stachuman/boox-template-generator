@@ -7,20 +7,28 @@
 
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { Settings, Type, Square, Minus, AlignJustify, Anchor, Trash2 } from 'lucide-react';
+import { Settings, Type, Square, Minus, AlignJustify, Anchor, Trash2, Table } from 'lucide-react';
 import { useEditorStore } from '@/stores/editorStore';
 import { Widget } from '@/types';
+import TableDataEditorModal from './TableDataEditorModal';
 
 const PropertiesPanel: React.FC = () => {
   const { selectedWidget, updateWidget, removeWidget, setSelectedWidget, getAssignedMasterForPage, moveWidgetToMaster, detachWidgetFromMasterToPage, findMasterIdByWidget, currentPage } = useEditorStore() as any;
 
   const { register, handleSubmit, reset } = useForm<Widget>();
+  const [showTableDataModal, setShowTableDataModal] = React.useState(false);
 
   React.useEffect(() => {
     if (selectedWidget) {
       reset(selectedWidget);
     }
   }, [selectedWidget, reset]);
+
+  React.useEffect(() => {
+    if (!selectedWidget || selectedWidget.type !== 'table') {
+      setShowTableDataModal(false);
+    }
+  }, [selectedWidget?.id, selectedWidget?.type]);
 
   // Font options loaded from backend assets (must be before any conditional returns)
   const [fontOptions, setFontOptions] = React.useState<string[]>(['Helvetica','Times-Roman','Courier']);
@@ -96,6 +104,33 @@ const PropertiesPanel: React.FC = () => {
     return anchorTemplate;
   };
 
+  const clampToBounds = (value: number, min: number, max: number) => {
+    if (Number.isNaN(value)) return min;
+    return Math.max(min, Math.min(max, value));
+  };
+
+  const parseMaybeNumber = (value: any): number => {
+    if (typeof value === 'number') return value;
+    const parsed = parseInt(String(value ?? ''), 10);
+    return Number.isNaN(parsed) ? NaN : parsed;
+  };
+
+  const handleTableDataSave = React.useCallback((payload: { data: string[][]; rows: number; columns: number }) => {
+    if (!selectedWidget) return;
+    const { data, rows, columns } = payload;
+    const currentProps = selectedWidget.properties || {};
+    const nextProps = {
+      ...currentProps,
+      rows,
+      columns,
+      table_data: data
+    };
+    updateWidget(selectedWidget.id, { properties: nextProps });
+    const updatedWidget = { ...selectedWidget, properties: nextProps } as Widget;
+    reset(updatedWidget);
+    setShowTableDataModal(false);
+  }, [selectedWidget, updateWidget, reset]);
+
   // Live update handler for immediate feedback
   const handleLiveUpdate = React.useCallback((field: string, value: any) => {
     if (!selectedWidget) return;
@@ -147,12 +182,27 @@ const PropertiesPanel: React.FC = () => {
       case 'anchor': return Anchor;
       case 'tap_zone': return Anchor;
       case 'box': return Square;
+      case 'table': return Table;
       default: return Settings;
     }
   };
 
   const Icon = getWidgetIcon(selectedWidget.type);
   // Deprecated static list removed; we fetch from backend assets
+
+  const tableProps: Record<string, any> = selectedWidget.type === 'table' ? { ...(selectedWidget.properties || {}) } : {};
+  const tableDataForModal = Array.isArray(tableProps.table_data) ? tableProps.table_data : [];
+  const modalHasHeader = selectedWidget.type === 'table' ? (tableProps.has_header ?? true) !== false : true;
+  const declaredRows = selectedWidget.type === 'table' ? parseMaybeNumber(tableProps.rows) : NaN;
+  const declaredCols = selectedWidget.type === 'table' ? parseMaybeNumber(tableProps.columns) : NaN;
+  const inferredRows = modalHasHeader ? Math.max(tableDataForModal.length - 1, 0) : tableDataForModal.length;
+  const inferredCols = tableDataForModal.length ? tableDataForModal[0].length : 0;
+  const modalRows = selectedWidget.type === 'table'
+    ? clampToBounds((Number.isNaN(declaredRows) || declaredRows <= 0) ? Math.max(inferredRows, 1) : declaredRows, 1, 100)
+    : 1;
+  const modalCols = selectedWidget.type === 'table'
+    ? clampToBounds((Number.isNaN(declaredCols) || declaredCols <= 0) ? Math.max(inferredCols || 3, 1) : declaredCols, 1, 20)
+    : 1;
 
   return (
     <div className="h-full flex flex-col">
@@ -261,7 +311,7 @@ const PropertiesPanel: React.FC = () => {
                   {/* Text Styling - Show for widgets with text */}
                   {(selectedWidget.type === 'text_block' || selectedWidget.type === 'checkbox' ||
                     selectedWidget.type === 'internal_link' || selectedWidget.type === 'calendar' ||
-                    selectedWidget.type === 'link_list') && (
+                    selectedWidget.type === 'link_list' || selectedWidget.type === 'table') && (
                     <>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -494,7 +544,7 @@ const PropertiesPanel: React.FC = () => {
                   {/* Text Styling - Show for widgets with text */}
                   {(selectedWidget.type === 'text_block' || selectedWidget.type === 'checkbox' ||
                     selectedWidget.type === 'internal_link' || selectedWidget.type === 'calendar' ||
-                    selectedWidget.type === 'link_list') && (
+                    selectedWidget.type === 'link_list' || selectedWidget.type === 'table') && (
                     <>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -1830,6 +1880,310 @@ const PropertiesPanel: React.FC = () => {
             </div>
           )}
 
+          {/* Table widget properties */}
+          {selectedWidget.type === 'table' && (
+            <div>
+              <h4 className="font-medium mb-3">Table Structure</h4>
+              <div className="space-y-3">
+                <div>
+                  <button
+                    type="button"
+                    className="btn-secondary text-xs"
+                    onClick={() => setShowTableDataModal(true)}
+                  >
+                    Edit Table Data…
+                  </button>
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Update header or cell text, including template variables.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Rows</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      {...register('properties.rows', { min: 1, max: 100 })}
+                      onChange={(e) => handleLiveUpdate('properties.rows', parseInt(e.target.value) || 4)}
+                      className="input-field w-full"
+                      placeholder="4"
+                    />
+                    <p className="text-xs text-eink-light-gray mt-1">
+                      Number of data rows (1-100)
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Columns</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      {...register('properties.columns', { min: 1, max: 20 })}
+                      onChange={(e) => handleLiveUpdate('properties.columns', parseInt(e.target.value) || 3)}
+                      className="input-field w-full"
+                      placeholder="3"
+                    />
+                    <p className="text-xs text-eink-light-gray mt-1">
+                      Number of columns (1-20)
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      {...register('properties.has_header')}
+                      onChange={(e) => handleLiveUpdate('properties.has_header', e.target.checked)}
+                      className="checkbox"
+                    />
+                    <span className="text-sm font-medium">Has Header Row</span>
+                  </label>
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    First row contains column headers
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Data Mode</label>
+                  <select
+                    {...register('properties.data_mode')}
+                    onChange={(e) => handleLiveUpdate('properties.data_mode', e.target.value)}
+                    className="input-field w-full"
+                  >
+                    <option value="static">Static Data</option>
+                    <option value="template">Template Variables</option>
+                  </select>
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Use static data array or template variable binding
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedWidget.type === 'table' && (
+            <div>
+              <h4 className="font-medium mb-3">Table Styling</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Border Style</label>
+                  <select
+                    {...register('properties.border_style')}
+                    onChange={(e) => handleLiveUpdate('properties.border_style', e.target.value)}
+                    className="input-field w-full"
+                  >
+                    <option value="all">All Borders</option>
+                    <option value="outer">Outer Border Only</option>
+                    <option value="horizontal">Horizontal Lines Only</option>
+                    <option value="vertical">Vertical Lines Only</option>
+                    <option value="none">No Borders</option>
+                  </select>
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Table border appearance
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Cell Padding (pt)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="20"
+                      {...register('properties.cell_padding', { min: 0, max: 20 })}
+                      onChange={(e) => handleLiveUpdate('properties.cell_padding', parseInt(e.target.value) || 4)}
+                      className="input-field w-full"
+                      placeholder="4"
+                    />
+                    <p className="text-xs text-eink-light-gray mt-1">
+                      Internal cell padding
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Row Height (pt)</label>
+                    <input
+                      type="number"
+                      min="16"
+                      max="60"
+                      {...register('properties.row_height', { min: 16, max: 60 })}
+                      onChange={(e) => handleLiveUpdate('properties.row_height', parseInt(e.target.value) || 24)}
+                      className="input-field w-full"
+                      placeholder="24"
+                    />
+                    <p className="text-xs text-eink-light-gray mt-1">
+                      Fixed height for all rows
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Text Alignment</label>
+                  <select
+                    {...register('properties.text_align')}
+                    onChange={(e) => handleLiveUpdate('properties.text_align', e.target.value)}
+                    className="input-field w-full"
+                  >
+                    <option value="left">Left</option>
+                    <option value="center">Center</option>
+                    <option value="right">Right</option>
+                  </select>
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Default text alignment for all cells
+                  </p>
+                </div>
+
+                <div>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      {...register('properties.text_wrap')}
+                      onChange={(e) => handleLiveUpdate('properties.text_wrap', e.target.checked)}
+                      className="checkbox"
+                    />
+                    <span className="text-sm font-medium">Text Wrapping</span>
+                  </label>
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Allow text to wrap within cells
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Max Lines per Cell</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5"
+                    {...register('properties.max_lines', { min: 1, max: 5 })}
+                    onChange={(e) => handleLiveUpdate('properties.max_lines', parseInt(e.target.value) || 2)}
+                    className="input-field w-full"
+                    placeholder="2"
+                  />
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Maximum lines of text per cell
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedWidget.type === 'table' && (
+            <div>
+              <h4 className="font-medium mb-3">Header & Row Colors</h4>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Header Background</label>
+                    <input
+                      type="color"
+                      {...register('properties.header_background')}
+                      onChange={(e) => handleLiveUpdate('properties.header_background', e.target.value)}
+                      className="input-field w-full h-10"
+                    />
+                    <p className="text-xs text-eink-light-gray mt-1">
+                      Header row background color
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Header Text Color</label>
+                    <input
+                      type="color"
+                      {...register('properties.header_color')}
+                      onChange={(e) => handleLiveUpdate('properties.header_color', e.target.value)}
+                      className="input-field w-full h-10"
+                    />
+                    <p className="text-xs text-eink-light-gray mt-1">
+                      Header text color
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      {...register('properties.zebra_rows')}
+                      onChange={(e) => handleLiveUpdate('properties.zebra_rows', e.target.checked)}
+                      className="checkbox"
+                    />
+                    <span className="text-sm font-medium">Zebra Striping</span>
+                  </label>
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Alternate row background colors
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Even Row Background</label>
+                    <input
+                      type="color"
+                      {...register('properties.even_row_bg')}
+                      onChange={(e) => handleLiveUpdate('properties.even_row_bg', e.target.value)}
+                      className="input-field w-full h-10"
+                    />
+                    <p className="text-xs text-eink-light-gray mt-1">
+                      Background for even-numbered rows
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Odd Row Background</label>
+                    <input
+                      type="color"
+                      {...register('properties.odd_row_bg')}
+                      onChange={(e) => handleLiveUpdate('properties.odd_row_bg', e.target.value)}
+                      className="input-field w-full h-10"
+                    />
+                    <p className="text-xs text-eink-light-gray mt-1">
+                      Background for odd-numbered rows
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedWidget.type === 'table' && (
+            <div>
+              <h4 className="font-medium mb-3">Interactivity (PDF Links)</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      {...register('properties.cell_links')}
+                      onChange={(e) => handleLiveUpdate('properties.cell_links', e.target.checked)}
+                      className="checkbox"
+                    />
+                    <span className="text-sm font-medium">Enable Cell Links</span>
+                  </label>
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Make table cells clickable with PDF link annotations
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Link Template</label>
+                  <input
+                    type="text"
+                    {...register('properties.link_template')}
+                    onChange={(e) => handleLiveUpdate('properties.link_template', e.target.value)}
+                    className="input-field w-full"
+                    placeholder="detail:row_{row}:col_{col}"
+                  />
+                  <p className="text-xs text-eink-light-gray mt-1">
+                    Pattern for cell links. Use {'{row}'}, {'{col}'}, {'{value}'} variables
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Navigation options removed in pages-only model */}
 
           {/* 5. ADVANCED - Optional technical settings */}
@@ -1859,6 +2213,17 @@ const PropertiesPanel: React.FC = () => {
           </button>
         </form>
       </div>
+      {selectedWidget.type === 'table' && (
+        <TableDataEditorModal
+          isOpen={showTableDataModal}
+          rows={modalRows}
+          columns={modalCols}
+          hasHeader={modalHasHeader}
+          data={tableDataForModal}
+          onClose={() => setShowTableDataModal(false)}
+          onSave={handleTableDataSave}
+        />
+      )}
     </div>
   );
 };

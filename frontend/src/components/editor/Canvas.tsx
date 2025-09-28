@@ -448,7 +448,7 @@ const Canvas: React.FC = () => {
   return (
     <div 
       ref={containerRef}
-      className="relative flex items-center justify-center min-h-full"
+      className="relative flex justify-center items-start min-h-full py-6"
       onClick={handleCanvasClick}
       onKeyDown={handleKeyDown}
       // Note: actual zoom handling attached via non-passive listener below

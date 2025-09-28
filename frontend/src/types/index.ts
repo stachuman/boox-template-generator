@@ -100,12 +100,35 @@ export interface WidgetProperties {
   first_day_of_week?: 'sunday' | 'monday'; // Calendar locale: Sunday (US) or Monday (Europe)
   layout_orientation?: 'horizontal' | 'vertical'; // Weekly calendar layout: horizontal (columns) or vertical (rows)
 
+  // Table widget properties
+  rows?: number;                      // Number of data rows (1-100)
+  columns?: number;                   // Number of columns (1-20)
+  has_header?: boolean;               // Whether first row is header
+  column_widths?: number[];           // Relative column widths (e.g., [1,2,1])
+  data_mode?: 'static' | 'template';  // Data source mode
+  table_data?: string[][];            // Static 2D array data
+  border_style?: 'none' | 'outer' | 'all' | 'horizontal' | 'vertical';
+  cell_padding?: number;              // Cell internal padding (points)
+  row_height?: number;                // Fixed row height (points)
+  header_background?: string;         // Header row background color
+  header_color?: string;              // Header text color
+  zebra_rows?: boolean;               // Enable alternating row colors
+  even_row_bg?: string;              // Even row background color
+  odd_row_bg?: string;               // Odd row background color
+  text_align?: 'left' | 'center' | 'right'; // Default text alignment
+  column_aligns?: string[];           // Per-column alignment overrides
+  text_wrap?: boolean;                // Wrap text in cells
+  max_lines?: number;                 // Max lines per cell
+  cell_links?: boolean;               // Enable cell linking
+  link_template?: string;             // Link pattern for cells
+  link_columns?: number[];            // Which columns are linkable
+
   [key: string]: any;
 }
 
 export interface Widget {
   id: string;
-  type: 'text_block' | 'checkbox' | 'divider' | 'vertical_line' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box';
+  type: 'text_block' | 'checkbox' | 'divider' | 'vertical_line' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box' | 'table';
   page?: number; // Optional - auto-assigned during compilation for multi-page documents
   content?: string;
   position: Position;

@@ -7,11 +7,12 @@
 
 import React from 'react';
 import { useDrag } from 'react-dnd';
-import { Type, Square, Minus, AlignJustify, Anchor, Calendar, MoveVertical } from 'lucide-react';
+import { Type, Square, Minus, AlignJustify, Anchor, Calendar, MoveVertical, Table } from 'lucide-react';
 import clsx from 'clsx';
 
 interface WidgetType {
-  type: 'text_block' | 'checkbox' | 'divider' | 'vertical_line' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box';
+  id: string; // Unique identifier for React keys
+  type: 'text_block' | 'checkbox' | 'divider' | 'vertical_line' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box' | 'table';
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
@@ -28,6 +29,7 @@ interface WidgetType {
 
 const WIDGET_TYPES: WidgetType[] = [
   {
+    id: 'box',
     type: 'box',
     label: 'Box (Rect)',
     icon: Square,
@@ -44,6 +46,7 @@ const WIDGET_TYPES: WidgetType[] = [
     }
   },
   {
+    id: 'text_block',
     type: 'text_block',
     label: 'Text Block',
     icon: Type,
@@ -62,6 +65,7 @@ const WIDGET_TYPES: WidgetType[] = [
     }
   },
   {
+    id: 'link_list',
     type: 'link_list',
     label: 'Link List',
     icon: AlignJustify,
@@ -87,6 +91,7 @@ const WIDGET_TYPES: WidgetType[] = [
     }
   },
   {
+    id: 'image',
     type: 'image',
     label: 'Image',
     icon: Square,
@@ -101,6 +106,7 @@ const WIDGET_TYPES: WidgetType[] = [
     }
   },
   {
+    id: 'tap_zone',
     type: 'tap_zone',
     label: 'Tap Zone',
     icon: Anchor,
@@ -116,6 +122,7 @@ const WIDGET_TYPES: WidgetType[] = [
     }
   },
   {
+    id: 'header_text',
     type: 'text_block',
     label: 'Header Text',
     icon: Type,
@@ -131,6 +138,7 @@ const WIDGET_TYPES: WidgetType[] = [
     }
   },
   {
+    id: 'footer_text',
     type: 'text_block',
     label: 'Footer Text',
     icon: Type,
@@ -146,6 +154,7 @@ const WIDGET_TYPES: WidgetType[] = [
     }
   },
   {
+    id: 'checkbox',
     type: 'checkbox',
     label: 'Checkbox',
     icon: Square,
@@ -164,6 +173,7 @@ const WIDGET_TYPES: WidgetType[] = [
     }
   },
   {
+    id: 'divider',
     type: 'divider',
     label: 'Divider',
     icon: Minus,
@@ -177,6 +187,7 @@ const WIDGET_TYPES: WidgetType[] = [
     }
   },
   {
+    id: 'vertical_line',
     type: 'vertical_line',
     label: 'Vertical Line',
     icon: MoveVertical,
@@ -190,6 +201,7 @@ const WIDGET_TYPES: WidgetType[] = [
     }
   },
   {
+    id: 'lines',
     type: 'lines',
     label: 'Lines & Grids',
     icon: AlignJustify,
@@ -207,6 +219,7 @@ const WIDGET_TYPES: WidgetType[] = [
     }
   },
   {
+    id: 'anchor',
     type: 'anchor',
     label: 'Anchor (Destination)',
     icon: Anchor,
@@ -220,6 +233,7 @@ const WIDGET_TYPES: WidgetType[] = [
     }
   },
   {
+    id: 'internal_link',
     type: 'internal_link',
     label: 'Internal Link',
     icon: Anchor,
@@ -239,6 +253,7 @@ const WIDGET_TYPES: WidgetType[] = [
     }
   },
   {
+    id: 'calendar',
     type: 'calendar',
     label: 'Calendar',
     icon: Calendar,
@@ -262,6 +277,43 @@ const WIDGET_TYPES: WidgetType[] = [
         cell_min_size: 44,        // E-ink touch target minimum
         show_grid_lines: true,
         first_day_of_week: 'monday'  // European default (Monday first)
+      }
+    }
+  },
+  {
+    id: 'table',
+    type: 'table',
+    label: 'Data Table',
+    icon: Table,
+    description: 'Structured data table with headers and styling',
+    defaultProps: {
+      position: { width: 400, height: 200 },
+      properties: {
+        rows: 4,
+        columns: 3,
+        has_header: true,
+        data_mode: 'static',
+        table_data: [
+          ['Header 1', 'Header 2', 'Header 3'],
+          ['Row 1 Col 1', 'Row 1 Col 2', 'Row 1 Col 3'],
+          ['Row 2 Col 1', 'Row 2 Col 2', 'Row 2 Col 3'],
+          ['Row 3 Col 1', 'Row 3 Col 2', 'Row 3 Col 3'],
+          ['Row 4 Col 1', 'Row 4 Col 2', 'Row 4 Col 3']
+        ],
+        border_style: 'all',
+        cell_padding: 4,
+        row_height: 24,
+        header_background: '#F0F0F0',
+        header_color: '#000000',
+        zebra_rows: false,
+        text_align: 'left',
+        text_wrap: true,
+        max_lines: 2
+      },
+      styling: {
+        font: 'Helvetica',
+        size: 10,
+        color: '#000000'
       }
     }
   }
@@ -318,7 +370,7 @@ const WidgetPalette: React.FC = () => {
       
       <div className="flex-1 overflow-auto p-4 space-y-3">
         {WIDGET_TYPES.map((widgetType) => (
-          <DraggableWidget key={widgetType.type} widgetType={widgetType} />
+          <DraggableWidget key={widgetType.id} widgetType={widgetType} />
         ))}
       </div>
       

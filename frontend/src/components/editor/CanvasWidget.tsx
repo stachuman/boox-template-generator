@@ -1119,6 +1119,174 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
           </div>
         );
 
+      case 'table': {
+        const tableProps = widget.properties || {};
+        const rows = tableProps.rows || 4;
+        const columns = tableProps.columns || 3;
+        const hasHeader = tableProps.has_header !== false;
+        const tableData = tableProps.table_data || [];
+
+        // Memoize expensive calculations to prevent re-render thrashing
+        const tableConfig = React.useMemo(() => {
+          const expectedRows = Math.max(1, hasHeader ? rows + 1 : rows);
+
+          const sampleCell = (rowIndex: number, colIndex: number) => {
+            if (hasHeader && rowIndex === 0) {
+              return `Header ${colIndex + 1}`;
+            }
+            const dataRow = hasHeader ? rowIndex : rowIndex + 1;
+            return `R${dataRow}C${colIndex + 1}`;
+          };
+
+          const normalizedData: string[][] = Array.from({ length: expectedRows }, (_, rowIndex) => {
+            const sourceRow = Array.isArray(tableData[rowIndex]) ? tableData[rowIndex] : [];
+            return Array.from({ length: columns }, (_, colIndex) => {
+              const cell = sourceRow[colIndex];
+              return cell === undefined || cell === null
+                ? sampleCell(rowIndex, colIndex)
+                : String(cell);
+            });
+          });
+
+          const cellPadding = Math.max(1, tableProps.cell_padding || 2);
+          const borderStyle = tableProps.border_style || 'all';
+          const headerBg = tableProps.header_background || '#F0F0F0';
+          const zebraRows = tableProps.zebra_rows || false;
+          const evenRowBg = tableProps.even_row_bg || '#FFFFFF';
+          const oddRowBg = tableProps.odd_row_bg || '#F8F8F8';
+          const textAlign = (tableProps.text_align || 'left').toLowerCase();
+          const justifyContent = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'flex-end' : 'flex-start';
+
+          const visibleRowCount = Math.min(Math.max(1, normalizedData.length), 8);
+          const rowHeight = Math.max(16, widget.position.height / visibleRowCount);
+          const colWidth = Math.max(20, widget.position.width / columns);
+
+          return {
+            displayData: normalizedData,
+            cellPadding,
+            borderStyle,
+            headerBg,
+            zebraRows,
+            evenRowBg,
+            oddRowBg,
+            maxDisplayRows: visibleRowCount,
+            rowHeight,
+            colWidth,
+            textAlign,
+            justifyContent
+          };
+        }, [
+          widget.position.width,
+          widget.position.height,
+          rows,
+          columns,
+          hasHeader,
+          JSON.stringify(tableData), // Stringify for deep comparison
+          tableProps.cell_padding,
+          tableProps.border_style,
+          tableProps.header_background,
+          tableProps.zebra_rows,
+          tableProps.even_row_bg,
+          tableProps.odd_row_bg
+        ]);
+
+        const {
+          displayData,
+          cellPadding,
+          borderStyle,
+          headerBg,
+          zebraRows,
+          evenRowBg,
+          oddRowBg,
+          maxDisplayRows,
+          rowHeight,
+          colWidth,
+          textAlign,
+          justifyContent
+        } = tableConfig;
+
+        // Memoize the table JSX to prevent DOM regeneration
+        const tableJSX = React.useMemo(() => (
+          <div
+            className="h-full w-full overflow-hidden"
+            style={{
+              border: borderStyle !== 'none' ? '1px solid #d1d5db' : 'none',
+              fontSize: Math.max(8, (widget.styling?.size || 10) * 0.8),
+              fontFamily: resolveFontFamily(widget.styling?.font),
+              boxSizing: 'border-box'
+            }}
+          >
+            {displayData.slice(0, maxDisplayRows).map((row, rowIndex) => {
+              const isHeader = hasHeader && rowIndex === 0;
+              const dataRowIndex = hasHeader ? rowIndex - 1 : rowIndex;
+              const isEven = dataRowIndex % 2 === 0;
+              let rowBg = 'transparent';
+
+              if (isHeader) {
+                rowBg = headerBg;
+              } else if (zebraRows) {
+                rowBg = isEven ? evenRowBg : oddRowBg;
+              }
+
+              return (
+                <div
+                  key={rowIndex}
+                  className="flex w-full"
+                  style={{
+                    backgroundColor: rowBg,
+                    height: rowHeight,
+                    borderBottom: (borderStyle === 'all' || borderStyle === 'horizontal') && rowIndex < maxDisplayRows - 1 ? '1px solid #d1d5db' : 'none'
+                  }}
+                >
+                  {Array.from({ length: columns }).map((_, colIndex) => {
+                    const cell = row[colIndex] ?? '';
+                    return (
+                      <div
+                        key={colIndex}
+                        className="flex items-center overflow-hidden"
+                        style={{
+                          width: colWidth,
+                          padding: `${cellPadding}px`,
+                          fontWeight: isHeader ? 'bold' : 'normal',
+                          borderRight: (borderStyle === 'all' || borderStyle === 'vertical') && colIndex < columns - 1 ? '1px solid #d1d5db' : 'none',
+                          boxSizing: 'border-box',
+                          minWidth: 0,
+                          justifyContent,
+                          textAlign
+                        }}
+                      >
+                        <div className="truncate w-full text-xs">
+                          {String(cell).slice(0, 12)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        ), [
+          displayData,
+          maxDisplayRows,
+          hasHeader,
+          headerBg,
+          zebraRows,
+          evenRowBg,
+          oddRowBg,
+          rowHeight,
+          colWidth,
+          cellPadding,
+          borderStyle,
+          columns,
+          widget.styling?.size,
+          widget.styling?.font,
+          textAlign,
+          justifyContent
+        ]);
+
+        return tableJSX;
+      }
+
       default:
         return (
           <div className="h-full flex items-center justify-center text-eink-light-gray">

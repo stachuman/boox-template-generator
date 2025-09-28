@@ -8,16 +8,20 @@ Follows CLAUDE.md coding standards - no dummy implementations.
 
 import os
 import math
+import logging
 from datetime import datetime, date, timedelta
 from typing import Dict, Any, List, Optional, Tuple
 from io import BytesIO
 import calendar
+
+logger = logging.getLogger(__name__)
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4, LETTER, A5, LEGAL
 from reportlab.lib.units import inch
 from reportlab.lib.colors import black, white, HexColor
 from reportlab.lib.utils import ImageReader
+from reportlab.platypus import Table, TableStyle
 
 from .schema import Template, Widget, Canvas as CanvasConfig, Position
 from .coordinates import CoordinateConverter, create_converter_for_canvas
@@ -2304,6 +2308,347 @@ class DeterministicPDFRenderer:
         
         # Reset font
         pdf_canvas.setFont(font_name, font_size)
+
+    def _render_table(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
+        """Render a data table with proper styling and optional cell links.
+
+        Following CLAUDE.md rule #1: No dummy implementations - fully functional table rendering.
+        Following CLAUDE.md rule #3: Explicit validation with meaningful errors.
+        """
+        # Get table properties with explicit validation
+        props = getattr(widget, 'properties', {}) or {}
+        styling = getattr(widget, 'styling', {}) or {}
+
+        # Required structure properties - fail fast if missing
+        rows = props.get('rows')
+        columns = props.get('columns')
+        if rows is None or columns is None:
+            raise RenderingError(
+                f"Table widget '{widget.id}' missing required properties: "
+                f"rows={rows}, columns={columns}. Both must be specified."
+            )
+
+        try:
+            rows = int(rows)
+            columns = int(columns)
+        except (ValueError, TypeError):
+            raise RenderingError(
+                f"Table widget '{widget.id}' has invalid rows/columns: "
+                f"rows='{rows}', columns='{columns}'. Must be integers."
+            )
+
+        if rows < 1 or rows > 100:
+            raise RenderingError(
+                f"Table widget '{widget.id}' rows={rows} out of range. Must be 1-100."
+            )
+        if columns < 1 or columns > 20:
+            raise RenderingError(
+                f"Table widget '{widget.id}' columns={columns} out of range. Must be 1-20."
+            )
+
+        # Get data mode and validate data source
+        data_mode = props.get('data_mode', 'static')
+        if data_mode not in ['static', 'template']:
+            raise RenderingError(
+                f"Table widget '{widget.id}' has invalid data_mode='{data_mode}'. "
+                f"Must be 'static' or 'template'."
+            )
+
+        # Get table data based on mode
+        table_data = props.get('table_data')
+
+        if data_mode == 'static':
+            if not table_data:
+                raise RenderingError(
+                    f"Table widget '{widget.id}' with data_mode='static' requires 'table_data' property."
+                )
+            if not isinstance(table_data, list):
+                raise RenderingError(
+                    f"Table widget '{widget.id}' table_data must be a list of lists (2D array)."
+                )
+        else:
+            if not table_data:
+                table_data = []
+                for r in range(rows):
+                    row = []
+                    for c in range(columns):
+                        row.append(f"R{r+1}C{c+1}")
+                    table_data.append(row)
+            elif not isinstance(table_data, list):
+                raise RenderingError(
+                    f"Table widget '{widget.id}' table_data must be a list of lists (2D array)."
+                )
+
+        # Validate data structure
+        if len(table_data) == 0:
+            raise RenderingError(
+                f"Table widget '{widget.id}' has empty table_data."
+            )
+
+        # Normalize data to match structural expectations while being forgiving if
+        # the author-provided data array is out of sync with the declared row count.
+        has_header = props.get('has_header', True)
+        table_data = self._normalize_table_data(table_data, rows, columns, has_header, widget.id)
+
+        # Validate each row has correct number of columns
+        for row_idx, row in enumerate(table_data):
+            if not isinstance(row, list) or len(row) != columns:
+                raise RenderingError(
+                    f"Table widget '{widget.id}' row {row_idx} has {len(row) if isinstance(row, list) else 'invalid'} columns, "
+                    f"expected {columns}."
+                )
+
+        # Get position and convert coordinates
+        pos = widget.position
+        cal_pos = self.converter.convert_position_for_drawing(pos)
+
+        # Get styling properties with defaults
+        font_name = styling.get('font', 'Helvetica')
+        font_size = styling.get('size', 10)
+        text_color = styling.get('color', '#000000')
+
+        # Validate and ensure font is registered
+        try:
+            font_size = self.enforcer.check_font_size(float(font_size))
+            ensure_font_registered(font_name)
+        except Exception as e:
+            raise RenderingError(f"Table widget '{widget.id}' font error: {str(e)}")
+
+        # Get table styling properties
+        border_style = props.get('border_style', 'all')
+        if border_style not in ['none', 'outer', 'all', 'horizontal', 'vertical']:
+            raise RenderingError(
+                f"Table widget '{widget.id}' invalid border_style='{border_style}'. "
+                f"Must be: none, outer, all, horizontal, vertical."
+            )
+
+        stroke_color = getattr(widget, 'background_color', None) or props.get('stroke_color', '#000000')
+        stroke_width = props.get('stroke_width', 1)
+        cell_padding = props.get('cell_padding', 4)
+        row_height = props.get('row_height', 24)
+
+        try:
+            stroke_width = self.enforcer.check_stroke_width(float(stroke_width))
+            cell_padding = float(cell_padding)
+            row_height = float(row_height)
+        except Exception as e:
+            raise RenderingError(f"Table widget '{widget.id}' styling error: {str(e)}")
+
+        # Calculate column widths
+        column_widths = props.get('column_widths')
+        if column_widths:
+            if len(column_widths) != columns:
+                raise RenderingError(
+                    f"Table widget '{widget.id}' column_widths has {len(column_widths)} values, "
+                    f"expected {columns}."
+                )
+            # Normalize to sum to total width
+            total_ratio = sum(column_widths)
+            if total_ratio <= 0:
+                raise RenderingError(
+                    f"Table widget '{widget.id}' column_widths sum must be > 0, got {total_ratio}."
+                )
+            col_widths = [(w / total_ratio) * cal_pos['width'] for w in column_widths]
+        else:
+            # Equal width columns
+            col_width = cal_pos['width'] / columns
+            col_widths = [col_width] * columns
+
+        # Validate touch targets for interactive cells
+        cell_links = props.get('cell_links', False)
+        if cell_links:
+            min_touch_size = self.profile.constraints.min_touch_target_pt
+            for col_width in col_widths:
+                if col_width < min_touch_size or row_height < min_touch_size:
+                    logger.warning(
+                        f"Table widget '{widget.id}' has small touch targets: "
+                        f"cell size {col_width:.1f}x{row_height:.1f}pt "
+                        f"(profile minimum: {min_touch_size}pt)"
+                    )
+                    break
+
+        # Create ReportLab Table data structure
+        # Convert string data to proper format
+        reportlab_data = []
+        for row in table_data:
+            reportlab_row = []
+            for cell in row:
+                # Ensure cell content is string
+                cell_content = str(cell) if cell is not None else ""
+                reportlab_row.append(cell_content)
+            reportlab_data.append(reportlab_row)
+
+        # Create ReportLab Table
+        try:
+            table = Table(reportlab_data, colWidths=col_widths, rowHeights=[row_height] * len(table_data))
+        except Exception as e:
+            raise RenderingError(f"Table widget '{widget.id}' ReportLab Table creation failed: {str(e)}")
+
+        # Build table style
+        table_style_commands = []
+
+        # Set font for all cells
+        table_style_commands.append(('FONT', (0, 0), (-1, -1), font_name, font_size))
+        table_style_commands.append(('TEXTCOLOR', (0, 0), (-1, -1), HexColor(text_color)))
+        table_style_commands.append(('VALIGN', (0, 0), (-1, -1), 'MIDDLE'))
+
+        # Text alignment
+        text_align = props.get('text_align', 'left').upper()
+        if text_align in ['LEFT', 'CENTER', 'RIGHT']:
+            table_style_commands.append(('ALIGN', (0, 0), (-1, -1), text_align))
+
+        # Cell padding
+        table_style_commands.append(('LEFTPADDING', (0, 0), (-1, -1), cell_padding))
+        table_style_commands.append(('RIGHTPADDING', (0, 0), (-1, -1), cell_padding))
+        table_style_commands.append(('TOPPADDING', (0, 0), (-1, -1), cell_padding))
+        table_style_commands.append(('BOTTOMPADDING', (0, 0), (-1, -1), cell_padding))
+
+        # Header styling
+        if has_header:
+            header_bg = props.get('header_background', '#F0F0F0')
+            header_color = props.get('header_color', '#000000')
+
+            table_style_commands.append(('BACKGROUND', (0, 0), (-1, 0), HexColor(header_bg)))
+            table_style_commands.append(('TEXTCOLOR', (0, 0), (-1, 0), HexColor(header_color)))
+
+        # Zebra striping
+        zebra_rows = props.get('zebra_rows', False)
+        if zebra_rows:
+            even_row_bg = props.get('even_row_bg', '#FFFFFF')
+            odd_row_bg = props.get('odd_row_bg', '#F8F8F8')
+
+            # Start from row 1 if has_header, row 0 otherwise
+            start_row = 1 if has_header else 0
+            for row_idx in range(start_row, len(table_data)):
+                actual_row = row_idx - start_row  # Data row index
+                bg_color = even_row_bg if actual_row % 2 == 0 else odd_row_bg
+                table_style_commands.append(('BACKGROUND', (0, row_idx), (-1, row_idx), HexColor(bg_color)))
+
+        # Borders
+        if border_style != 'none':
+            border_color = HexColor(stroke_color)
+
+            if border_style in ['all', 'outer']:
+                # Outer border
+                table_style_commands.append(('BOX', (0, 0), (-1, -1), stroke_width, border_color))
+
+            if border_style in ['all', 'horizontal']:
+                # Horizontal lines
+                for row_idx in range(len(table_data) - 1):
+                    table_style_commands.append(('LINEBELOW', (0, row_idx), (-1, row_idx), stroke_width, border_color))
+
+            if border_style in ['all', 'vertical']:
+                # Vertical lines
+                for col_idx in range(columns - 1):
+                    table_style_commands.append(('LINEAFTER', (col_idx, 0), (col_idx, -1), stroke_width, border_color))
+
+        # Apply table style
+        table.setStyle(TableStyle(table_style_commands))
+
+        # Draw table on canvas
+        try:
+            # Table draws from bottom-left, position already converted by converter
+            table.wrapOn(pdf_canvas, cal_pos['width'], cal_pos['height'])
+            table.drawOn(pdf_canvas, cal_pos['x'], cal_pos['y'])
+        except Exception as e:
+            raise RenderingError(f"Table widget '{widget.id}' drawing failed: {str(e)}")
+
+        # Add cell links if enabled
+        if cell_links:
+            link_template = props.get('link_template')
+            link_columns = props.get('link_columns', list(range(columns)))
+
+            if link_template and link_columns:
+                self._add_table_cell_links(pdf_canvas, widget, table_data, cal_pos, col_widths, row_height,
+                                         link_template, link_columns, has_header)
+
+    def _normalize_table_data(self, table_data: List[Any], rows: int, columns: int,
+                              has_header: bool, widget_id: str) -> List[List[str]]:
+        """Ensure table data matches declared shape, padding or trimming as needed."""
+        normalized: List[List[str]] = []
+
+        for idx, row in enumerate(table_data):
+            if not isinstance(row, (list, tuple)):
+                raise RenderingError(
+                    f"Table widget '{widget_id}' row {idx} is not a list/tuple."
+                )
+            # Trim extra columns and pad missing ones with blanks
+            row_values = list(row[:columns])
+            if len(row_values) < columns:
+                row_values.extend([''] * (columns - len(row_values)))
+            normalized.append(row_values)
+
+        header_row: List[str] = []
+        data_rows: List[List[str]]
+
+        if has_header:
+            if normalized:
+                header_row = normalized[0]
+                data_rows = normalized[1:]
+            else:
+                header_row = [f"Header {c + 1}" for c in range(columns)]
+                data_rows = []
+        else:
+            data_rows = normalized
+
+        data_count = len(data_rows)
+        if data_count < rows:
+            missing = rows - data_count
+            logger.debug(
+                "Table widget '%s' data shorter than declared rows (%s < %s); padding with blanks.",
+                widget_id, data_count, rows
+            )
+            for _ in range(missing):
+                data_rows.append([''] * columns)
+        elif data_count > rows:
+            logger.debug(
+                "Table widget '%s' data longer than declared rows (%s > %s); truncating extra rows.",
+                widget_id, data_count, rows
+            )
+            data_rows = data_rows[:rows]
+
+        if has_header:
+            if not header_row:
+                header_row = [f"Header {c + 1}" for c in range(columns)]
+            return [header_row] + data_rows
+        return data_rows
+
+    def _add_table_cell_links(self, pdf_canvas: canvas.Canvas, widget: Widget, table_data: List[List[str]],
+                             table_pos: Dict[str, float], col_widths: List[float], row_height: float,
+                             link_template: str, link_columns: List[int], has_header: bool) -> None:
+        """Add PDF link annotations to table cells.
+
+        Following CLAUDE.md rule #1: No dummy implementations - actual PDF link creation.
+        """
+        start_row = 1 if has_header else 0
+
+        for row_idx in range(start_row, len(table_data)):
+            data_row_idx = row_idx - start_row  # Index in actual data (excluding header)
+
+            for col_idx in link_columns:
+                if col_idx < 0 or col_idx >= len(col_widths):
+                    continue
+
+                # Calculate cell position
+                cell_x = table_pos['x'] + sum(col_widths[:col_idx])
+                cell_y = table_pos['y'] + (len(table_data) - row_idx - 1) * row_height
+                cell_width = col_widths[col_idx]
+
+                # Generate link destination from template
+                link_dest = link_template.format(
+                    row=data_row_idx,
+                    col=col_idx,
+                    value=table_data[row_idx][col_idx] if col_idx < len(table_data[row_idx]) else ""
+                )
+
+                # Add link annotation
+                try:
+                    pdf_canvas.linkRect("", link_dest,
+                                      (cell_x, cell_y, cell_x + cell_width, cell_y + row_height),
+                                      relative=0)
+                except Exception as e:
+                    logger.warning(f"Failed to create table cell link for {widget.id}: {str(e)}")
+                    continue
 
 
 def render_template(template: Template, 
