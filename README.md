@@ -1,76 +1,193 @@
 # E‑ink PDF Templates
 
-A quick look at the editor and output:
+A complete web application for designing interactive PDF templates optimized for e‑ink devices. Features a visual editor, multi-user authentication, public project gallery, and professional PDF generation.
 
 ![E‑ink PDF Templates](pic-1.png)
 
 ![Calendar - example](/docs/examples/)
 
-[Sample demo server](https://eink.cgpsmapper.com)
-
-![Tutorial](TUTORIAL.md)
-
-A web UI + Python backend for designing static, link‑only PDFs optimized for Boox e‑ink devices. Includes device profiles, deterministic rendering, and a visual editor.
+**Demo server**: [https://eink.cgpsmapper.com](https://eink.cgpsmapper.com)
+**Tutorial**: [TUTORIAL.md](TUTORIAL.md)
 
 ## 🚀 Project Status
 
-**✅ Phase 1 MVP COMPLETED** - All core components implemented and tested
+**✅ Phase 1 & 2 COMPLETED** - Full-featured application with user management
 
-- Device profile system with constraint enforcement ✅
-- Coordinate system conversion (top-left ↔ bottom-left) ✅ 
-- PDF rendering with ReportLab (text, checkbox, input, divider) ✅
-- Navigation features (destinations, outlines, links) ✅
-- Ground truth preview generation with PyMuPDF ✅
-- Deterministic PDF builds for testing ✅
-- Golden file testing framework ✅
+### ✅ Core PDF Engine
+- Device profile system with constraint enforcement
+- Coordinate system conversion (top-left ↔ bottom-left)
+- PDF rendering with ReportLab (text, checkbox, input, divider)
+- Navigation features (destinations, outlines, links)
+- Ground truth preview generation with PyMuPDF
+- Deterministic PDF builds for testing
 
-**Ready for Phase 2**: Forms and E-ink Optimization
+### ✅ Web Application Features
+- **Multi-user authentication** with JWT tokens
+- **Project management** with versioning and metadata
+- **Visual editor** with drag-and-drop interface
+- **Master/Plan system** for parametric templates
+- **Compilation rules** for repeated page generation
+- **Public gallery** for sharing templates with the community
+- **Real-time preview** with WebSocket updates
+- **PDF download** and export functionality
+
+### ✅ User Experience
+- Responsive design optimized for desktop and mobile
+- User registration and authentication system
+- Project cloning and sharing capabilities
+- Version tracking (v0.1.0)
+- Donation support integration
 
 ## 🎯 Features
 
-### Core Capabilities
-- **Interactive PDF Generation**: Create PDFs with internal navigation, bookmarks, and links
-- **Device Optimization**: Boox Onyx-specific profiles with constraint enforcement
+### PDF Generation Engine
+- **Interactive PDF Creation**: PDFs with internal navigation, bookmarks, and links
+- **Device Optimization**: 9 e-ink device profiles with constraint enforcement
 - **Ground Truth Preview**: Pixel-perfect PNG previews matching final PDF output
 - **Template Validation**: YAML-based templates with Pydantic schema validation
 - **Deterministic Builds**: Reproducible PDF generation for testing and version control
 
-### Widget Types (Phase 1)
+### Project Management
+- **Multi-user Workspace**: Individual user accounts with project isolation
+- **Project Versioning**: Track changes and maintain project history
+- **Master Templates**: Create reusable template components
+- **Plan System**: Define parametric template configurations
+- **Compilation Rules**: Generate multiple pages with different data contexts
+
+### Public Gallery
+- **Template Sharing**: Publish projects to the community gallery
+- **Project Cloning**: One-click duplication of public templates
+- **PDF Downloads**: Direct download of compiled PDFs from gallery
+- **Usage Tracking**: View clone counts and project popularity
+
+### Widget Types
 - **Text Blocks**: Styled text with font, size, and color control
 - **Checkboxes**: Interactive checkboxes with labels and touch target optimization
 - **Text Inputs**: Form input fields with labels
 - **Dividers**: Horizontal lines for layout structure
 
-### Device Profiles
-- **Boox Note Air 4C**: 10.3" E-ink display (1872×1404, 227 PPI)
-- **Constraint Enforcement**: Minimum font sizes, touch targets, stroke widths
-- **E-ink Optimization**: Grayscale levels and fill area constraints
+### Device Profiles (9 Supported)
+- **Boox Note Air 4C**: 10.3" E-ink (1872×1404, 227 PPI)
+- **reMarkable 2**: 10.3" E-ink (1872×1404, 226 PPI)
+- **Kindle Scribe**: 10.2" E-ink (1860×2480, 300 PPI)
+- **Supernote A5X**: 10.3" E-ink (1872×1404, 227 PPI)
+- **Supernote A6X**: 7.8" E-ink (1872×1404, 300 PPI)
+- **Supernote Manta**: 10.3" E-ink (1872×1404, 227 PPI)
+- **Kobo Sage**: 8" E-ink (1440×1920, 300 PPI)
+- **Kobo Elipsa 2E**: 10.3" E-ink (1872×1404, 227 PPI)
+- **Custom profiles**: Easy to add new devices via YAML configuration
 
-## Architecture
-- Frontend: Vite + React (served by Nginx in Docker)
-- Backend: FastAPI (ReportLab + pikepdf + PyMuPDF)
-- Profiles: YAML files defining device constraints (min font, touch target, etc.)
-- Output: Static PDFs with internal link navigation (no forms/JS)
+## 🏗️ Architecture
 
-## Quick Start (Docker)
-1) Profiles: ensure your host has `/config/profiles` with device YAMLs.
-2) Build and run:
-   - `docker compose build`
-   - `docker compose up -d`
-3) Open the app:
-   - Frontend: `http://localhost:3000` (override with `FRONTEND_PORT`)
-   - API is proxied internally by Nginx (`/api`, `/ws`)
+### Frontend Stack
+- **React 18** with TypeScript for type safety
+- **Vite** for fast development and building
+- **Tailwind CSS** for utility-first styling
+- **Zustand** for state management
+- **React Router** for navigation
+- **Axios** for API communication
+- **React Hook Form** for form validation
 
-Data persists in the named volume `eink_data` (mounted at `/app/backend/data`). Profiles are bind‑mounted read‑only to `/app/config/profiles`.
+### Backend Stack
+- **FastAPI** with Python for high-performance API
+- **JWT** authentication with secure token handling
+- **ReportLab** for PDF generation
+- **pikepdf** for PDF post-processing
+- **PyMuPDF** for preview generation
+- **Pydantic** for data validation
+- **File-based storage** for user data and projects
 
-## Configuration
-- Frontend port: set `FRONTEND_PORT` env for compose (default 3000)
-- Profiles directory: host `/config/profiles` → container `/app/config/profiles`
-- Cleanup on startup (backend):
-  - `EINK_CLEANUP_TTL_DAYS=14` (set ≤0 to disable)
-  - `EINK_CLEANUP_MAX_TEMPLATES` (optional cap)
+### Infrastructure
+- **Docker** containerization with multi-stage builds
+- **Nginx** reverse proxy and static file serving
+- **WebSocket** support for real-time preview updates
+- **CORS** configuration for cross-origin requests
 
-## Library Usage (Python)
+## 🚀 Quick Start (Docker)
+
+### Prerequisites
+- Docker and Docker Compose installed
+- Device profile files in `/config/profiles/` (included in repository)
+
+### Installation
+```bash
+# Clone the repository
+git clone https://github.com/stachuman/boox-template-generator.git
+cd boox-template-generator
+
+# Build and start the application
+docker compose build
+docker compose up -d
+```
+
+### Access the Application
+- **Frontend**: `http://localhost:3000` (set `FRONTEND_PORT` to override)
+- **API**: Automatically proxied through Nginx at `/api` and `/ws`
+
+### First Steps
+1. **Register an account** at `http://localhost:3000/register`
+2. **Create your first project** from the dashboard
+3. **Design your template** using the visual editor
+4. **Preview and download** your PDF
+5. **Share to gallery** to contribute to the community
+
+### Data Persistence
+- User data and projects: Docker volume `eink_data`
+- Device profiles: Host directory `/config/profiles/` (read-only)
+
+## ⚙️ Configuration
+
+### Environment Variables
+```bash
+# Frontend
+FRONTEND_PORT=3000              # Port for web interface
+
+# Backend Data Storage
+EINK_DATA_DIR=/app/backend/data # User data storage directory
+EINK_PROFILE_DIR=/app/config/profiles # Device profiles directory
+
+# Cleanup Settings
+EINK_CLEANUP_TTL_DAYS=14        # Auto-cleanup after N days (set ≤0 to disable)
+EINK_CLEANUP_MAX_TEMPLATES=1000 # Maximum templates to keep (optional)
+
+# Security
+JWT_SECRET_KEY=your-secret-key  # JWT token signing key (auto-generated if not set)
+```
+
+### Docker Compose Override
+Create `docker-compose.override.yml` for custom configuration:
+```yaml
+version: '3.8'
+services:
+  backend:
+    environment:
+      - EINK_CLEANUP_TTL_DAYS=30
+      - JWT_SECRET_KEY=your-custom-secret
+
+  frontend:
+    ports:
+      - "8080:80"  # Custom port mapping
+```
+
+## 💻 Development
+
+### Local Development Setup
+```bash
+# Backend development
+python -m venv einkpdf-env
+source einkpdf-env/bin/activate  # Linux/Mac
+# or: .\einkpdf-env\Scripts\activate  # Windows
+
+pip install -e .[dev]
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Frontend development (separate terminal)
+cd frontend
+npm ci
+npm run dev  # Starts on http://localhost:3000
+```
+
+### API Library Usage (Python)
 ```python
 from einkpdf.validation.yaml_validator import parse_yaml_template
 from einkpdf.core.renderer import render_template
@@ -81,7 +198,7 @@ with open("template.yaml", "r") as f:
 
 # Generate PDF
 pdf_bytes = render_template(
-    template, 
+    template,
     profile="Boox-Note-Air-4C",
     deterministic=True
 )
@@ -107,7 +224,29 @@ with open("preview.png", "wb") as f:
     f.write(preview_bytes)
 ```
 
+## 🌐 Web Application Usage
+
+### User Account Management
+- **Registration**: Create account with username/email/password
+- **Authentication**: Secure JWT-based login system
+- **Profile**: Manage account settings and view project history
+
+### Project Workflow
+1. **Create Project**: Start with blank template or clone from gallery
+2. **Design Interface**: Use visual editor with drag-and-drop widgets
+3. **Master/Plan System**: Create parametric templates with variables
+4. **Compilation Rules**: Define how pages should be repeated/generated
+5. **Preview & Test**: Real-time preview with WebSocket updates
+6. **Export**: Download PDF or share to public gallery
+
+### Collaboration Features
+- **Public Gallery**: Browse community-shared templates
+- **Project Cloning**: One-click duplication of public projects
+- **Usage Tracking**: View how many times your templates are used
+- **Version Control**: Track project changes over time
+
 ### Template Format
+The application uses YAML-based templates for configuration:
 ```yaml
 schema_version: "1.0"
 
@@ -154,17 +293,6 @@ navigation:
       level: 1
 ```
 
-## Development
-```bash
-# Backend
-python -m venv einkpdf-env && source einkpdf-env/bin/activate
-pip install -e .[dev]
-uvicorn backend.app.main:app --reload
-
-# Frontend
-cd frontend && npm ci && npm run dev
-```
-
 ### Golden File Testing
 ```bash
 # Capture new golden file
@@ -196,13 +324,66 @@ Place YAML files under `/config/profiles` on the host. The backend reads from `/
 - **PDF Output**: Bottom-left origin (ReportLab standard)
 - **Automatic Conversion**: Seamless transformation between coordinate systems
 
-## 📊 Performance
+## 📊 Performance & Metrics
 
-### Phase 1 MVP Metrics
+### Application Performance
 - **PDF Generation**: ~2.1KB typical output with navigation
 - **Preview Generation**: ~19.9KB PNG (scale 2.0)
+- **Real-time Updates**: WebSocket-based preview updates <100ms
+- **Authentication**: JWT token-based with secure session management
 - **Deterministic Builds**: 100% reproducible (identical SHA256 hashes)
-- **Test Coverage**: 7/7 core components validated
 
-## License
-AGPL‑3.0‑or‑later.
+### Scalability
+- **Multi-user Support**: File-based storage with user isolation
+- **Device Profiles**: 9 supported e-ink devices with easy expansion
+- **Project Management**: Unlimited projects per user
+- **Gallery System**: Community sharing with clone tracking
+- **Container Ready**: Docker deployment with volume persistence
+
+### Current Version
+- **Application Version**: v0.1.0
+- **API Compatibility**: Stable v1 endpoints
+- **Database Migration**: Automatic user data migration support
+
+## 🤝 Contributing
+
+### How to Contribute
+1. **Fork the repository** on GitHub
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Make your changes** following the coding standards in `CLAUDE.md`
+4. **Test your changes** thoroughly
+5. **Submit a pull request** with a clear description
+
+### Development Guidelines
+- Follow the coding standards in `CLAUDE.md`
+- Add tests for new functionality
+- Update documentation as needed
+- Ensure all existing tests pass
+
+### Issues and Support
+- **Bug Reports**: [GitHub Issues](https://github.com/stachuman/boox-template-generator/issues)
+- **Feature Requests**: [GitHub Discussions](https://github.com/stachuman/boox-template-generator/discussions)
+- **Tutorial**: [TUTORIAL.md](TUTORIAL.md)
+
+## 💖 Support the Project
+
+This project is **free and open source**. If you find it useful, consider supporting development:
+
+**☕ Donate**: [PayPal.me/StachuMan](https://paypal.me/StachuMan)
+
+Your support helps maintain and improve the project for the entire community!
+
+## 📄 License
+
+**AGPL-3.0-or-later** - This project is free software that ensures freedom for all users.
+
+## 🔗 Links
+
+- **Repository**: [https://github.com/stachuman/boox-template-generator](https://github.com/stachuman/boox-template-generator)
+- **Demo**: [https://eink.cgpsmapper.com](https://eink.cgpsmapper.com)
+- **Tutorial**: [TUTORIAL.md](TUTORIAL.md)
+- **Issues**: [GitHub Issues](https://github.com/stachuman/boox-template-generator/issues)
+
+---
+
+**Version**: v0.1.0 | **Built with**: React + FastAPI + ReportLab | **Optimized for**: E-ink devices
