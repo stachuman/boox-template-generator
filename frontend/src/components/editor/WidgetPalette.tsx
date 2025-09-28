@@ -7,11 +7,11 @@
 
 import React from 'react';
 import { useDrag } from 'react-dnd';
-import { Type, Square, Minus, AlignJustify, Anchor, Calendar } from 'lucide-react';
+import { Type, Square, Minus, AlignJustify, Anchor, Calendar, MoveVertical } from 'lucide-react';
 import clsx from 'clsx';
 
 interface WidgetType {
-  type: 'text_block' | 'checkbox' | 'divider' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box';
+  type: 'text_block' | 'checkbox' | 'divider' | 'vertical_line' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box';
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
@@ -169,7 +169,24 @@ const WIDGET_TYPES: WidgetType[] = [
     icon: Minus,
     description: 'Horizontal line separator',
     defaultProps: {
-      position: { width: 300, height: 2 }
+      position: { width: 300, height: 2 },
+      properties: {
+        line_thickness: 1.0,
+        stroke_color: '#000000'
+      }
+    }
+  },
+  {
+    type: 'vertical_line',
+    label: 'Vertical Line',
+    icon: MoveVertical,
+    description: 'Vertical separator line',
+    defaultProps: {
+      position: { width: 2, height: 200 },
+      properties: {
+        line_thickness: 1.0,
+        stroke_color: '#000000'
+      }
     }
   },
   {

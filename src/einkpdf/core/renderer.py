@@ -326,6 +326,8 @@ class DeterministicPDFRenderer:
             self._render_checkbox(pdf_canvas, widget)
         elif widget.type == "divider":
             self._render_divider(pdf_canvas, widget)
+        elif widget.type == "vertical_line":
+            self._render_vertical_line(pdf_canvas, widget)
         elif widget.type == "lines":
             self._render_lines(pdf_canvas, widget)
         elif widget.type == "anchor":
@@ -370,11 +372,13 @@ class DeterministicPDFRenderer:
             self._render_image(pdf_canvas, widget)
         elif widget.type == "box":
             self._render_box(pdf_canvas, widget)
+        elif widget.type == "table":
+            self._render_table(pdf_canvas, widget)
         else:
             # Following CLAUDE.md rule #4: explicit NotImplementedError
             raise UnsupportedWidgetError(
                 f"Widget type '{widget.type}' not implemented. "
-                f"Supported: text_block, checkbox, divider, lines, anchor, internal_link, tap_zone, calendar, image, box"
+                f"Supported: text_block, checkbox, divider, vertical_line, lines, anchor, internal_link, tap_zone, calendar, image, box, table"
             )
 
     def _render_box(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
@@ -964,21 +968,48 @@ class DeterministicPDFRenderer:
             pdf_canvas.drawString(label_x, label_y, widget.content)
     
     def _render_divider(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
-        """Render horizontal divider line.""" 
-        # Convert position for drawing
+        """Render horizontal divider line with optional thickness and color."""
         line_pos = self.converter.convert_position_for_drawing(widget.position)
-        
-        # Enforce stroke width
-        stroke_width = self.enforcer.check_stroke_width(0.75)
+        props = getattr(widget, 'properties', {}) or {}
+        line_thickness = props.get('line_thickness', 0.75)
+        stroke_width = self.enforcer.check_stroke_width(line_thickness)
+        stroke_hex = props.get('stroke_color') or '#000000'
+        try:
+            stroke_color = HexColor(stroke_hex)
+        except Exception:
+            stroke_color = black
         pdf_canvas.setLineWidth(stroke_width)
-        
-        # Draw horizontal line across the width
+        pdf_canvas.setStrokeColor(stroke_color)
+
         start_x = line_pos['x']
         end_x = line_pos['x'] + line_pos['width']
-        y = line_pos['y'] + (line_pos['height'] / 2)  # Center of height
-        
+        y = line_pos['y'] + (line_pos['height'] / 2)
+
         pdf_canvas.line(start_x, y, end_x, y)
-    
+        pdf_canvas.setStrokeColor(black)
+
+    def _render_vertical_line(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
+        """Render vertical divider line with optional thickness and color."""
+        line_pos = self.converter.convert_position_for_drawing(widget.position)
+        props = getattr(widget, 'properties', {}) or {}
+        line_thickness = props.get('line_thickness', 0.75)
+        stroke_width = self.enforcer.check_stroke_width(line_thickness)
+        stroke_hex = props.get('stroke_color') or '#000000'
+        try:
+            stroke_color = HexColor(stroke_hex)
+        except Exception:
+            stroke_color = black
+        pdf_canvas.setLineWidth(stroke_width)
+        pdf_canvas.setStrokeColor(stroke_color)
+
+        x = line_pos['x'] + (line_pos['width'] / 2)
+        start_y = line_pos['y']
+        end_y = line_pos['y'] + line_pos['height']
+
+        pdf_canvas.line(x, start_y, x, end_y)
+        pdf_canvas.setStrokeColor(black)
+
+
     def _render_lines(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
         """Render multiple ruled lines for handwriting."""
         # Get properties with explicit defaults

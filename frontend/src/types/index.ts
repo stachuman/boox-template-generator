@@ -46,23 +46,32 @@ export interface WidgetProperties {
   dest_id?: string;    // for anchor widgets
   to_dest?: string;    // for internal links or tap zones
   bind?: any;          // opaque binding consumed by plan compiler
+
+  // Checkbox properties
   checkbox_size?: number;
+
+  // Line-based widgets (divider, vertical_line, lines)
   line_spacing?: number;
   line_count?: number;
   line_thickness?: number;
   margin_left?: number;
   margin_right?: number;
   line_style?: 'solid' | 'dotted' | 'dashed' | 'grid';
+  stroke_color?: string;
   top_padding?: number;        // extra space before first line (pt)
   bottom_padding?: number;     // reserved summary area (pt)
   grid_spacing?: number;       // pt spacing for grid verticals
   columns?: number;            // number of equal columns (guides) when not grid
   vertical_guides?: number[];  // custom vertical guides as ratios [0..1]
+  line_cap?: 'butt' | 'round';
+
   // Anchor widget properties (pages-only model)
   target_page?: number;
+
   // Tap zone properties
   tap_action?: 'page_link' | 'prev_page' | 'next_page';
   outline?: boolean; // editor-only visual aid
+
   // Image properties
   image_src?: string;             // URL or data URI
   image_fit?: 'fit' | 'stretch' | 'actual';
@@ -70,12 +79,13 @@ export interface WidgetProperties {
   max_image_px?: number;          // Max width/height in px when optimizing
   grayscale_on_import?: boolean;  // Convert to grayscale on import
   image_quality?: number;         // JPEG quality 0.5-0.95 (default 0.8)
+
   // Box widget properties
   fill_color?: string;
-  stroke_color?: string;
   stroke_width?: number;
   corner_radius?: number;
   opacity?: number; // 0..1
+
   // Calendar widget properties
   calendar_type?: 'monthly' | 'weekly' | 'custom_range';
   start_date?: string;        // ISO 8601 format (YYYY-MM-DD)
@@ -89,12 +99,13 @@ export interface WidgetProperties {
   show_grid_lines?: boolean;
   first_day_of_week?: 'sunday' | 'monday'; // Calendar locale: Sunday (US) or Monday (Europe)
   layout_orientation?: 'horizontal' | 'vertical'; // Weekly calendar layout: horizontal (columns) or vertical (rows)
+
   [key: string]: any;
 }
 
 export interface Widget {
   id: string;
-  type: 'text_block' | 'checkbox' | 'divider' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box';
+  type: 'text_block' | 'checkbox' | 'divider' | 'vertical_line' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box';
   page?: number; // Optional - auto-assigned during compilation for multi-page documents
   content?: string;
   position: Position;

@@ -216,15 +216,37 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
           </div>
         );
 
-      case 'divider':
+      case 'divider': {
+        const strokeColor = widget.properties?.stroke_color || '#000000';
+        const thickness = widget.properties?.line_thickness ?? widget.position.height ?? 1;
         return (
           <div className="h-full flex items-center">
             <div
-              className="w-full bg-eink-black"
-              style={{ height: 1 }}
+              className="w-full"
+              style={{
+                height: Math.max(1, thickness),
+                backgroundColor: strokeColor,
+              }}
             />
           </div>
         );
+      }
+
+      case 'vertical_line': {
+        const strokeColor = widget.properties?.stroke_color || '#000000';
+        const thickness = widget.properties?.line_thickness ?? widget.position.width ?? 2;
+        return (
+          <div className="w-full h-full flex justify-center">
+            <div
+              style={{
+                width: Math.max(1, thickness),
+                height: '100%',
+                backgroundColor: strokeColor,
+              }}
+            />
+          </div>
+        );
+      }
 
       case 'lines':
         const properties = widget.properties || {};

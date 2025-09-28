@@ -318,7 +318,7 @@ const PropertiesPanel: React.FC = () => {
             return null; // This is just to define the function
           })()}
           {/* 1. BASIC - Core widget properties */}
-          {(selectedWidget.type !== 'divider' && selectedWidget.type !== 'lines' && selectedWidget.type !== 'anchor') && (
+          {(selectedWidget.type !== 'divider' && selectedWidget.type !== 'vertical_line' && selectedWidget.type !== 'lines' && selectedWidget.type !== 'anchor') && (
             <div>
               <h4 className="font-medium mb-3">Basic</h4>
               <div className="space-y-3">
@@ -330,6 +330,46 @@ const PropertiesPanel: React.FC = () => {
                     className="input-field w-full resize-none"
                     rows={3}
                     placeholder="Enter content..."
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {(selectedWidget.type === 'divider' || selectedWidget.type === 'vertical_line') && (
+            <div>
+              <h4 className="font-medium mb-3">Line Style</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Line Color</label>
+                  <input
+                    type="color"
+                    defaultValue={selectedWidget.properties?.stroke_color || '#000000'}
+                    {...register('properties.stroke_color')}
+                    onChange={(e) => handleLiveUpdate('properties.stroke_color', e.target.value)}
+                    className="w-full h-10 border border-eink-pale-gray rounded"
+                    title="Choose line color"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Thickness (pt)</label>
+                  <input
+                    type="number"
+                    step="0.25"
+                    min="0.25"
+                    max="6"
+                    {...register('properties.line_thickness', { min: 0.25, max: 6 })}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 1;
+                      handleLiveUpdate('properties.line_thickness', value);
+                      if (selectedWidget?.type === 'divider') {
+                        handleLiveUpdate('position.height', Math.max(1, value));
+                      } else if (selectedWidget?.type === 'vertical_line') {
+                        handleLiveUpdate('position.width', Math.max(1, value));
+                      }
+                    }}
+                    className="input-field w-full"
+                    placeholder="1.0"
                   />
                 </div>
               </div>
@@ -378,6 +418,8 @@ const PropertiesPanel: React.FC = () => {
                         handleLiveUpdate('properties.margin_left', Math.floor(marginLeft * ratio));
                         handleLiveUpdate('properties.margin_right', Math.floor(marginRight * ratio));
                       }
+                    } else if (selectedWidget?.type === 'vertical_line') {
+                      handleLiveUpdate('properties.line_thickness', width);
                     }
                   }}
                   className="input-field w-full"
@@ -396,6 +438,8 @@ const PropertiesPanel: React.FC = () => {
                       const spacing = selectedWidget?.properties?.line_spacing || 20;
                       const newLineCount = Math.max(1, Math.floor((height - 20) / spacing));
                       handleLiveUpdate('properties.line_count', newLineCount);
+                    } else if (selectedWidget?.type === 'divider') {
+                      handleLiveUpdate('properties.line_thickness', height);
                     }
                   }}
                   className="input-field w-full"

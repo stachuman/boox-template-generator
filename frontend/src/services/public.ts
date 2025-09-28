@@ -68,47 +68,4 @@ export class PublicAPI {
       throw normalizeError(error);
     }
   }
-
-  static async downloadProjectPdf(projectId: string, filename?: string): Promise<void> {
-    try {
-      const response: AxiosResponse<Blob> = await apiClient.get(`/public/projects/${projectId}/pdf`, {
-        responseType: 'blob',
-      });
-
-      // Create blob URL and trigger download
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename || 'project.pdf';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      throw normalizeError(error);
-    }
-  }
-
-  static async downloadProjectPdfBySlug(slug: string, filename?: string): Promise<void> {
-    try {
-      const response: AxiosResponse<Blob> = await apiClient.get(`/public/projects/slug/${encodeURIComponent(slug)}/pdf`, {
-        responseType: 'blob',
-      });
-
-      // Create blob URL and trigger download
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename || 'project.pdf';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      throw normalizeError(error);
-    }
-  }
-
 }

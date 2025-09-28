@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Calendar, CopyPlus, GitFork, Globe, Loader2, Download } from 'lucide-react';
+import { ArrowLeft, Calendar, CopyPlus, GitFork, Globe, Loader2 } from 'lucide-react';
 import { PublicAPI } from '@/services/public';
 import { usePublicProjectsStore } from '@/stores/public';
 import { useProjectStore } from '@/stores/projectStore';
@@ -19,9 +19,7 @@ const PublicProjectDetail = () => {
 
   const cloneBySlug = usePublicProjectsStore((state) => state.cloneProjectBySlug);
   const cloneById = usePublicProjectsStore((state) => state.cloneProject);
-  const downloadProjectPdf = usePublicProjectsStore((state) => state.downloadProjectPdf);
   const cloningId = usePublicProjectsStore((state) => state.cloningId);
-  const downloadingId = usePublicProjectsStore((state) => state.downloadingId);
   const addProject = useProjectStore((state) => state.addProject);
 
   const [project, setProject] = useState<PublicProject | null>(null);
@@ -106,24 +104,9 @@ const PublicProjectDetail = () => {
     );
   }
 
-  const handleDownload = async () => {
-    if (!project) return;
-
-    try {
-      if (slug) {
-        await PublicAPI.downloadProjectPdfBySlug(slug, project.metadata.name);
-      } else {
-        await downloadProjectPdf(project.id, project.metadata.name);
-      }
-    } catch (error) {
-      console.error('Download failed:', error);
-    }
-  };
-
   const createdAt = new Date(project.created_at).toLocaleDateString();
   const updatedAt = new Date(project.updated_at).toLocaleDateString();
   const isSubmitting = Boolean(identifier && cloningId === identifier);
-  const isDownloading = downloadingId === project?.id;
   const shareLink = project.metadata.public_url_slug
     ? `${window.location.origin}/gallery/${project.metadata.public_url_slug}`
     : `${window.location.origin}/gallery/id/${project.id}`;
@@ -171,23 +154,14 @@ const PublicProjectDetail = () => {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={handleDownload}
-            disabled={isDownloading}
-            className="flex items-center gap-2 rounded-md border border-eink-light-gray px-4 py-2 text-sm font-medium text-eink-black transition-colors hover:bg-eink-pale-gray disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download className="h-4 w-4" />
-            {isDownloading ? 'Downloading...' : 'Download PDF'}
-          </button>
-          <button
-            type="button"
             onClick={() => {
               setCloneError(null);
               setDialogOpen(true);
             }}
             disabled={isSubmitting}
-            className="rounded-md bg-eink-black px-4 py-2 text-sm font-semibold text-eink-white transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded-md bg-eink-black px-4 py-2 text-sm font-semibold text-eink-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isSubmitting ? 'Cloning...' : 'Clone this project'}
+            {isSubmitting ? 'Cloning…' : 'Clone this project'}
           </button>
           <span className="text-xs text-eink-dark-gray">Share link: {shareLink}</span>
         </div>
