@@ -206,11 +206,13 @@ class PDFJobService:
     ) -> Path:
         """
         Save generated PDF to disk and update job record.
+        Also copies PDF to project directory if project_id is set.
 
         Args:
             job_id: Job ID
             pdf_bytes: PDF file content
             page_count: Number of pages in PDF
+            diagnostics: Optional diagnostics data
 
         Returns:
             Path to saved PDF file
@@ -224,6 +226,36 @@ class PDFJobService:
             # Save PDF to jobs directory
             output_path = self.jobs_dir / f"{job_id}.pdf"
             output_path.write_bytes(pdf_bytes)
+
+            # If this job is associated with a project, move PDF to project directory for preview
+            if job.project_id:
+                try:
+                    from ..workspaces import get_workspace_manager
+                    workspace = get_workspace_manager()
+                    project_service = workspace.get_project_service(job.owner_id)
+                    project_dir = project_service._get_project_dir(job.project_id)
+
+                    # Ensure compiled directory exists
+                    compiled_dir = project_dir / "compiled"
+                    compiled_dir.mkdir(parents=True, exist_ok=True)
+
+                    # Move PDF to project directory at the expected location
+                    project_pdf_path = compiled_dir / "latest.pdf"
+                    shutil.move(str(output_path), str(project_pdf_path))
+
+                    # Verify the source file was removed by move operation
+                    if output_path.exists():
+                        # If move didn't remove source (e.g., cross-device), remove it explicitly
+                        output_path.unlink()
+                        logger.debug(f"Removed source PDF file from jobs directory after move")
+
+                    # Update output_path to point to project location
+                    output_path = project_pdf_path
+                    logger.info(f"Moved PDF for job {job_id} to project {job.project_id} at {project_pdf_path}")
+                except Exception as e:
+                    # Non-fatal - job still succeeds even if move fails
+                    logger.warning(f"Failed to move PDF to project directory: {e}")
+                    # output_path remains at jobs directory if move fails
 
             # Update job record
             job.output_path = str(output_path)

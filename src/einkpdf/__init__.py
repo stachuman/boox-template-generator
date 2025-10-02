@@ -9,7 +9,7 @@ Copyright (C) 2024 E-ink PDF Templates
 Licensed under AGPL v3.0 (compatible with PyMuPDF)
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __license__ = "AGPL-3.0-or-later"
 __author__ = "E-ink PDF Templates"
 

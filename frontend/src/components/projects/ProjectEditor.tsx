@@ -320,35 +320,6 @@ const ProjectEditor: React.FC = () => {
   };
 
 
-  const handlePreviewPDF = async () => {
-    if (!project) return;
-    try {
-      // Ensure compiled PDF exists
-      let needCompile = !compiledTemplate;
-      if (!compiledTemplate) {
-        const result: CompilationResult = await APIClient.compileProject(project.id);
-        setCompiledTemplate(result.template_yaml);
-        const tp = (result.compilation_stats && result.compilation_stats.total_pages) ? result.compilation_stats.total_pages : 1;
-        setTotalPages(tp);
-        setPreviewPage(1);
-      }
-      // Check compiled PDF availability; compile if missing (e.g., cleaned up)
-      const available = await APIClient.hasCompiledPDF(project.id);
-      if (!available) {
-        const result: CompilationResult = await APIClient.compileProject(project.id);
-        setCompiledTemplate(result.template_yaml);
-      }
-      try {
-        const url = await createPreviewUrl(project.id);
-        setPreviewUrl(url);
-      } catch (urlErr) {
-        console.error('Failed to create preview URL:', urlErr);
-        throw new Error('Failed to create preview URL');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to prepare preview');
-    }
-  };
 
   const handleCreatePDF = async () => {
     if (!project) return;
@@ -356,6 +327,10 @@ const ProjectEditor: React.FC = () => {
     setError(null);
     setCreatingPDF(true);
     setJobInProgress(true);
+
+    // IMPORTANT: Clear old job first to force component remount
+    setCurrentPDFJobId(null);
+    setCompletedPDFJobId(null);
     persistCompletedJob(null);
 
     try {
@@ -365,15 +340,18 @@ const ProjectEditor: React.FC = () => {
         strict_mode: false,
       });
 
-      // Show job status component
+      console.log('[ProjectEditor] Created new job:', job.id);
+
+      // Show job status component with NEW job ID
       setCurrentPDFJobId(job.id);
-      setCompletedPDFJobId(null); // Clear any previous completed job
       persistActiveJob(job.id);
-      persistCompletedJob(null);
+
+      console.log('[ProjectEditor] State updated, currentPDFJobId should be:', job.id);
     } catch (err: any) {
       setError(err.message || 'Failed to create PDF job');
       persistActiveJob(null);
       setJobInProgress(false);
+      setCurrentPDFJobId(null);
     }
     finally {
       setCreatingPDF(false);
@@ -384,7 +362,8 @@ const ProjectEditor: React.FC = () => {
     if (!completedPDFJobId || !project) return;
 
     try {
-      const blob = await APIClient.downloadPDFJob(completedPDFJobId);
+      // Download from project endpoint (PDF was moved there after job completed)
+      const blob = await APIClient.downloadProjectPDF(project.id);
       const filename = `${project.metadata.name.replace(/[^a-zA-Z0-9\-_\s]/g, '').trim()}.pdf`;
       downloadBlob(blob, filename);
     } catch (err: any) {
@@ -629,13 +608,24 @@ const ProjectEditor: React.FC = () => {
           <PDFJobStatusComponent
             jobId={currentPDFJobId}
             autoDownload={false}
-            onComplete={(job) => {
+            onComplete={async (job) => {
+              console.log('[ProjectEditor] Job completed:', job.id);
               // Job completed successfully - save job ID for download button
               setCompletedPDFJobId(job.id);
               setCurrentPDFJobId(job.id);
               setJobInProgress(false);
               persistActiveJob(null);
               persistCompletedJob(job.id);
+
+              // Auto-refresh preview if on preview tab
+              if (activeTab === 'preview' && project) {
+                try {
+                  const url = await createPreviewUrl(project.id);
+                  setPreviewUrl(url);
+                } catch (err) {
+                  console.error('Failed to auto-refresh preview:', err);
+                }
+              }
             }}
             onError={() => {
               // Job failed
@@ -861,15 +851,7 @@ const ProjectEditor: React.FC = () => {
                     ▶
                   </button>
                 </div>
-                {/* Scale control removed; browser PDF viewer handles zoom */}
-                <button
-                  onClick={handlePreviewPDF}
-                  className="px-3 py-1.5 border rounded"
-                  title={'Render preview'}
-                >
-                  Render Preview
-                </button>
-                {/* Removed Open in New Tab button; separate Download button exists in header */}
+                {/* Render Preview button removed - async job system handles compilation and rendering */}
               </div>
             </div>
 
@@ -878,7 +860,7 @@ const ProjectEditor: React.FC = () => {
                 <iframe title="PDF Preview" src={previewUrl} className="w-full h-[70vh]" style={{ border: 0 }} />
               </div>
             ) : (
-              <div className="text-sm text-eink-dark-gray">No preview yet. Click "Render Preview" after compiling to display it here.</div>
+              <div className="text-sm text-eink-dark-gray">No preview yet. Create PDF to generate and preview it.</div>
             )}
           </div>
         </div>

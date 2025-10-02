@@ -138,15 +138,19 @@ class DeterministicPDFRenderer:
         buffer = BytesIO()
         
         try:
-            # Pass 1: Initialize ReportLab canvas
+            # Pass 1: Initialize ReportLab canvas with compression for e-ink optimization
             page_width, page_height = self.get_page_size()
-            pdf_canvas = canvas.Canvas(buffer, pagesize=(page_width, page_height))
+            pdf_canvas = canvas.Canvas(
+                buffer,
+                pagesize=(page_width, page_height),
+                pageCompression=1  # Enable compression for smaller file size (better for e-ink)
+            )
             
             # Set deterministic properties if requested
             if deterministic:
                 pdf_canvas.setTitle(self.template.metadata.name)
                 pdf_canvas.setSubject(self.template.metadata.description)
-                pdf_canvas.setCreator("E-ink PDF Templates v0.1.0")
+                pdf_canvas.setCreator("E-ink PDF Templates v0.2.0")
                 pdf_canvas.setAuthor(self.template.metadata.author or "Unknown")
                 # Note: ReportLab Canvas doesn't support setCreationDate directly
                 # Creation date will be handled by pikepdf post-processor for deterministic builds

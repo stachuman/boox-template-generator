@@ -2,10 +2,10 @@
  * PDF Job Status Component
  *
  * Displays async PDF generation job status with polling and download.
- * Shows progress, error messages, and provides download button when ready.
+ * Shows progress, error messages, diagnostics, and provides download button when ready.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { PDFJob, PDFJobStatus as JobStatus } from '@/types';
 import { APIClient } from '@/services/api';
 
@@ -28,62 +28,66 @@ export const PDFJobStatusComponent: React.FC<PDFJobStatusProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [polling, setPolling] = useState(true);
+  const prevStatusRef = useRef<JobStatus | null>(null);
 
-  // Fetch job status
   const fetchJobStatus = async () => {
+    console.log('[PDFJobStatus] Fetching job status for:', jobId);
     try {
       const jobData = await APIClient.getPDFJob(jobId);
+      console.log('[PDFJobStatus] Got job data:', jobData.id, 'status:', jobData.status);
       setJob(jobData);
       setLoading(false);
-
-      // Stop polling if job is in terminal state
-      if (['completed', 'failed', 'cancelled'].includes(jobData.status)) {
-        setPolling(false);
-
-        if (jobData.status === 'completed') {
-          onComplete?.(jobData);
-          if (autoDownload) {
-            handleDownload();
-          }
-        } else if (jobData.status === 'failed') {
-          onError?.(jobData);
-        }
-      }
     } catch (err: any) {
+      console.error('[PDFJobStatus] Failed to fetch job:', err);
       setError(err.response?.data?.message || 'Failed to fetch job status');
       setLoading(false);
       setPolling(false);
     }
   };
 
-  // Poll job status every 2 seconds
   useEffect(() => {
     if (!polling) return;
 
+    // Fetch immediately on mount
     fetchJobStatus();
+
+    // Then poll every 2 seconds
     const interval = setInterval(fetchJobStatus, 2000);
 
     return () => clearInterval(interval);
   }, [jobId, polling]);
 
-  // Download PDF
-  const handleDownload = async () => {
-    if (!job || job.status !== 'completed') return;
+  useEffect(() => {
+    if (!job) return;
 
-    try {
-      const blob = await APIClient.downloadPDFJob(jobId);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `template_${jobId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to download PDF');
+    const prevStatus = prevStatusRef.current;
+    const currentStatus = job.status;
+    const isTerminal = ['completed', 'failed', 'cancelled'].includes(currentStatus);
+
+    // Always update prevStatusRef first
+    const statusChanged = currentStatus !== prevStatus;
+    prevStatusRef.current = currentStatus;
+
+    // Handle status change callbacks
+    if (statusChanged) {
+      console.log(`[PDFJobStatus] Status changed: ${prevStatus} → ${currentStatus}`);
+
+      if (currentStatus === 'completed') {
+        onComplete?.(job);
+        // autoDownload feature removed - parent component handles download
+      } else if (currentStatus === 'failed') {
+        onError?.(job);
+      } else if (currentStatus === 'cancelled') {
+        onCancel?.();
+      }
     }
-  };
+
+    // Stop polling after handling callbacks
+    if (isTerminal) {
+      setPolling(false);
+    }
+  }, [job, autoDownload, onComplete, onError, onCancel]);
+
 
   // Cancel job
   const handleCancel = async () => {
@@ -98,7 +102,7 @@ export const PDFJobStatusComponent: React.FC<PDFJobStatusProps> = ({
     }
   };
 
-  // Get status display info
+  // Helpers
   const getStatusInfo = (status: JobStatus): { color: string; icon: string; label: string } => {
     switch (status) {
       case 'pending':
@@ -116,21 +120,18 @@ export const PDFJobStatusComponent: React.FC<PDFJobStatusProps> = ({
     }
   };
 
-  // Format file size
   const formatSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
-  // Format timestamp
   const formatTime = (isoString: string | null | undefined): string => {
     if (!isoString) return 'N/A';
     const date = new Date(isoString);
     return date.toLocaleString();
   };
 
-  // Calculate duration
   const getDuration = (): string | null => {
     if (!job?.started_at || !job?.completed_at) return null;
     const start = new Date(job.started_at).getTime();
@@ -203,15 +204,6 @@ export const PDFJobStatusComponent: React.FC<PDFJobStatusProps> = ({
 
         {/* Action Buttons */}
         <div className="flex gap-2">
-          {job.status === 'completed' && (
-            <button
-              onClick={handleDownload}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-            >
-              <span>⬇️</span>
-              Download PDF
-            </button>
-          )}
           {['pending', 'processing'].includes(job.status) && (
             <button
               onClick={handleCancel}
@@ -262,85 +254,85 @@ export const PDFJobStatusComponent: React.FC<PDFJobStatusProps> = ({
       )}
 
       {/* Error Message */}
-  {job.status === 'failed' && job.error_message && (
-    <div className="bg-red-50 border border-red-200 rounded p-3">
-      <div className="text-sm text-red-800 font-medium">Error Details:</div>
-      <div className="text-sm text-red-700 mt-1">{job.error_message}</div>
-    </div>
-  )}
+      {job.status === 'failed' && job.error_message && (
+        <div className="bg-red-50 border border-red-200 rounded p-3">
+          <div className="text-sm text-red-800 font-medium">Error Details:</div>
+          <div className="text-sm text-red-700 mt-1">{job.error_message}</div>
+        </div>
+      )}
 
-  {(compileDiagnostics || renderDiagnostics) && (
-    <div className="space-y-3 text-sm border-t border-gray-200 pt-3">
-      {compileDiagnostics && (
-        <div>
-          <div className="font-semibold text-gray-700">Compilation</div>
-          <div className="text-xs text-gray-500 flex flex-col sm:flex-row sm:gap-4">
-            {compileDiagnostics.started_at && (
-              <span>Started: {formatTime(compileDiagnostics.started_at)}</span>
-            )}
-            {compileDiagnostics.completed_at && (
-              <span>Finished: {formatTime(compileDiagnostics.completed_at)}</span>
-            )}
-          </div>
-          {(compileTotalPages !== null || compileTotalWidgets !== null) && (
-            <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-600">
-              {compileTotalPages !== null && <div>Total pages: {compileTotalPages}</div>}
-              {compileTotalWidgets !== null && <div>Total widgets: {compileTotalWidgets}</div>}
+      {(compileDiagnostics || renderDiagnostics) && (
+        <div className="space-y-3 text-sm border-t border-gray-200 pt-3">
+          {compileDiagnostics && (
+            <div>
+              <div className="font-semibold text-gray-700">Compilation</div>
+              <div className="text-xs text-gray-500 flex flex-col sm:flex-row sm:gap-4">
+                {compileDiagnostics.started_at && (
+                  <span>Started: {formatTime(compileDiagnostics.started_at)}</span>
+                )}
+                {compileDiagnostics.completed_at && (
+                  <span>Finished: {formatTime(compileDiagnostics.completed_at)}</span>
+                )}
+              </div>
+              {(compileTotalPages !== null || compileTotalWidgets !== null) && (
+                <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-600">
+                  {compileTotalPages !== null && <div>Total pages: {compileTotalPages}</div>}
+                  {compileTotalWidgets !== null && <div>Total widgets: {compileTotalWidgets}</div>}
+                </div>
+              )}
+              {compileDiagnostics.error && (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                  {compileDiagnostics.error}
+                </div>
+              )}
+              {compileWarnings.length > 0 && (
+                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                  <div className="text-xs font-medium text-yellow-800 mb-1">Warnings</div>
+                  {renderWarningList(compileWarnings)}
+                </div>
+              )}
             </div>
           )}
-          {compileDiagnostics.error && (
-            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-              {compileDiagnostics.error}
-            </div>
-          )}
-          {compileWarnings.length > 0 && (
-            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-              <div className="text-xs font-medium text-yellow-800 mb-1">Warnings</div>
-              {renderWarningList(compileWarnings)}
+
+          {renderDiagnostics && (
+            <div>
+              <div className="font-semibold text-gray-700">Rendering</div>
+              <div className="text-xs text-gray-500 flex flex-col sm:flex-row sm:gap-4">
+                {renderDiagnostics.started_at && (
+                  <span>Started: {formatTime(renderDiagnostics.started_at)}</span>
+                )}
+                {renderDiagnostics.completed_at && (
+                  <span>Finished: {formatTime(renderDiagnostics.completed_at)}</span>
+                )}
+              </div>
+              <div className="text-xs text-gray-600 flex flex-col sm:flex-row sm:gap-4 mt-1">
+                {typeof renderDiagnostics.page_count === 'number' && (
+                  <span>Pages: {renderDiagnostics.page_count}</span>
+                )}
+                {typeof renderDiagnostics.size_bytes === 'number' && (
+                  <span>Size: {formatSize(renderDiagnostics.size_bytes)}</span>
+                )}
+              </div>
+              {renderDiagnostics.error && (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                  {renderDiagnostics.error}
+                </div>
+              )}
+              {renderWarnings.length > 0 && (
+                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                  <div className="text-xs font-medium text-yellow-800 mb-1">Warnings</div>
+                  {renderWarningList(renderWarnings)}
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {renderDiagnostics && (
-        <div>
-          <div className="font-semibold text-gray-700">Rendering</div>
-          <div className="text-xs text-gray-500 flex flex-col sm:flex-row sm:gap-4">
-            {renderDiagnostics.started_at && (
-              <span>Started: {formatTime(renderDiagnostics.started_at)}</span>
-            )}
-            {renderDiagnostics.completed_at && (
-              <span>Finished: {formatTime(renderDiagnostics.completed_at)}</span>
-            )}
-          </div>
-          <div className="text-xs text-gray-600 flex flex-col sm:flex-row sm:gap-4 mt-1">
-            {typeof renderDiagnostics.page_count === 'number' && (
-              <span>Pages: {renderDiagnostics.page_count}</span>
-            )}
-            {typeof renderDiagnostics.size_bytes === 'number' && (
-              <span>Size: {formatSize(renderDiagnostics.size_bytes)}</span>
-            )}
-          </div>
-          {renderDiagnostics.error && (
-            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-              {renderDiagnostics.error}
-            </div>
-          )}
-          {renderWarnings.length > 0 && (
-            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-              <div className="text-xs font-medium text-yellow-800 mb-1">Warnings</div>
-              {renderWarningList(renderWarnings)}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )}
-
-  {/* Timestamps */}
-  <div className="text-xs text-gray-500 space-y-1 pt-2 border-t">
-    <div>Created: {formatTime(job.created_at)}</div>
-    {job.started_at && <div>Started: {formatTime(job.started_at)}</div>}
+      {/* Timestamps */}
+      <div className="text-xs text-gray-500 space-y-1 pt-2 border-t">
+        <div>Created: {formatTime(job.created_at)}</div>
+        {job.started_at && <div>Started: {formatTime(job.started_at)}</div>}
         {job.completed_at && <div>Completed: {formatTime(job.completed_at)}</div>}
       </div>
     </div>
