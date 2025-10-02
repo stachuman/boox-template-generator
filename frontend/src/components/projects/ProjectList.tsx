@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Folder, Calendar, User, Globe, CopyPlus } from 'lucide-react';
+import { Plus, Folder, User, Globe, CopyPlus } from 'lucide-react';
 import { ProjectListItem, CreateProjectRequest } from '@/types';
 import { APIClient } from '@/services/api';
 import CreateProjectModal from './CreateProjectModal';
@@ -19,41 +19,85 @@ const ProjectList: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  useEffect(() => {
-    loadProjects();
-  }, []);
+  const storageAvailable = typeof window !== 'undefined' && typeof window.sessionStorage !== 'undefined';
+  const storageKey = 'einkpdf:projects:list';
 
-  const loadProjects = async () => {
+  const loadProjects = async (showSpinner: boolean = true) => {
     try {
-      setLoading(true);
+      if (showSpinner) {
+        setLoading(true);
+      }
       setError(null);
       const projectList = await APIClient.getProjects();
       setProjects(projectList);
+
+      if (storageAvailable) {
+        try {
+          window.sessionStorage.setItem(storageKey, JSON.stringify(projectList));
+        } catch (err) {
+          console.warn('Failed to cache projects', err);
+        }
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load projects');
     } finally {
-      setLoading(false);
+      if (showSpinner) {
+        setLoading(false);
+      }
     }
   };
+
+  useEffect(() => {
+    let cachedProjects: ProjectListItem[] | null = null;
+
+    if (storageAvailable) {
+      try {
+        const cached = window.sessionStorage.getItem(storageKey);
+        if (cached) {
+          cachedProjects = JSON.parse(cached) as ProjectListItem[];
+          setProjects(cachedProjects);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.warn('Failed to read cached projects', err);
+        window.sessionStorage.removeItem(storageKey);
+      }
+    }
+
+    loadProjects(!cachedProjects);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCreateProject = async (request: CreateProjectRequest) => {
     try {
       const newProject = await APIClient.createProject(request);
-      setProjects((prev) => [
-        {
-          id: newProject.id,
-          name: newProject.metadata.name,
-          description: newProject.metadata.description,
-          masters_count: newProject.masters.length,
-          plan_sections_count: newProject.plan.sections.length,
-          created_at: newProject.metadata.created_at,
-          updated_at: newProject.metadata.updated_at,
-          is_public: newProject.metadata.is_public,
-          public_url_slug: newProject.metadata.public_url_slug,
-          clone_count: newProject.metadata.clone_count,
-        },
-        ...prev,
-      ]);
+      setProjects((prev) => {
+        const updatedList = [
+          {
+            id: newProject.id,
+            name: newProject.metadata.name,
+            description: newProject.metadata.description,
+            masters_count: newProject.masters.length,
+            plan_sections_count: newProject.plan.sections.length,
+            created_at: newProject.metadata.created_at,
+            updated_at: newProject.metadata.updated_at,
+            is_public: newProject.metadata.is_public,
+            public_url_slug: newProject.metadata.public_url_slug,
+            clone_count: newProject.metadata.clone_count,
+          },
+          ...prev,
+        ];
+
+        if (storageAvailable) {
+          try {
+            window.sessionStorage.setItem(storageKey, JSON.stringify(updatedList));
+          } catch (err) {
+            console.warn('Failed to cache updated projects list', err);
+          }
+        }
+
+        return updatedList;
+      });
       setShowCreateModal(false);
       // Navigate to the new project
       navigate(`/projects/${newProject.id}`);
@@ -69,7 +113,19 @@ const ProjectList: React.FC = () => {
 
     try {
       await APIClient.deleteProject(projectId);
-      setProjects(prev => prev.filter(p => p.id !== projectId));
+      setProjects(prev => {
+        const updated = prev.filter(p => p.id !== projectId);
+
+        if (storageAvailable) {
+          try {
+            window.sessionStorage.setItem(storageKey, JSON.stringify(updated));
+          } catch (err) {
+            console.warn('Failed to cache projects after deletion', err);
+          }
+        }
+
+        return updated;
+      });
     } catch (err: any) {
       setError(err.message || 'Failed to delete project');
     }

@@ -13,7 +13,7 @@ from ..models import (
     TemplateCreateRequest, TemplateUpdateRequest, TemplateResponse, 
     TemplateListResponse, APIError
 )
-from ..services import TemplateService, EinkPDFServiceError
+from ..core_services import TemplateService, EinkPDFServiceError
 
 router = APIRouter(prefix="/templates", tags=["templates"])
 

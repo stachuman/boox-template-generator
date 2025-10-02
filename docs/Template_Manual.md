@@ -11,6 +11,8 @@ This document summarizes the variables, binding grammar, and where each can be u
 - Section dates: omit to inherit from global plan dates; provide both start and end to override.
 
 ## Available Variables (Tokens)
+
+### Basic Variables
 - Date/sequence
   - `{year}`, `{month}`, `{month_padded}`, `{month_name}`, `{month_abbr}`, `{month_padded3}`
   - `{day}`, `{day_padded}`, `{weekday}`
@@ -20,8 +22,27 @@ This document summarizes the variables, binding grammar, and where each can be u
   - Any variables set in a plan section `context` are available as `{var}` and `@var`.
 - Locale
   - Plan `locale` (e.g., `en`, `pl`) is injected into context; calendars and month/weekday names follow it.
-  {month_padded} is padded to 2 digits
-  {month_padded3} is padded to 3 digits
+
+### Format Specifiers (NEW)
+Both `{var}` and `@var` tokens now support Python format specifiers:
+
+**Integer formatting:**
+- `{month:02d}` → `01`, `02`, `03`, ..., `12` (zero-padded to 2 digits)
+- `{index:03d}` → `001`, `002`, `003` (zero-padded to 3 digits)
+- `@page:02d` → `01`, `02`, `03` (in binding expressions)
+
+**Float formatting:**
+- `{value:.2f}` → `3.14`, `2.50` (2 decimal places)
+- `{ratio:.1%}` → `50.0%` (percentage with 1 decimal)
+
+**String formatting:**
+- `{name:>10}` → right-aligned in 10 characters
+- `{title:<15}` → left-aligned in 15 characters
+
+**Compatibility:**
+- `{month_padded}` is equivalent to `{month:02d}` (padded to 2 digits)
+- `{month_padded3}` is equivalent to `{month:03d}` (padded to 3 digits)
+- `{index_padded}` respects the `index_pad` property (default 3: `{index:03d}`)
 
 ## Where Tokens Are Allowed
 - Content/labels: `{...}` only
@@ -42,6 +63,7 @@ This document summarizes the variables, binding grammar, and where each can be u
     - `day(YYYY-MM-DD)` → `day:YYYY-MM-DD`
     - Generic: `func(value)` → `func:value`
   - `@vars` may appear anywhere inside `arg` (e.g., `month(@year-@index_padded)`).
+  - **NEW: Format specifiers supported** in `@vars` (e.g., `notes(@page:02d)` → `notes:01`, `notes:02`)
   - Braces `{...}` should not remain in `bind` after substitution. Prefer `@var` in binds.
 - Direct destination literal
   - Example: `month:2026-01`, `year:2026`.
@@ -55,13 +77,15 @@ This document summarizes the variables, binding grammar, and where each can be u
 - Key properties
   - `count`, `start_index`, `index_pad`, `columns`
   - `gap_x`, `gap_y`, `item_height`
-  - `label_template`: supports `{index}`, `{index_padded}`, `{month_name}`, `{month_abbr}`, `{month_padded}`, `{year}`
+  - `label_template`: supports `{index}`, `{index_padded}`, `{month_name}`, `{month_abbr}`, `{month_padded}`, `{year}`, and format specifiers
   - `bind` (required): function-like or direct destination; resolved per item (tokens and @vars substituted per index)
 - Examples
   - Year → months (12 items):
-    - `index_pad: 2`, `label_template: "{month_name}"`, `bind: "month(@year-@index_padded)"`
-  - Notes index (10 items):
-    - `index_pad: 3`, `label_template: "Note {index_padded}"`, `bind: "notes(@index)"`
+    - `index_pad: 2`, `label_template: "{month_name}"`, `bind: "month(@year-@index:02d)"`
+  - Notes index with custom formatting:
+    - `label_template: "Note {index:02d}"`, `bind: "notes(@page:02d)"` → creates `notes:01`, `notes:02`, etc.
+  - Legacy compatibility:
+    - `index_pad: 3`, `label_template: "Note {index_padded}"`, `bind: "notes(@index)"` → creates `notes:page:001`, `notes:page:002`
 
 ## Anchor (Named Destination)
 - `properties.dest_id`: required
@@ -103,16 +127,55 @@ This document summarizes the variables, binding grammar, and where each can be u
 - Locale:
   - Set plan-level `locale` to keep labels and calendars consistent.
 
+## Format Specifiers Reference
+
+### Common Format Patterns
+- **Zero-padding integers**: `:02d`, `:03d`, `:04d` (pad with zeros to 2, 3, 4 digits)
+- **Decimal places**: `:.1f`, `:.2f` (1 or 2 decimal places for floats)
+- **Percentages**: `:.1%` (percentage with 1 decimal place)
+- **String alignment**: `:>10` (right), `:<10` (left), `:^10` (center in 10 chars)
+
+### Practical Examples
+
+**Notes with 2-digit padding:**
+```yaml
+label_template: "Note {index:02d}"
+bind: "notes(@page:02d)"
+# Creates: notes:01, notes:02, notes:03, ...
+```
+
+**Month links with custom format:**
+```yaml
+label_template: "{month_name}"
+bind: "month(@year-@index:02d)"
+# Creates: month:2026-01, month:2026-02, ...
+```
+
+**Mixed formatting in content:**
+```yaml
+content: "Page {page:03d} of {total_pages} - {month:02d}/{year}"
+# Output: "Page 001 of 365 - 01/2026"
+```
+
+### Error Handling
+- If format fails (e.g., applying `:02d` to non-numeric value), falls back to string representation
+- Unknown variables return the original token unchanged
+- Invalid format specifiers are ignored and raw value is used
+
 ## Quick Recipes
 - Year page: 12 links labeled by month name
   - label_template: `{month_name}`
-  - bind: `month(@year-@index_padded)`
-  - anchor on Month master: `month:{year}-{month_padded}`
+  - bind: `month(@year-@index:02d)` (NEW: custom format instead of @index_padded)
+  - anchor on Month master: `month:{year}-{month:02d}`
 - Monthly calendar linking to days
-  - calendar: `calendar_type: monthly`, `start_date: {year}-{month_padded}-01`, `link_strategy: named_destinations`
+  - calendar: `calendar_type: monthly`, `start_date: {year}-{month:02d}-01`, `link_strategy: named_destinations`
   - anchor on Day master: `day:{date}`
 - Weekly calendar on day page
   - calendar: `calendar_type: weekly`, `start_date: {date}`, `link_strategy: named_destinations`
+- Notes index with custom padding
+  - label_template: `Note {index:02d}` (NEW: replaces {index_padded} approach)
+  - bind: `notes(@page:02d)` (NEW: custom format)
+  - anchor on Note master: `notes:{index:02d}`
 
 > This is a living document. When adding new helpers/locales, update this file to keep design and compile consistent.
 

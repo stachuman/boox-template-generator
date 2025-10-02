@@ -36,10 +36,12 @@ const WIDGET_TYPES: WidgetType[] = [
     description: 'Background block with border and optional link',
     defaultProps: {
       position: { width: 240, height: 120 },
-      properties: {
+      styling: {
         fill_color: '#FFFFFF',
         stroke_color: '#000000',
-        stroke_width: 1,
+        line_width: 1
+      },
+      properties: {
         corner_radius: 0,
         opacity: 1.0
       }
@@ -168,7 +170,7 @@ const WIDGET_TYPES: WidgetType[] = [
         color: '#000000'
       },
       properties: {
-        checkbox_size: 12
+        box_size: 12
       }
     }
   },
@@ -292,7 +294,6 @@ const WIDGET_TYPES: WidgetType[] = [
         rows: 4,
         columns: 3,
         has_header: true,
-        data_mode: 'static',
         table_data: [
           ['Header 1', 'Header 2', 'Header 3'],
           ['Row 1 Col 1', 'Row 1 Col 2', 'Row 1 Col 3'],

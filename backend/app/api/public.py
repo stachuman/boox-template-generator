@@ -14,7 +14,7 @@ from einkpdf.core.project_schema import Project
 
 from ..workspaces import PublicProjectNotFoundError, get_public_project_manager
 from ..models import PublicProjectListResponse, PublicProjectResponse
-from ..services import PDFService
+from ..core_services import PDFService
 from ..utils import convert_enums_for_serialization
 
 router = APIRouter(prefix="/public", tags=["public-projects"])

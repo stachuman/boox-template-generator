@@ -9,7 +9,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException, status
 
 from ..models import DeviceProfileResponse
-from ..services import ProfileService, EinkPDFServiceError
+from ..core_services import ProfileService, EinkPDFServiceError
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 

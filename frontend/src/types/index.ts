@@ -39,6 +39,11 @@ export interface TextStyling {
   size?: number;
   color?: string;
   text_align?: 'left' | 'center' | 'right';
+  orientation?: 'horizontal' | 'vertical';
+  underline?: boolean;
+  stroke_color?: string;
+  fill_color?: string;
+  line_width?: number;
 }
 
 export interface WidgetProperties {
@@ -48,7 +53,8 @@ export interface WidgetProperties {
   bind?: any;          // opaque binding consumed by plan compiler
 
   // Checkbox properties
-  checkbox_size?: number;
+  box_size?: number;
+  checkbox_size?: number; // deprecated legacy field for backward compatibility
 
   // Line-based widgets (divider, vertical_line, lines)
   line_spacing?: number;
@@ -73,11 +79,13 @@ export interface WidgetProperties {
   outline?: boolean; // editor-only visual aid
 
   // Image properties
-  image_src?: string;             // URL or data URI
+  image_src?: string;             // URL to external image
+  image_data?: string;            // Base64-encoded image data (max 0.5MB)
   image_fit?: 'fit' | 'stretch' | 'actual';
+  convert_to_grayscale?: boolean; // Convert to grayscale in PDF rendering
   optimize_on_import?: boolean;   // If true, downscale/compress on import
   max_image_px?: number;          // Max width/height in px when optimizing
-  grayscale_on_import?: boolean;  // Convert to grayscale on import
+  grayscale_on_import?: boolean;  // Convert to grayscale on import (client-side)
   image_quality?: number;         // JPEG quality 0.5-0.95 (default 0.8)
 
   // Box widget properties
@@ -105,8 +113,7 @@ export interface WidgetProperties {
   columns?: number;                   // Number of columns (1-20)
   has_header?: boolean;               // Whether first row is header
   column_widths?: number[];           // Relative column widths (e.g., [1,2,1])
-  data_mode?: 'static' | 'template';  // Data source mode
-  table_data?: string[][];            // Static 2D array data
+  table_data?: string[][];            // 2D array data (tokens are always processed)
   border_style?: 'none' | 'outer' | 'all' | 'horizontal' | 'vertical';
   cell_padding?: number;              // Cell internal padding (points)
   row_height?: number;                // Fixed row height (points)
@@ -275,7 +282,9 @@ export interface PlanSection {
   start_date?: string;
   end_date?: string;
   count?: number;
+  pages_per_item?: number;
   context?: Record<string, any>;
+  anchors?: Array<Record<string, string>>;
 }
 
 export interface CalendarConfig {
@@ -420,4 +429,48 @@ export interface DragItem {
     properties?: any;
   };
   isNew?: boolean;
+}
+
+// PDF Job Types (async PDF generation)
+export type PDFJobStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+
+export interface PDFJob {
+  id: string;
+  project_id?: string | null;
+  status: PDFJobStatus;
+  error_message?: string | null;
+  size_bytes?: number | null;
+  page_count?: number | null;
+  created_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  diagnostics?: PDFJobDiagnostics | null;
+}
+
+export interface PDFJobCreateRequest {
+  yaml_content?: string;
+  profile?: string;
+  deterministic?: boolean;
+  strict_mode?: boolean;
+  project_id?: string | null;
+}
+
+export interface PDFJobListResponse {
+  jobs: PDFJob[];
+  total: number;
+}
+
+export interface PDFJobDiagnosticsPhase {
+  started_at?: string | null;
+  completed_at?: string | null;
+  error?: string | null;
+  warnings?: string[];
+  stats?: Record<string, unknown> | null;
+  page_count?: number | null;
+  size_bytes?: number | null;
+}
+
+export interface PDFJobDiagnostics {
+  compile?: PDFJobDiagnosticsPhase | null;
+  render?: PDFJobDiagnosticsPhase | null;
 }

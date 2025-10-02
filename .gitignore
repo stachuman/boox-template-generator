@@ -19,8 +19,11 @@ __pycache__/
 build/
 dist/
 
-# SQLite or local DBs
+# SQLite databases (exclude from git, use Docker volumes)
 *.db
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
 
 # Logs/temp
 *.log
@@ -50,6 +53,16 @@ htmlcov/
 backend/data/
 data/
 output/
+
+# Storage directory (exclude files, keep structure)
+storage/*.sqlite
+storage/*.sqlite-shm
+storage/*.sqlite-wal
+storage/assets/**
+storage/jobs/**
+!storage/.gitkeep
+!storage/assets/.gitkeep
+!storage/jobs/.gitkeep
 
 # Frontend artifacts
 frontend/node_modules/

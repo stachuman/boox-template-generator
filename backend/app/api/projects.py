@@ -22,9 +22,10 @@ from einkpdf.core.project_schema import Project, ProjectListItem
 from einkpdf.services.compilation_service import CompilationService, CompilationServiceError
 from einkpdf.services.project_service import ProjectService, ProjectServiceError
 
-from ..auth import UserRecord, get_current_user
+from ..db.dependencies import get_current_user
+from ..db.models import User
 from ..models import CloneProjectRequest, MakeProjectPublicRequest
-from ..services import PDFService
+from ..core_services import PDFService
 from ..utils import convert_enums_for_serialization
 from ..workspaces import (
     PublicProjectManager,
@@ -83,7 +84,7 @@ class CompileProjectResponse(BaseModel):
 
 # Helper utilities
 
-def _get_user_project_service(current_user: UserRecord) -> ProjectService:
+def _get_user_project_service(current_user: User) -> ProjectService:
     return workspace_manager.get_project_service(current_user.id)
 
 
@@ -97,11 +98,11 @@ def _get_project_or_404(service: ProjectService, project_id: str) -> Project:
     return project
 
 
-def _project_dir(current_user: UserRecord, project_id: str) -> Path:
+def _project_dir(current_user: User, project_id: str) -> Path:
     return workspace_manager.get_project_directory(current_user.id, project_id)
 
 
-def _clean_author(request_author: str, current_user: UserRecord) -> str:
+def _clean_author(request_author: str, current_user: User) -> str:
     author = request_author.strip()
     return author or current_user.username
 
@@ -112,7 +113,7 @@ def _clean_author(request_author: str, current_user: UserRecord) -> str:
 @router.post("", response_model=Project, status_code=status.HTTP_201_CREATED)
 async def create_project(
     request: CreateProjectRequest,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Project:
     service = _get_user_project_service(current_user)
     try:
@@ -129,7 +130,7 @@ async def create_project(
 
 
 @router.get("", response_model=List[ProjectListItem])
-async def list_projects(current_user: UserRecord = Depends(get_current_user)) -> List[ProjectListItem]:
+async def list_projects(current_user: User = Depends(get_current_user)) -> List[ProjectListItem]:
     service = _get_user_project_service(current_user)
     try:
         return service.list_projects()
@@ -138,7 +139,7 @@ async def list_projects(current_user: UserRecord = Depends(get_current_user)) ->
 
 
 @router.get("/{project_id}", response_model=Project)
-async def get_project(project_id: str, current_user: UserRecord = Depends(get_current_user)) -> Project:
+async def get_project(project_id: str, current_user: User = Depends(get_current_user)) -> Project:
     service = _get_user_project_service(current_user)
     return _get_project_or_404(service, project_id)
 
@@ -147,7 +148,7 @@ async def get_project(project_id: str, current_user: UserRecord = Depends(get_cu
 async def update_project(
     project_id: str,
     request: UpdateProjectRequest,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Project:
     service = _get_user_project_service(current_user)
     project = _get_project_or_404(service, project_id)
@@ -165,7 +166,7 @@ async def update_project(
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_project(project_id: str, current_user: UserRecord = Depends(get_current_user)) -> Response:
+async def delete_project(project_id: str, current_user: User = Depends(get_current_user)) -> Response:
     service = _get_user_project_service(current_user)
     project = _get_project_or_404(service, project_id)
     try:
@@ -188,7 +189,7 @@ async def delete_project(project_id: str, current_user: UserRecord = Depends(get
 async def add_master(
     project_id: str,
     request: AddMasterRequest,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Project:
     service = _get_user_project_service(current_user)
     _get_project_or_404(service, project_id)
@@ -211,7 +212,7 @@ async def update_master(
     project_id: str,
     master_name: str,
     request: UpdateMasterRequest,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Project:
     service = _get_user_project_service(current_user)
     _get_project_or_404(service, project_id)
@@ -234,7 +235,7 @@ async def update_master(
 async def remove_master(
     project_id: str,
     master_name: str,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Project:
     service = _get_user_project_service(current_user)
     _get_project_or_404(service, project_id)
@@ -254,7 +255,7 @@ async def remove_master(
 async def update_plan(
     project_id: str,
     request: UpdatePlanRequest,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Project:
     service = _get_user_project_service(current_user)
     _get_project_or_404(service, project_id)
@@ -271,7 +272,7 @@ async def update_plan(
 
 
 @router.post("/{project_id}/compile", response_model=CompileProjectResponse)
-async def compile_project(project_id: str, current_user: UserRecord = Depends(get_current_user)) -> CompileProjectResponse:
+async def compile_project(project_id: str, current_user: User = Depends(get_current_user)) -> CompileProjectResponse:
     service = _get_user_project_service(current_user)
     project = _get_project_or_404(service, project_id)
 
@@ -287,6 +288,12 @@ async def compile_project(project_id: str, current_user: UserRecord = Depends(ge
         result = compilation_service.compile_project(project, device_profile_payload)
     except CompilationServiceError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error("Unexpected compilation error for project %s: %s", project_id, exc, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Compilation failed: {str(exc)}"
+        ) from exc
 
     import yaml
 
@@ -337,7 +344,7 @@ async def compile_project(project_id: str, current_user: UserRecord = Depends(ge
     )
 
 
-def _read_compiled_pdf(project_id: str, current_user: UserRecord) -> Path:
+def _read_compiled_pdf(project_id: str, current_user: User) -> Path:
     pdf_path = _project_dir(current_user, project_id) / "compiled" / "latest.pdf"
     if not pdf_path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PDF not available. Compile the project first.")
@@ -348,7 +355,7 @@ def _read_compiled_pdf(project_id: str, current_user: UserRecord) -> Path:
 async def get_project_pdf(
     project_id: str,
     inline: bool = False,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     service = _get_user_project_service(current_user)
     project = _get_project_or_404(service, project_id)
@@ -369,7 +376,7 @@ async def get_project_pdf(
 
 
 @router.head("/{project_id}/pdf")
-async def head_project_pdf(project_id: str, current_user: UserRecord = Depends(get_current_user)) -> Response:
+async def head_project_pdf(project_id: str, current_user: User = Depends(get_current_user)) -> Response:
     _read_compiled_pdf(project_id, current_user)
     return Response(status_code=status.HTTP_200_OK)
 
@@ -379,7 +386,7 @@ async def get_project_preview(
     project_id: str,
     page: int = 1,
     scale: float = 2.0,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     service = _get_user_project_service(current_user)
     _get_project_or_404(service, project_id)
@@ -408,7 +415,7 @@ async def get_project_preview(
 async def set_project_visibility(
     project_id: str,
     request: MakeProjectPublicRequest,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Project:
     service = _get_user_project_service(current_user)
     project = _get_project_or_404(service, project_id)
@@ -444,7 +451,7 @@ async def set_project_visibility(
 async def clone_public_project(
     project_id: str,
     request: CloneProjectRequest,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Project:
     try:
         public_project, entry, public_dir = public_project_manager.get_public_project(project_id)
@@ -470,7 +477,7 @@ async def clone_public_project(
 async def clone_public_project_by_slug(
     slug: str,
     request: CloneProjectRequest,
-    current_user: UserRecord = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ) -> Project:
     try:
         public_project, entry, public_dir = public_project_manager.get_public_project_by_slug(slug)

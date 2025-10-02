@@ -6,16 +6,28 @@ services:
       context: .
       dockerfile: Dockerfile.backend
     environment:
+      # Database configuration (Phase 0 - SQLite with WAL mode)
+      - DATABASE_URL=sqlite:///data/einkpdf.sqlite
+      - DB_ECHO=false
+
       # Core application settings
+      - APP_NAME=einkpdf
+      - APP_VERSION=0.2.0
+      - DEBUG=false
       - EINK_CLEANUP_TTL_DAYS=14
       - EINK_PROFILE_DIR=/app/config/profiles
       - EINK_DATA_DIR=/app/backend/data
-      # - EINK_CLEANUP_MAX_TEMPLATES=500
+
+      # Storage paths (Phase 0 - unified data directory)
+      - STORAGE_DIR=/app/backend/data
+      - ASSETS_DIR=/app/backend/data/assets
+      - JOBS_DIR=/app/backend/data/jobs
 
       # JWT Authentication settings
-      - EINK_JWT_SECRET_FILE=/app/backend/data/users/jwt_secret.txt
-      - EINK_JWT_ALGORITHM=HS256
-      - EINK_JWT_EXPIRES_MINUTES=43200  # 30 days
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      - JWT_ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - REFRESH_TOKEN_EXPIRE_DAYS=7
 
       # Password reset settings
       - EINK_PASSWORD_RESET_TTL_MINUTES=60
@@ -31,11 +43,39 @@ services:
       # - EINK_SMTP_PASSWORD=your_smtp_password
       # - EINK_SMTP_FROM=noreply@example.com
       # - EINK_SMTP_USE_TLS=true
+
+      # PDF Generation Limits (Phase 1)
+      - MAX_PDF_PAGES=1000
+      - MAX_PDF_SIZE_MB=50
+      - PDF_TIMEOUT_SECONDS=600
+
+      # Image Upload Limits (Phase 1)
+      - MAX_IMAGE_SIZE_BYTES=524288  # 0.5MB
+
+      # Rate Limiting (Phase 1)
+      - RATE_LIMIT_ENABLED=true
+      - PDF_GENERATE_RATE_LIMIT=10/minute
+      - PDF_PREVIEW_RATE_LIMIT=30/minute
+      - IMAGE_UPLOAD_RATE_LIMIT=20/minute
+
+      # CORS configuration
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+
+      # Logging
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
     volumes:
+      # Phase 0: Unified data directory for database, assets, jobs, and user projects
       - eink_data:/app/backend/data
       - ./config/profiles:/app/config/profiles:ro
     ports:
       - "${BACKEND_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   frontend:
     build:
@@ -49,4 +89,5 @@ services:
       - VITE_API_BASE_URL=http://localhost:${BACKEND_PORT:-8000}/api
 
 volumes:
+  # Phase 0: Unified data directory for all persistent data
   eink_data: {}

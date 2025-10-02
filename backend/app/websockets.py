@@ -11,7 +11,7 @@ from typing import Dict, Any
 from fastapi import WebSocket, WebSocketDisconnect
 from websockets.exceptions import ConnectionClosed
 
-from .services import PDFService, EinkPDFServiceError
+from .core_services import PDFService, EinkPDFServiceError
 from .models import WebSocketMessage
 
 logger = logging.getLogger(__name__)

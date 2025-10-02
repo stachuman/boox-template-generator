@@ -5,9 +5,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system dependencies if needed (kept minimal for light usage)
+# Install system dependencies (added curl for health checks, sqlite3 for debugging)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
+    curl \
+    sqlite3 \
   && rm -rf /var/lib/apt/lists/*
 
 # Copy project files
@@ -19,6 +21,15 @@ COPY config /app/config
 # Install project (library includes FastAPI/uvicorn in dependencies)
 RUN pip install --no-cache-dir .
 
+# Install additional dependencies for Phase 0
+RUN pip install --no-cache-dir \
+    pydantic-settings \
+    sqlalchemy \
+    alembic
+
+# Create data directory structure
+RUN mkdir -p /app/backend/data/assets /app/backend/data/jobs
+
 # Set working directory to backend app
 WORKDIR /app/backend
 
@@ -27,4 +38,5 @@ ENV EINK_CLEANUP_TTL_DAYS=14
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run database migrations on startup, then start server
+CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000

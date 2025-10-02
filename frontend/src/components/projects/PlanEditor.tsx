@@ -69,15 +69,25 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
     const prevKind = newSections[index]?.kind || '';
     newSections[index] = section;
 
-    // Update order to reflect kind rename
+    // Update order to reflect kind changes
     let newOrder = [...plan.order];
-    const hasPrevInOrder = prevKind && newOrder.includes(prevKind);
-    if (hasPrevInOrder) {
-      newOrder = newOrder.map(k => (k === prevKind ? (section.kind || '') : k));
-    } else if ((section.kind || '').trim().length > 0 && !newOrder.includes(section.kind)) {
-      // If previous kind was empty (or not tracked) and new kind is valid, append it
-      newOrder = [...newOrder.filter(k => k && k.trim().length > 0), section.kind];
+    const currentKind = (section.kind || '').trim();
+
+    if (prevKind && newOrder.includes(prevKind)) {
+      // Replace existing kind in order
+      if (currentKind) {
+        newOrder = newOrder.map(k => (k === prevKind ? currentKind : k));
+      } else {
+        // Remove from order if kind is now empty
+        newOrder = newOrder.filter(k => k !== prevKind);
+      }
+    } else if (currentKind && !newOrder.includes(currentKind)) {
+      // Add new kind to order
+      newOrder = [...newOrder, currentKind];
     }
+
+    // Clean up order array - remove empty or invalid entries
+    newOrder = newOrder.filter(k => k && k.trim().length > 0);
 
     setPlan({ ...plan, sections: newSections, order: newOrder });
   };
@@ -98,27 +108,22 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
   };
 
   const handleRemoveSection = (index: number) => {
-    const removedKind = plan.sections[index].kind;
+    if (index < 0 || index >= plan.sections.length) return; // Safety check
+
+    const removedKind = plan.sections[index]?.kind;
+    const newSections = plan.sections.filter((_, i) => i !== index);
+
+    // Remove from order and clean up
+    let newOrder = plan.order.filter(kind => kind !== removedKind);
+    newOrder = newOrder.filter(k => k && k.trim().length > 0);
+
     setPlan({
       ...plan,
-      sections: plan.sections.filter((_, i) => i !== index),
-      order: plan.order.filter(kind => kind !== removedKind)
+      sections: newSections,
+      order: newOrder
     });
   };
 
-  const moveSectionUp = (index: number) => {
-    if (index === 0) return;
-    const newOrder = [...plan.order];
-    [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
-    setPlan({ ...plan, order: newOrder });
-  };
-
-  const moveSectionDown = (index: number) => {
-    if (index === plan.order.length - 1) return;
-    const newOrder = [...plan.order];
-    [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
-    setPlan({ ...plan, order: newOrder });
-  };
 
   const handleSave = async () => {
     if (validationErrors.length > 0) return;
@@ -209,7 +214,7 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
         <CardContent className="space-y-4">
           {plan.sections.map((section, index) => (
             <SectionEditor
-              key={index}
+              key={`section-${index}`}
               section={section}
               sectionIndex={index}
               availableMasters={project.masters}
@@ -227,42 +232,63 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
         </CardContent>
       </Card>
 
-      {/* Section Order */}
-      {plan.sections.length > 1 && (
+      {/* Generated Sections Overview */}
+      {plan.sections.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Section Order</CardTitle>
+            <CardTitle>Generated Sections Overview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {plan.order.map((kind, index) => (
-                <div
-                  key={kind}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded border"
-                >
-                  <span className="font-medium">{kind || `Section ${index + 1}`}</span>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => moveSectionUp(index)}
-                      disabled={index === 0}
-                      className="h-8 w-8 p-0"
-                    >
-                      <ChevronUp size={16} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => moveSectionDown(index)}
-                      disabled={index === plan.order.length - 1}
-                      className="h-8 w-8 p-0"
-                    >
-                      <ChevronDown size={16} />
-                    </Button>
+            <p className="text-sm text-gray-600 mb-4">
+              Preview of sections that will be generated in processing order:
+            </p>
+            <div className="space-y-3">
+              {plan.order.map((kind, index) => {
+                const section = plan.sections.find(s => s.kind === kind);
+                if (!section) return null;
+
+                // Calculate estimated page count
+                let estimatedPages = section.pages_per_item || 1;
+                const generateMode = section.generate as string; // Backend stores as string
+                if (generateMode === 'count' && section.count) {
+                  estimatedPages *= section.count;
+                } else if (generateMode === 'each_day' && section.start_date && section.end_date) {
+                  const start = new Date(section.start_date);
+                  const end = new Date(section.end_date);
+                  const dayCount = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                  estimatedPages *= dayCount;
+                } else if (generateMode === 'each_month' && section.start_date && section.end_date) {
+                  const start = new Date(section.start_date);
+                  const end = new Date(section.end_date);
+                  const monthCount = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+                  estimatedPages *= monthCount;
+                }
+
+                return (
+                  <div
+                    key={kind}
+                    className="flex items-center justify-between p-3 bg-blue-50 rounded border border-blue-200"
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium text-blue-900">{index + 1}. {kind}</div>
+                      <div className="text-sm text-blue-700">
+                        Master: {section.master} | Mode: {generateMode}
+                        {generateMode === 'count' && ` | Count: ${section.count || 1}`}
+                        {generateMode === 'each_day' && section.start_date && section.end_date &&
+                          ` | ${section.start_date} to ${section.end_date}`}
+                        {generateMode === 'each_month' && section.start_date && section.end_date &&
+                          ` | ${section.start_date} to ${section.end_date}`}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium text-blue-900">~{estimatedPages} pages</div>
+                      <div className="text-xs text-blue-600">
+                        {section.pages_per_item || 1} per item
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>

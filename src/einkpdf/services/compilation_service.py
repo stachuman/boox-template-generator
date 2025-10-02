@@ -20,6 +20,7 @@ from ..core.project_schema import (
 )
 from ..core.schema import Template, Widget, NamedDestination, OutlineItem, InternalLink
 from ..i18n import get_month_names, get_weekday_names, format_date_long
+from ..core.tokens import TokenProcessor, CompilationTokenContext, RenderingTokenContext
 
 
 logger = logging.getLogger(__name__)
@@ -221,19 +222,77 @@ class BindingResolver:
         context_dict = context.to_dict()
         result = text
 
-        # Brace-style tokens: {var}
-        for key, value in context_dict.items():
-            token = "{" + key + "}"
-            if token in result:
-                result = result.replace(token, str(value))
+        # Brace-style tokens with optional format specifiers: {var} or {var:format}
+        try:
+            import re as _re
+            def _brace_repl(m):
+                var_name = m.group(1)
+                format_spec = m.group(2)  # May be None if no :format part
 
-        # At-style tokens: @var (only in properties/content, not required but helpful in preview)
+                value = context_dict.get(var_name)
+                if value is None:
+                    return m.group(0)  # Return original token if variable not found
+
+                # Apply format specifier if provided
+                if format_spec:
+                    try:
+                        # Handle common format specifiers
+                        if format_spec.endswith('d'):
+                            # Integer formatting like 02d, 03d
+                            return f"{int(value):{format_spec}}"
+                        elif format_spec.endswith('f'):
+                            # Float formatting like .2f
+                            return f"{float(value):{format_spec}}"
+                        else:
+                            # String formatting
+                            return f"{str(value):{format_spec}}"
+                    except (ValueError, TypeError):
+                        # If formatting fails, return the raw value
+                        return str(value)
+                else:
+                    return str(value)
+
+            # Match {var} or {var:format} where format can contain digits, letters, dots
+            result = _re.sub(r'\{([A-Za-z0-9_]+)(?::([A-Za-z0-9._]+))?\}', _brace_repl, result)
+        except Exception:
+            # Fallback to simple replacement for any regex errors
+            for key, value in context_dict.items():
+                token = "{" + key + "}"
+                if token in result:
+                    result = result.replace(token, str(value))
+
+        # At-style tokens with optional format specifiers: @var or @var:format
         try:
             import re as _re
             def _repl(m):
-                v = m.group(1)
-                return str(context_dict.get(v, m.group(0)))
-            result = _re.sub(r'@([A-Za-z0-9_]+)', _repl, result)
+                var_name = m.group(1)
+                format_spec = m.group(2)  # May be None if no :format part
+
+                value = context_dict.get(var_name)
+                if value is None:
+                    return m.group(0)  # Return original token if variable not found
+
+                # Apply format specifier if provided
+                if format_spec:
+                    try:
+                        # Handle common format specifiers
+                        if format_spec.endswith('d'):
+                            # Integer formatting like 02d, 03d
+                            return f"{int(value):{format_spec}}"
+                        elif format_spec.endswith('f'):
+                            # Float formatting like .2f
+                            return f"{float(value):{format_spec}}"
+                        else:
+                            # String formatting
+                            return f"{str(value):{format_spec}}"
+                    except (ValueError, TypeError):
+                        # If formatting fails, return the raw value
+                        return str(value)
+                else:
+                    return str(value)
+
+            # Match @var or @var:format where format can contain digits, letters, dots
+            result = _re.sub(r'@([A-Za-z0-9_]+)(?::([A-Za-z0-9._]+))?', _repl, result)
         except Exception:
             pass
 
@@ -248,14 +307,23 @@ class BindingResolver:
             elif isinstance(value, dict):
                 result[key] = self._substitute_in_dict(value, context)
             elif isinstance(value, list):
-                result[key] = [
-                    self._substitute_tokens(item, context) if isinstance(item, str)
-                    else self._substitute_in_dict(item, context) if isinstance(item, dict)
-                    else item
-                    for item in value
-                ]
+                result[key] = self._substitute_in_list(value, context)
             else:
                 result[key] = value
+        return result
+
+    def _substitute_in_list(self, data: list, context: BindingContext) -> list:
+        """Recursively substitute tokens in list items."""
+        result = []
+        for item in data:
+            if isinstance(item, str):
+                result.append(self._substitute_tokens(item, context))
+            elif isinstance(item, dict):
+                result.append(self._substitute_in_dict(item, context))
+            elif isinstance(item, list):
+                result.append(self._substitute_in_list(item, context))
+            else:
+                result.append(item)
         return result
 
     def _resolve_binding(self, bind_expr: str, context: BindingContext) -> str:
@@ -275,13 +343,36 @@ class BindingResolver:
             arg = match.group(2)
             suffix = match.group(3) or ""
 
-            # Replace any @var occurrences within arg using context
+            # Replace any @var or @var:format occurrences within arg using context
             context_dict = context.to_dict()
             def _replace_at_var(m: re.Match) -> str:
-                v = m.group(1)
-                return str(context_dict.get(v, f"@{v}"))
+                var_name = m.group(1)
+                format_spec = m.group(2)  # May be None if no :format part
 
-            arg_expanded = re.sub(r'@([A-Za-z0-9_]+)', _replace_at_var, arg)
+                value = context_dict.get(var_name)
+                if value is None:
+                    return m.group(0)  # Return original token if variable not found
+
+                # Apply format specifier if provided
+                if format_spec:
+                    try:
+                        # Handle common format specifiers
+                        if format_spec.endswith('d'):
+                            # Integer formatting like 02d, 03d
+                            return f"{int(value):{format_spec}}"
+                        elif format_spec.endswith('f'):
+                            # Float formatting like .2f
+                            return f"{float(value):{format_spec}}"
+                        else:
+                            # String formatting
+                            return f"{str(value):{format_spec}}"
+                    except (ValueError, TypeError):
+                        # If formatting fails, return the raw value
+                        return str(value)
+                else:
+                    return str(value)
+
+            arg_expanded = re.sub(r'@([A-Za-z0-9_]+)(?::([A-Za-z0-9._]+))?', _replace_at_var, arg)
 
             # Substitute {tokens} if any remain (should be resolved earlier)
             resolved_arg = self._substitute_tokens(arg_expanded, context)
@@ -342,7 +433,7 @@ class BindingResolver:
 
         func_pattern = re.compile(r'^(\w+)\(([^)]+)\)(#.*)?$')
         var_pattern = re.compile(r'^@\w+$')
-        direct_dest_pattern = re.compile(r'^[a-z0-9][a-z0-9:-]{1,127}$', re.IGNORECASE)
+        direct_dest_pattern = re.compile(r'^[a-z0-9][a-z0-9:-_]{1,127}$', re.IGNORECASE)
 
         if not (func_pattern.match(bind_expr) or
                 var_pattern.match(bind_expr) or
@@ -500,8 +591,23 @@ class CompilationService:
                     ) from e
             except Exception:
                 pass
-            # Fall back to original error if diagnostics failed
-            raise
+
+            # Convert any remaining validation errors to CompilationServiceError
+            from pydantic import ValidationError
+            if isinstance(e, ValidationError):
+                # Extract meaningful validation errors
+                error_details = []
+                for error in e.errors():
+                    field_path = " -> ".join(str(part) for part in error['loc'])
+                    error_msg = error['msg']
+                    error_details.append(f"{field_path}: {error_msg}")
+
+                raise CompilationServiceError(
+                    f"Template validation failed:\n" + "\n".join(f"  - {detail}" for detail in error_details)
+                ) from e
+
+            # Fall back to original error if not a validation error
+            raise CompilationServiceError(f"Template creation failed: {str(e)}") from e
 
         logger.info(f"Compilation complete: {compilation_stats['total_widgets']} widgets across {compilation_stats['total_pages']} pages")
 
@@ -759,6 +865,7 @@ class CompilationService:
             cell_ctx.custom = context.to_dict()
             cell_ctx.custom["index"] = idx
             cell_ctx.custom["index_padded"] = f"{idx:0{index_pad}d}"
+            cell_ctx.custom["page"] = idx  # Add page for @page:format tokens
 
             # Pre-format label to avoid relying solely on downstream substitution
             label_content = str(label_template or "")
@@ -1003,14 +1110,33 @@ class CompilationService:
         for widget in widgets:
             if widget.type == "anchor" and widget.properties:
                 dest_id = widget.properties.get("dest_id")
-                if dest_id:
-                    registry.add_destination(
-                        dest_id,
-                        page_number,
-                        widget.position.x,
-                        widget.position.y,
-                        getattr(widget, 'id', None)
-                    )
+                if not dest_id or not isinstance(dest_id, str):
+                    continue
+
+                resolved_dest = dest_id.strip()
+                if not resolved_dest:
+                    continue
+
+                resolved_dest = resolved_dest.replace('{PAGE}', '{page}').replace('{TOTAL_PAGES}', '{total_pages}')
+
+                if TokenProcessor.has_tokens(resolved_dest):
+                    context = RenderingTokenContext(page_num=page_number, total_pages=page_number)
+                    resolved_dest = TokenProcessor.replace_rendering_tokens(resolved_dest, context).strip()
+                    if not resolved_dest:
+                        continue
+
+                resolved_dest = resolved_dest.lower()
+
+                if widget.properties.get('dest_id') != resolved_dest:
+                    widget.properties['dest_id'] = resolved_dest
+
+                registry.add_destination(
+                    resolved_dest,
+                    page_number,
+                    widget.position.x,
+                    widget.position.y,
+                    getattr(widget, 'id', None)
+                )
 
     def _build_named_destinations(self, registry: DestinationRegistry) -> List[NamedDestination]:
         """Build named destinations from registry, with diagnostics on invalid IDs."""
@@ -1166,7 +1292,7 @@ class CompilationService:
         token_pattern = re.compile(r'[{}@]')
 
         # Canonical destination ID pattern (post-compile)
-        canonical_dest_pattern = re.compile(r'^[a-z0-9][a-z0-9:-]{1,127}$')
+        canonical_dest_pattern = re.compile(r'^[a-z0-9][a-z0-9:_-]{1,127}$')
 
         # 1. Check destination IDs for template tokens and canonical format
         for dest_id in registry.destinations.keys():
@@ -1176,7 +1302,7 @@ class CompilationService:
 
             # Canonical format validation
             if not canonical_dest_pattern.match(dest_id):
-                errors.append(f"Destination ID '{dest_id}' does not follow canonical format: ^[a-z0-9][a-z0-9:-]{{1,127}}$")
+                errors.append(f"Destination ID '{dest_id}' does not follow canonical format: ^[a-z0-9][a-z0-9:-_]{{1,127}}$")
 
             # Case normalization check
             if dest_id != dest_id.lower():
@@ -1217,10 +1343,15 @@ class CompilationService:
                 # Allow template tokens in text content (for display purposes)
                 # but warn if they look like unresolved variables
                 if token_pattern.search(widget.content):
-                    # Only warn if it looks like an unresolved variable pattern
-                    unresolved_vars = re.findall(r'\{[^}]*\}|@\w+', widget.content)
-                    if unresolved_vars:
-                        warnings.append(f"Widget {widget.id} content may have unresolved variables: {unresolved_vars}")
+                    # Find potential unresolved variables
+                    potential_unresolved = re.findall(r'\{[^}]*\}|@\w+', widget.content)
+                    if potential_unresolved:
+                        # Filter out rendering-time tokens that should remain for PDF generation
+                        rendering_tokens = {'{page}', '{total_pages}'}
+                        actual_unresolved = [var for var in potential_unresolved if var not in rendering_tokens]
+
+                        if actual_unresolved:
+                            warnings.append(f"Widget {widget.id} content may have unresolved variables: {actual_unresolved}")
 
         # 4. Validate destination uniqueness (enhanced from existing check)
         dest_ids = list(registry.destinations.keys())

@@ -140,3 +140,81 @@ def list_available_fonts() -> List[str]:
         return sorted(_FONT_MAP.keys())
     # Fallback base fonts if none present
     return sorted(list(BASE14))
+
+
+def list_font_families() -> Dict[str, List[str]]:
+    """Return font families grouped by family name with their variants."""
+    _scan_fonts()
+    families = {}
+
+    # Add base14 fonts
+    families["Helvetica"] = ["Regular", "Bold", "Oblique", "Bold Oblique"]
+    families["Times"] = ["Roman", "Bold", "Italic", "Bold Italic"]
+    families["Courier"] = ["Regular", "Bold", "Oblique", "Bold Oblique"]
+    families["Symbol"] = ["Regular"]
+    families["ZapfDingbats"] = ["Regular"]
+
+    # Process asset fonts
+    for display_name in _FONT_MAP.keys():
+        family, variant = _parse_font_name(display_name)
+        if family not in families:
+            families[family] = []
+        if variant not in families[family]:
+            families[family].append(variant)
+
+    # Sort variants within each family
+    for family in families:
+        families[family] = sorted(families[family])
+
+    return families
+
+
+def _parse_font_name(display_name: str) -> Tuple[str, str]:
+    """Parse font display name into family and variant."""
+    # Common patterns for font variants
+    variant_patterns = [
+        'Bold Oblique', 'Bold Italic', 'Bold',
+        'Oblique', 'Italic',
+        'Extra Bold', 'Semi Bold', 'Light', 'Thin',
+        'Extra Light', 'Medium', 'Black', 'Heavy',
+        'Condensed', 'Extended', 'Narrow'
+    ]
+
+    name = display_name.strip()
+
+    # Try to match variant patterns at the end
+    for variant in sorted(variant_patterns, key=len, reverse=True):
+        if name.endswith(' ' + variant):
+            family = name[:-len(' ' + variant)].strip()
+            return family, variant
+
+    # No variant found, it's a regular font
+    return name, 'Regular'
+
+
+def get_font_display_name(family: str, variant: str = 'Regular') -> str:
+    """Convert family + variant back to display name used by ReportLab."""
+    if variant == 'Regular':
+        # Special cases for base14
+        if family == 'Times' and variant == 'Regular':
+            return 'Times-Roman'
+        elif family in ['Helvetica', 'Courier', 'Symbol', 'ZapfDingbats']:
+            return family
+        else:
+            return family
+    else:
+        # For base14 fonts, use hyphen format
+        if family in ['Helvetica', 'Times', 'Courier']:
+            variant_map = {
+                'Bold': 'Bold',
+                'Italic': 'Italic' if family == 'Times' else 'Oblique',
+                'Oblique': 'Oblique',
+                'Bold Italic': 'BoldItalic' if family == 'Times' else 'BoldOblique',
+                'Bold Oblique': 'BoldOblique',
+                'Roman': 'Roman'
+            }
+            mapped_variant = variant_map.get(variant, variant.replace(' ', ''))
+            return f"{family}-{mapped_variant}"
+        else:
+            # Asset fonts use space format
+            return f"{family} {variant}"

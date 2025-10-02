@@ -10,7 +10,7 @@ import logging
 from fastapi.responses import Response
 
 from ..models import PDFGenerateRequest, PreviewGenerateRequest
-from ..services import PDFService, EinkPDFServiceError
+from ..core_services import PDFService, EinkPDFServiceError
 
 router = APIRouter(prefix="/pdf", tags=["pdf"])
 

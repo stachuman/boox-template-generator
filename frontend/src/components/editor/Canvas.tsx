@@ -284,8 +284,16 @@ const Canvas: React.FC = () => {
       justSelectedRef.current = false;
       return;
     }
-    // Clear only when clicking the canvas background
-    if (e.target === e.currentTarget) {
+
+    // Clear selection when clicking empty areas
+    // Check if the click target is a canvas element (container or inner canvas)
+    // but not a widget or other interactive element
+    const target = e.target as HTMLElement;
+    const isCanvasArea = target === e.currentTarget ||
+                        target.classList?.contains('bg-white') ||
+                        target.id === 'canvas-inner';
+
+    if (isCanvasArea) {
       clearSelection();
     }
   }, [clearSelection]);
@@ -457,6 +465,7 @@ const Canvas: React.FC = () => {
     >
       {/* Canvas */}
       <div
+        id="canvas-inner"
         ref={(node) => {
           if (canvasRef) {
             (canvasRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
@@ -470,6 +479,7 @@ const Canvas: React.FC = () => {
           transform: `scale(${zoom})`,
           transformOrigin: `${origin.x}px ${origin.y}px`,
         }}
+        onClick={handleCanvasClick}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}

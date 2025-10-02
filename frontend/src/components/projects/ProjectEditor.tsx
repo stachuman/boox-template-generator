@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Play, Download, RefreshCw, Edit2, Check, X } from 'lucide-react';
+import { ArrowLeft, Plus, Download, RefreshCw, Edit2, Check, X } from 'lucide-react';
 import { Project, Master, Plan, CompilationResult, DeviceProfile } from '@/types';
 import { useProjectStore } from '@/stores/projectStore';
-import { APIClient, downloadBlob, blobToDataURL } from '@/services/api';
+import { APIClient, downloadBlob } from '@/services/api';
 import PlanEditor from './PlanEditor';
 import PlanPreview from './PlanPreview';
 import CreateMasterModal from './CreateMasterModal';
 import ProjectSharingControls from './ProjectSharingControls';
+import PDFJobStatusComponent from './PDFJobStatus';
 
 const ProjectEditor: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -18,8 +19,6 @@ const ProjectEditor: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'masters' | 'plan' | 'preview'>('masters');
-  const [compiling, setCompiling] = useState(false);
-  const [downloadingPDF, setDownloadingPDF] = useState(false);
   const [compiledTemplate, setCompiledTemplate] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewPage, setPreviewPage] = useState<number>(1);
@@ -32,6 +31,40 @@ const ProjectEditor: React.FC = () => {
   const [showCreateMasterModal, setShowCreateMasterModal] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState<string>('');
+  const [creatingPDF, setCreatingPDF] = useState<boolean>(false);
+  const [jobInProgress, setJobInProgress] = useState<boolean>(false);
+  const [currentPDFJobId, setCurrentPDFJobId] = useState<string | null>(null);
+  const [completedPDFJobId, setCompletedPDFJobId] = useState<string | null>(null);
+
+  const storageAvailable = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+  const getActiveJobKey = () => (projectId ? `einkpdf:pdfjob:active:${projectId}` : null);
+  const getCompletedJobKey = () => (projectId ? `einkpdf:pdfjob:completed:${projectId}` : null);
+
+  const persistValue = (key: string | null, value: string | null) => {
+    if (!key || !storageAvailable) return;
+    try {
+      if (value) {
+        window.localStorage.setItem(key, value);
+      } else {
+        window.localStorage.removeItem(key);
+      }
+    } catch (err) {
+      console.warn('Failed to persist PDF job state', err);
+    }
+  };
+
+  const readValue = (key: string | null): string | null => {
+    if (!key || !storageAvailable) return null;
+    try {
+      return window.localStorage.getItem(key);
+    } catch (err) {
+      console.warn('Failed to read PDF job state', err);
+      return null;
+    }
+  };
+
+  const persistActiveJob = (jobId: string | null) => persistValue(getActiveJobKey(), jobId);
+  const persistCompletedJob = (jobId: string | null) => persistValue(getCompletedJobKey(), jobId);
 
   // Helper function to create authenticated PDF preview URL
   const createPreviewUrl = async (projectId: string): Promise<string> => {
@@ -45,10 +78,142 @@ const ProjectEditor: React.FC = () => {
   };
 
   useEffect(() => {
-    if (projectId) {
-      loadProject();
-    }
+    if (!projectId) return;
+
+    loadProject();
+
+    const initializeJobs = async () => {
+      const hasActive = await restoreActiveJobFromStorage();
+      if (hasActive) return;
+
+      const hasCompleted = await restoreCompletedJobFromStorage();
+      if (!hasCompleted) {
+        await checkForCompletedPDFJobs();
+      }
+    };
+
+    initializeJobs();
   }, [projectId]);
+
+  // Check for existing PDF jobs for this project (any status)
+  const checkForCompletedPDFJobs = async () => {
+    if (!projectId) return;
+
+    try {
+      // Check for all jobs (no status filter to get pending/processing/completed)
+      const response = await APIClient.listPDFJobs(undefined, 50, 0);
+
+      // Find most recent job for THIS project (jobs are sorted by created_at descending)
+      const mostRecentJob = response.jobs.find(job => job.project_id === projectId);
+
+      if (mostRecentJob) {
+        setCurrentPDFJobId(mostRecentJob.id);
+
+        if (mostRecentJob.status === 'pending' || mostRecentJob.status === 'processing') {
+          // Show ongoing job status
+          setJobInProgress(true);
+          setCompletedPDFJobId(null);
+          persistActiveJob(mostRecentJob.id);
+          persistCompletedJob(null);
+        } else if (mostRecentJob.status === 'completed') {
+          setJobInProgress(false);
+          setCompletedPDFJobId(mostRecentJob.id);
+          persistActiveJob(null);
+          persistCompletedJob(mostRecentJob.id);
+        } else {
+          // Failed or cancelled job
+          setJobInProgress(false);
+          setCompletedPDFJobId(null);
+          persistActiveJob(null);
+          persistCompletedJob(null);
+        }
+      } else {
+        setCurrentPDFJobId(null);
+        setJobInProgress(false);
+        persistActiveJob(null);
+        persistCompletedJob(null);
+      }
+    } catch (err) {
+      console.error('Failed to check for PDF jobs:', err);
+      // Non-fatal error, don't block UI
+    }
+  };
+
+  const restoreActiveJobFromStorage = async (): Promise<boolean> => {
+    if (!projectId) return false;
+
+    const storedJobId = readValue(getActiveJobKey());
+    if (!storedJobId) return false;
+
+    try {
+      const job = await APIClient.getPDFJob(storedJobId);
+      if (job.project_id && job.project_id !== projectId) {
+        persistActiveJob(null);
+        return false;
+      }
+
+      if (job.status === 'pending' || job.status === 'processing') {
+        setCurrentPDFJobId(job.id);
+        setCompletedPDFJobId(null);
+        setJobInProgress(true);
+        return true;
+      }
+
+      if (job.status === 'completed') {
+        setCurrentPDFJobId(job.id);
+        setCompletedPDFJobId(job.id);
+        setJobInProgress(false);
+        persistActiveJob(null);
+        persistCompletedJob(job.id);
+        return true;
+      }
+
+      persistActiveJob(null);
+    } catch (err) {
+      console.warn('Failed to restore active PDF job', err);
+      persistActiveJob(null);
+    }
+
+    return false;
+  };
+
+  const restoreCompletedJobFromStorage = async (): Promise<boolean> => {
+    if (!projectId) return false;
+
+    const storedJobId = readValue(getCompletedJobKey());
+    if (!storedJobId) return false;
+
+    try {
+      const job = await APIClient.getPDFJob(storedJobId);
+      if (job.project_id && job.project_id !== projectId) {
+        persistCompletedJob(null);
+        return false;
+      }
+
+      if (job.status === 'completed') {
+        setCurrentPDFJobId(job.id);
+        setCompletedPDFJobId(job.id);
+        setJobInProgress(false);
+        return true;
+      }
+
+      if (job.status === 'pending' || job.status === 'processing') {
+        persistCompletedJob(null);
+        persistActiveJob(job.id);
+        setCurrentPDFJobId(job.id);
+        setCompletedPDFJobId(null);
+        setJobInProgress(true);
+        return true;
+      }
+
+      persistCompletedJob(null);
+    } catch (err) {
+      console.warn('Failed to restore completed PDF job', err);
+      persistCompletedJob(null);
+    }
+
+    return false;
+  };
 
   useEffect(() => {
     // Handle tab parameter from URL and reload project data
@@ -154,38 +319,6 @@ const ProjectEditor: React.FC = () => {
     }
   };
 
-  const handleCompileProject = async () => {
-    if (!project) return;
-
-    try {
-      setCompiling(true);
-      setError(null);
-      const result: CompilationResult = await APIClient.compileProject(project.id);
-
-      // Store compiled template and page count for preview
-      setCompiledTemplate(result.template_yaml);
-      const tp = (result.compilation_stats && result.compilation_stats.total_pages) ? result.compilation_stats.total_pages : 1;
-      setTotalPages(tp);
-      setPreviewPage(1);
-      try {
-        const url = await createPreviewUrl(project.id);
-        setPreviewUrl(url);
-      } catch (err) {
-        console.error('Failed to create preview after compilation:', err);
-      }
-      setCompileWarnings(result.warnings || []);
-
-      // Show success message or stats
-      console.log('Compilation successful:', result.compilation_stats);
-
-      // Optionally show a success toast or modal with compilation stats
-      alert(`Compilation successful! Generated template with ${Object.keys(result.compilation_stats).length} rule(s). You can now preview or download the PDF.`);
-    } catch (err: any) {
-      setError(err.message || 'Failed to compile project');
-    } finally {
-      setCompiling(false);
-    }
-  };
 
   const handlePreviewPDF = async () => {
     if (!project) return;
@@ -217,27 +350,46 @@ const ProjectEditor: React.FC = () => {
     }
   };
 
-  const handleDownloadPDF = async () => {
+  const handleCreatePDF = async () => {
     if (!project) return;
+
+    setError(null);
+    setCreatingPDF(true);
+    setJobInProgress(true);
+    persistCompletedJob(null);
+
     try {
-      setDownloadingPDF(true);
-      setError(null);
-      // Ensure compiled PDF exists (or compile if missing)
-      let available = await APIClient.hasCompiledPDF(project.id);
-      if (!available) {
-        const result: CompilationResult = await APIClient.compileProject(project.id);
-        setCompiledTemplate(result.template_yaml);
-        available = true;
-      }
-      // Download PDF with proper filename
-      const blob = await APIClient.downloadProjectPDF(project.id);
-      // Create filename from project name, sanitizing for filesystem
+      const job = await APIClient.createPDFJob({
+        project_id: project.id,
+        deterministic: false,
+        strict_mode: false,
+      });
+
+      // Show job status component
+      setCurrentPDFJobId(job.id);
+      setCompletedPDFJobId(null); // Clear any previous completed job
+      persistActiveJob(job.id);
+      persistCompletedJob(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to create PDF job');
+      persistActiveJob(null);
+      setJobInProgress(false);
+    }
+    finally {
+      setCreatingPDF(false);
+    }
+  };
+
+  const handleDownloadReadyPDF = async () => {
+    if (!completedPDFJobId || !project) return;
+
+    try {
+      const blob = await APIClient.downloadPDFJob(completedPDFJobId);
       const filename = `${project.metadata.name.replace(/[^a-zA-Z0-9\-_\s]/g, '').trim()}.pdf`;
       downloadBlob(blob, filename);
     } catch (err: any) {
       setError(err.message || 'Failed to download PDF');
-    } finally {
-      setDownloadingPDF(false);
+      persistCompletedJob(null);
     }
   };
 
@@ -436,22 +588,31 @@ const ProjectEditor: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={handleCompileProject}
-            disabled={compiling || project.masters.length === 0 || project.plan.sections.length === 0}
-            className="flex items-center gap-2 px-4 py-2 border border-eink-light-gray text-eink-black rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Play className="w-5 h-5" />
-            {compiling ? 'Compiling...' : 'Test Compile'}
-          </button>
-          {/* Preview button removed; inline preview controls exist in Preview tab */}
-          <button
-            onClick={handleDownloadPDF}
-            disabled={downloadingPDF || project.masters.length === 0 || project.plan.sections.length === 0}
+            onClick={handleCreatePDF}
+            disabled={creatingPDF || jobInProgress || project.masters.length === 0 || project.plan.sections.length === 0}
             className="flex items-center gap-2 px-4 py-2 bg-eink-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download className="w-5 h-5" />
-            {downloadingPDF ? 'Generating...' : 'Download PDF'}
+            {creatingPDF ? (
+              <>
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                Preparing job...
+              </>
+            ) : (
+              <>
+                <Plus className="w-5 h-5" />
+                Create PDF
+              </>
+            )}
           </button>
+          {completedPDFJobId && (
+            <button
+              onClick={handleDownloadReadyPDF}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <Download className="w-5 h-5" />
+              Download Ready PDF
+            </button>
+          )}
         </div>
       </div>
 
@@ -459,6 +620,36 @@ const ProjectEditor: React.FC = () => {
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-red-800">{error}</p>
+        </div>
+      )}
+
+      {/* PDF Job Status */}
+      {currentPDFJobId && (
+        <div className="mb-6">
+          <PDFJobStatusComponent
+            jobId={currentPDFJobId}
+            autoDownload={false}
+            onComplete={(job) => {
+              // Job completed successfully - save job ID for download button
+              setCompletedPDFJobId(job.id);
+              setCurrentPDFJobId(job.id);
+              setJobInProgress(false);
+              persistActiveJob(null);
+              persistCompletedJob(job.id);
+            }}
+            onError={() => {
+              // Job failed
+              setJobInProgress(false);
+              persistActiveJob(null);
+              persistCompletedJob(null);
+            }}
+            onCancel={() => {
+              // Job cancelled
+              setJobInProgress(false);
+              persistActiveJob(null);
+              persistCompletedJob(null);
+            }}
+          />
         </div>
       )}
 
@@ -623,8 +814,6 @@ const ProjectEditor: React.FC = () => {
           <PlanPreview
             plan={project.plan}
             masters={project.masters}
-            onCompile={handleCompileProject}
-            isCompiling={compiling}
           />
 
           <div className="mt-4 p-4 border rounded-lg bg-white">

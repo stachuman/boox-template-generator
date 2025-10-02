@@ -441,6 +441,13 @@ class PDFService:
             logger.error("Template has no widgets - cannot generate PDF")
             raise EinkPDFServiceError("Template has no widgets - cannot generate PDF")
 
+        # Validate device profile early (fail fast)
+        try:
+            load_device_profile(profile)
+        except DeviceProfileError as e:
+            logger.error("Invalid device profile '%s': %s", profile, e)
+            raise EinkPDFServiceError(f"Invalid device profile '{profile}': {e}")
+
         try:
             # Preview/cache optimization: reuse identical PDF by content/profile/flags
             try:

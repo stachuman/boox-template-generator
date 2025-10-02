@@ -13,9 +13,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .models import HealthResponse, APIError
-from .api import templates, pdf, profiles, compile as compile_api, projects, assets, auth as auth_api
+from .api import templates, pdf, profiles, compile as compile_api, projects, assets
 from .api import public as public_api
-from .services import TemplateService
+from .api import auth_db  # Database-backed authentication
+from .api import pdf_jobs  # Async PDF job generation
+from .core_services import TemplateService
 import os
 from .websockets import handle_websocket_connection
 
@@ -47,12 +49,13 @@ app.add_middleware(
 # Include API routers
 app.include_router(templates.router, prefix="/api")
 app.include_router(pdf.router, prefix="/api")
+app.include_router(pdf_jobs.router, prefix="/api")  # Async PDF jobs
 app.include_router(profiles.router, prefix="/api")
 app.include_router(compile_api.router, prefix="/api")
 app.include_router(projects.router, prefix="/api")
 app.include_router(assets.router, prefix="/api")
 app.include_router(public_api.router, prefix="/api")
-app.include_router(auth_api.router, prefix="/api")
+app.include_router(auth_db.router, prefix="/api")  # Use database-backed auth
 
 
 @app.get("/", response_model=HealthResponse)
@@ -82,12 +85,36 @@ async def root() -> HealthResponse:
 @app.get("/health", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
     """
-    Health check endpoint.
-    
+    Health check endpoint with database connection verification.
+
     Returns:
-        Detailed health status
+        Detailed health status including database connectivity
     """
-    return await root()
+    # Test if einkpdf library is available
+    einkpdf_available = True
+    try:
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+        from einkpdf.core.schema import Template
+    except ImportError:
+        einkpdf_available = False
+
+    # Test database connectivity
+    db_available = True
+    try:
+        from sqlalchemy import text
+        from .db import get_db_context
+        with get_db_context() as db:
+            db.execute(text("SELECT 1"))
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        db_available = False
+
+    return HealthResponse(
+        status="healthy" if (einkpdf_available and db_available) else "degraded",
+        version="1.0.0",
+        einkpdf_available=einkpdf_available
+    )
 
 
 @app.websocket("/ws/{client_id}")
@@ -168,6 +195,7 @@ async def run_cleanup_on_startup() -> None:
       EINK_CLEANUP_TTL_DAYS (default 14)
       EINK_CLEANUP_MAX_TEMPLATES (optional)
     """
+    # Clean up old templates
     try:
         ttl_days = int(os.getenv("EINK_CLEANUP_TTL_DAYS", "14"))
     except ValueError:
@@ -181,6 +209,18 @@ async def run_cleanup_on_startup() -> None:
     svc = TemplateService()
     summary = svc.cleanup(ttl_days=ttl_days, max_templates=max_templates)
     logger.info(
-        "Cleanup complete: removed_files=%s removed_index=%s (ttl_days=%s max_templates=%s)",
+        "Template cleanup complete: removed_files=%s removed_index=%s (ttl_days=%s max_templates=%s)",
         summary.get("removed_files"), summary.get("removed_index"), ttl_days, max_templates
     )
+
+    # Clean up old PDF jobs
+    try:
+        from .db import get_db_context
+        from .services.pdf_job_service import PDFJobService
+
+        with get_db_context() as db:
+            job_service = PDFJobService(db)
+            cleaned_count = job_service.cleanup_old_jobs()
+            logger.info(f"PDF job cleanup complete: removed {cleaned_count} old jobs")
+    except Exception as e:
+        logger.error(f"PDF job cleanup failed: {e}")

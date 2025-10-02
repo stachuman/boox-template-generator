@@ -30,7 +30,8 @@ def _resolve_data_root() -> Path:
     if env_root:
         root = Path(env_root)
     else:
-        root = Path(__file__).resolve().parents[1] / "data"
+        # Use data directory relative to backend directory (parent.parent / data)
+        root = Path(__file__).resolve().parent.parent / "data"
     root.mkdir(parents=True, exist_ok=True)
     return root
 

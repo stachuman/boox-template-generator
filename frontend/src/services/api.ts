@@ -22,7 +22,10 @@ import {
   AddMasterRequest,
   UpdateMasterRequest,
   Plan,
-  MakeProjectPublicRequest
+  MakeProjectPublicRequest,
+  PDFJob,
+  PDFJobCreateRequest,
+  PDFJobListResponse
 } from '@/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -175,6 +178,38 @@ export class APIClient {
     return response.data;
   }
 
+  // PDF Jobs (Async PDF Generation)
+  static async createPDFJob(request: PDFJobCreateRequest): Promise<PDFJob> {
+    const response: AxiosResponse<PDFJob> = await apiClient.post('/pdf/jobs', request);
+    return response.data;
+  }
+
+  static async getPDFJob(jobId: string): Promise<PDFJob> {
+    const response: AxiosResponse<PDFJob> = await apiClient.get(`/pdf/jobs/${jobId}`);
+    return response.data;
+  }
+
+  static async listPDFJobs(statusFilter?: string, limit: number = 50, offset: number = 0): Promise<PDFJobListResponse> {
+    const params = new URLSearchParams();
+    if (statusFilter) params.append('status_filter', statusFilter);
+    params.append('limit', limit.toString());
+    params.append('offset', offset.toString());
+
+    const response: AxiosResponse<PDFJobListResponse> = await apiClient.get(`/pdf/jobs?${params.toString()}`);
+    return response.data;
+  }
+
+  static async downloadPDFJob(jobId: string): Promise<Blob> {
+    const response = await apiClient.get(`/pdf/jobs/${jobId}/download`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  }
+
+  static async cancelPDFJob(jobId: string): Promise<void> {
+    await apiClient.delete(`/pdf/jobs/${jobId}`);
+  }
+
   // Health Check
   static async healthCheck(): Promise<{ status: string; version: string; einkpdf_available: boolean }> {
     const response = await apiClient.get('/health');
@@ -295,6 +330,11 @@ export class APIClient {
   // Assets
   static async getFonts(): Promise<string[]> {
     const response: AxiosResponse<string[]> = await apiClient.get('/assets/fonts');
+    return response.data;
+  }
+
+  static async getFontFamilies(): Promise<Record<string, string[]>> {
+    const response: AxiosResponse<Record<string, string[]>> = await apiClient.get('/assets/font-families');
     return response.data;
   }
 }
