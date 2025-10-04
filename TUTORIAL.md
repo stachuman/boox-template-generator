@@ -153,6 +153,16 @@ Variables are placeholders that get replaced with real information. They're writ
 - `{weekday}` → Wednesday
 - `{month_name}` → January
 - `{day}` → 15
+- `{month:02d}` → 01 (month with leading zero)
+- `{day:02d}` → 05 (day with leading zero)
+
+**Format Specifiers:**
+
+You can format numbers with padding using the `:02d` syntax:
+- `{day}` → 1, 2, 3... 31 (no padding)
+- `{day:02d}` → 01, 02, 03... 31 (always 2 digits)
+- `{month:02d}` → 01, 02... 12 (always 2 digits)
+- `{index:03d}` → 001, 002... 100 (always 3 digits)
 
 **Pro Tip:** When you type a variable, you'll see a preview showing what it will look like!
 
@@ -249,6 +259,123 @@ Remember: Master pages are reusable templates. The time you spend getting this o
 7. Preview and adjust spacing
 
 That's it! You've created your first master page template.
+
+---
+
+## Variable Reference Guide
+
+This section provides a complete reference for all available variables and formatting options.
+
+### Date and Time Variables
+
+**Basic Date Variables:**
+- `{date}` - ISO format: 2026-01-15
+- `{date_long}` - Full format: Wednesday, January 15, 2026
+- `{weekday}` - Day name: Wednesday
+- `{weekday_short}` - Abbreviated: Wed
+- `{month_name}` - Month name: January
+- `{month_short}` - Abbreviated: Jan
+
+**Numeric Date Components:**
+- `{year}` - Full year: 2026
+- `{month}` - Month number: 1, 2... 12
+- `{day}` - Day number: 1, 2... 31
+- `{week}` - Week number in year: 1, 2... 52
+
+**Formatted Date Components (with padding):**
+- `{month:02d}` - Padded month: 01, 02... 12
+- `{day:02d}` - Padded day: 01, 02... 31
+- `{week:02d}` - Padded week: 01, 02... 52
+
+### Index and Page Variables
+
+**For Multi-Copy Pages:**
+- `{index}` - Current copy number: 1, 2, 3...
+- `{index:02d}` - Padded to 2 digits: 01, 02, 03...
+- `{index:03d}` - Padded to 3 digits: 001, 002, 003...
+
+**For Section Information:**
+- `{section_name}` - Name of current plan section
+- `{total_pages}` - Total pages in this section
+
+### Format Specifier Syntax
+
+The `:02d` syntax controls how numbers are displayed:
+
+**Pattern: `{variable:0Nd}`**
+- `0` - Pad with zeros (can also use spaces)
+- `N` - Total width (number of digits)
+- `d` - Decimal integer format
+
+**Examples:**
+```
+{day:02d}      → 01, 02... 31 (always 2 digits)
+{index:03d}    → 001, 002... 999 (always 3 digits)
+{week:2d}      → 1, 2... 52 (at least 2 digits, no leading zeros)
+{month:02d}    → 01, 02... 12 (always 2 digits)
+```
+
+**Common Use Cases:**
+- File naming: `page_{index:03d}.pdf` → page_001.pdf, page_002.pdf
+- Padded dates: `{year}-{month:02d}-{day:02d}` → 2026-01-05
+- Sequential IDs: `note_{index:04d}` → note_0001, note_0002
+
+### Variable Usage in Different Contexts
+
+**In Text Widgets:**
+```
+"Today is {date_long}"           → Today is Wednesday, January 15, 2026
+"Page {index:03d} of 365"        → Page 001 of 365
+"Week {week} - {month_name}"     → Week 3 - January
+```
+
+**In Link Templates:**
+```
+day({date} + 1 day)              → Links to tomorrow
+month({year}-{month:02d})        → Links to current month
+notes({index})                    → Links to note by index
+```
+
+**In Anchor IDs:**
+```
+day:{date}                        → day:2026-01-15
+month:{year}-{month:02d}         → month:2026-01
+note:{index:03d}                  → note:001
+```
+
+### Calendar-Specific Variables
+
+When using the Calendar widget, additional variables are available:
+
+**Calendar Display:**
+- `{year}` - Year for the calendar
+- `{month}` - Month number (1-12)
+- `{month_name}` - Full month name
+
+**Calendar Configuration:**
+- Use `{year}` and `{month}` to set which month to display
+- Calendar automatically shows all days in that month
+- Can include week numbers if configured
+
+### Best Practices for Variables
+
+**1. Use Padding for Sorting:**
+- `{index:03d}` ensures proper alphabetical sorting
+- `{month:02d}-{day:02d}` keeps dates in order
+
+**2. Match Link and Anchor Formats:**
+- If link uses `day({date})`, anchor must use `day:{date}`
+- If link uses `month({year}-{month:02d})`, anchor must use `month:{year}-{month:02d}`
+
+**3. Preview Before Generating:**
+- Always check the variable preview to see actual values
+- Verify formatting appears as expected
+- Test with edge cases (month 12, day 31, etc.)
+
+**4. Keep It Simple:**
+- Start with basic variables like `{date}` and `{weekday}`
+- Add formatting when you need specific output
+- Don't over-complicate if simple variables work
 
 ---
 
@@ -362,6 +489,8 @@ Most planners have multiple sections. Here's a simple structure:
 - `{date}`: 2026-01-15
 - `{date_long}`: Wednesday, January 15, 2026
 - `{weekday}`: Wednesday
+- `{month:02d}`: 01 (padded month number)
+- `{day:02d}`: 05 (padded day number)
 
 ### Testing Your Plan
 
@@ -484,7 +613,7 @@ Let's add a simple link to your daily master page that goes to the next day.
 - This is what users will see and tap
 
 **3. Configure the Link Destination**
-- Link template: `day(@date + 1 day)`
+- Link template: `day({date} + 1 day)`
 - This tells the system "link to tomorrow's page"
 
 **4. Test the Link**
@@ -499,23 +628,23 @@ Link templates are instructions for where to go. They use the same variables as 
 
 **Daily Navigation:**
 ```
-Previous Day: day(@date - 1 day)
-Next Day: day(@date + 1 day)
-This Month: month(@year-@month_padded)
+Previous Day: day({date} - 1 day)
+Next Day: day({date} + 1 day)
+This Month: month({year}-{month:02d})
 ```
 
 **Monthly Navigation:**
 ```
-Previous Month: month(@year-@month_padded - 1 month)
-Next Month: month(@year-@month_padded + 1 month)
-This Year: year(@year)
+Previous Month: month({year}-{month:02d} - 1 month)
+Next Month: month({year}-{month:02d} + 1 month)
+This Year: year({year})
 ```
 
 **Section Navigation:**
 ```
-Notes Section: notes(@index)
+Notes Section: notes({index})
 Back to Index: index:main
-Today's Page: day(@today)
+Today's Page: day({today})
 ```
 
 ### Creating Anchor Points
@@ -533,11 +662,11 @@ For links to work, you need **anchor points** - these are invisible markers that
 
 **2. Set the Anchor ID**
 - For daily pages: `day:{date}`
-- For monthly pages: `month:{year}-{month_padded}`
+- For monthly pages: `month:{year}-{month:02d}`
 - For note pages: `notes:{index}`
 
 **3. Match Links to Anchors**
-- Link template: `day(@date + 1 day)`
+- Link template: `day({date} + 1 day)`
 - Becomes: `day:2026-01-16`
 - Matches anchor: `day:{date}` on January 16th page
 - Which becomes: `day:2026-01-16`
@@ -560,7 +689,7 @@ Anchor: day:{date}
 Top: "← 2026" (links to yearly overview)
 Calendar grid: Each day number links to that daily page
 Bottom: "← Previous Month" and "Next Month →"
-Anchor: month:{year}-{month_padded}
+Anchor: month:{year}-{month:02d}
 ```
 
 **Index Page:**
@@ -573,7 +702,7 @@ No anchor needed (this is often the starting point)
 ### Link Preview Feature
 
 When you create links, you'll see a preview showing:
-- What you typed: `day(@date + 1 day)`
+- What you typed: `day({date} + 1 day)`
 - What it becomes: `day:2026-01-16, day:2026-01-17...`
 - Required anchor format: `day:{date}`
 
@@ -602,7 +731,7 @@ When you create links, you'll see a preview showing:
 ### Common Link Mistakes to Avoid
 
 **1. Mismatched Link and Anchor Names**
-- Link: `day(@date)` → `day:2026-01-15`
+- Link: `day({date})` → `day:2026-01-15`
 - Anchor: `daily:{date}` → `daily:2026-01-15`
 - **Problem:** "day" ≠ "daily" - link won't work
 
@@ -635,12 +764,12 @@ For each page type, ensure you have:
 **Add to your daily master page:**
 1. **Next Day Link:**
    - Text: "Tomorrow →"
-   - Template: `day(@date + 1 day)`
+   - Template: `day({date} + 1 day)`
    - Position: Bottom right
 
 2. **Previous Day Link:**
    - Text: "← Yesterday"
-   - Template: `day(@date - 1 day)`
+   - Template: `day({date} - 1 day)`
    - Position: Bottom left
 
 3. **Anchor:**
