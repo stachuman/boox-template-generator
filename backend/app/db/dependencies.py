@@ -4,9 +4,9 @@ FastAPI dependencies for database services.
 Provides dependency injection for auth services, database sessions, etc.
 """
 
-from typing import Generator
+from typing import Generator, Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -46,11 +46,14 @@ def get_password_reset_service(
 
 
 def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> User:
     """
     Dependency to get current authenticated user from JWT token.
+
+    Supports admin impersonation via admin_impersonate cookie.
 
     Raises:
         HTTPException 401: If token is invalid or user not found
@@ -94,6 +97,27 @@ def get_current_user(
             detail="Account is inactive"
         )
 
+    # Check for admin impersonation
+    import logging
+    logger = logging.getLogger(__name__)
+
+    impersonate_cookie = request.cookies.get("admin_impersonate")
+    logger.info(f"Checking impersonation for user {user.username} (is_admin={user.is_admin}), cookie={impersonate_cookie}")
+
+    if impersonate_cookie and user.is_admin:
+        try:
+            admin_id, impersonated_user_id = impersonate_cookie.split("|")
+            logger.info(f"Impersonation cookie parsed: admin_id={admin_id}, impersonated_user_id={impersonated_user_id}, current_user_id={user.id}")
+            if admin_id == user.id:
+                # Admin is impersonating, return the impersonated user
+                impersonated_user = auth_service.get_user_by_id(impersonated_user_id)
+                logger.info(f"Admin {user.username} impersonating {impersonated_user.username}")
+                return impersonated_user
+        except (ValueError, UserNotFoundError) as e:
+            # Invalid impersonation cookie, ignore it
+            logger.warning(f"Invalid impersonation cookie: {e}")
+            pass
+
     return user
 
 
@@ -110,5 +134,27 @@ def get_current_active_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user"
+        )
+    return current_user
+
+
+def get_current_admin_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    Dependency to get current admin user.
+
+    Raises:
+        HTTPException 403: If user is not an admin
+
+    Usage:
+        @app.get("/admin/users")
+        def list_users(admin: User = Depends(get_current_admin_user)):
+            return get_all_users()
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
         )
     return current_user

@@ -108,7 +108,8 @@ class CalendarRenderer(BaseWidgetRenderer):
 
         # Parse optional properties with validation
         config['show_weekdays'] = bool(props.get('show_weekdays', True))
-        config['show_month_year'] = bool(props.get('show_month_year', True))
+        config['show_month_name'] = bool(props.get('show_month_name', True))
+        config['show_year'] = bool(props.get('show_year', True))
         config['show_grid_lines'] = bool(props.get('show_grid_lines', True))
         config['layout_orientation'] = props.get('layout_orientation', 'horizontal')
 
@@ -262,7 +263,8 @@ class CalendarRenderer(BaseWidgetRenderer):
         """Render monthly calendar layout using TextEngine for all text."""
         start_date = config['start_date']
         show_weekdays = config['show_weekdays']
-        show_month_year = config['show_month_year']
+        show_month_name = config['show_month_name']
+        show_year = config['show_year']
         show_grid_lines = config['show_grid_lines']
         cell_min_size = config['cell_min_size']
         first_day_of_week = config['first_day_of_week']
@@ -311,7 +313,8 @@ class CalendarRenderer(BaseWidgetRenderer):
 
         # Reserve space for headers
         font_size = text_options.font_size
-        header_height = font_size * 2 if show_month_year else 0
+        show_header = show_month_name or show_year
+        header_height = font_size * 2 if show_header else 0
         weekday_height = font_size * 1.5 if show_weekdays else 0
         available_height = calendar_height - header_height - weekday_height
 
@@ -354,10 +357,17 @@ class CalendarRenderer(BaseWidgetRenderer):
                     raise
 
         # Month and year header (locale aware) using TextEngine
-        if show_month_year:
+        if show_header:
             locale = str(props.get('locale', 'en')).lower()
             month_names = get_month_names(locale, short=(month_name_format != 'long'))
-            header_text = f"{month_names[month - 1]} {year}"
+
+            # Build header text based on what to show
+            header_parts = []
+            if show_month_name:
+                header_parts.append(month_names[month - 1])
+            if show_year:
+                header_parts.append(str(year))
+            header_text = " ".join(header_parts)
 
             # Process tokens in header text
             try:
@@ -576,7 +586,8 @@ class CalendarRenderer(BaseWidgetRenderer):
         props = getattr(widget, 'properties', {}) or {}
 
         show_weekdays = config['show_weekdays']
-        show_month_year = config['show_month_year']
+        show_month_name = config['show_month_name']
+        show_year = config['show_year']
         show_grid_lines = config['show_grid_lines']
         cell_min_size = config['cell_min_size']
         text_align = text_options.text_align
@@ -624,7 +635,8 @@ class CalendarRenderer(BaseWidgetRenderer):
         base_x = cal_pos['x']
         base_y = cal_pos['y']
 
-        header_height = font_size * 2 if show_month_year else 0.0
+        show_header = show_month_name or show_year
+        header_height = font_size * 2 if show_header else 0.0
         weekday_height = font_size * 1.5 if show_weekdays else 0.0
         time_gutter_width = font_size * 2.2 if show_time_gutter else 0.0
 
@@ -640,11 +652,21 @@ class CalendarRenderer(BaseWidgetRenderer):
 
         month_names = get_month_names(locale, short=(month_name_format != 'long'))
         week_number = week_days[0].isocalendar()[1]
-        header_text = f"{month_names[week_days[0].month - 1]} {week_days[0].year} — Week {week_number}"
+
+        # Build header text based on what to show
+        header_parts = []
+        if show_month_name:
+            header_parts.append(month_names[week_days[0].month - 1])
+        if show_year:
+            header_parts.append(str(week_days[0].year))
+        if header_parts:
+            header_text = f"{' '.join(header_parts)} — Week {week_number}"
+        else:
+            header_text = f"Week {week_number}"
 
         grid_top = base_y + calendar_height
 
-        if show_month_year:
+        if show_header:
             header_box = {
                 'x': base_x,
                 'y': grid_top - font_size,
@@ -799,7 +821,8 @@ class CalendarRenderer(BaseWidgetRenderer):
         props = getattr(widget, 'properties', {}) or {}
 
         show_weekdays = config['show_weekdays']
-        show_month_year = config['show_month_year']
+        show_month_name = config['show_month_name']
+        show_year = config['show_year']
         show_grid_lines = config['show_grid_lines']
         cell_min_size = config['cell_min_size']
         text_align = text_options.text_align
@@ -846,7 +869,8 @@ class CalendarRenderer(BaseWidgetRenderer):
         base_x = cal_pos['x']
         base_y = cal_pos['y']
 
-        header_height = font_size * 2 if show_month_year else 0.0
+        show_header = show_month_name or show_year
+        header_height = font_size * 2 if show_header else 0.0
         time_header_height = font_size * 1.5 if show_time_grid else 0.0
         weekday_gutter_width = font_size * 4.0 if show_weekdays else 0.0
 
@@ -862,11 +886,21 @@ class CalendarRenderer(BaseWidgetRenderer):
 
         month_names = get_month_names(locale, short=(month_name_format != 'long'))
         week_number = week_days[0].isocalendar()[1]
-        header_text = f"{month_names[week_days[0].month - 1]} {week_days[0].year} — Week {week_number}"
+
+        # Build header text based on what to show
+        header_parts = []
+        if show_month_name:
+            header_parts.append(month_names[week_days[0].month - 1])
+        if show_year:
+            header_parts.append(str(week_days[0].year))
+        if header_parts:
+            header_text = f"{' '.join(header_parts)} — Week {week_number}"
+        else:
+            header_text = f"Week {week_number}"
 
         grid_top = base_y + calendar_height
 
-        if show_month_year:
+        if show_header:
             header_box = {
                 'x': base_x,
                 'y': grid_top - font_size,

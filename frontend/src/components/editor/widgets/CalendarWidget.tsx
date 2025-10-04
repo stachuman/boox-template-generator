@@ -21,7 +21,8 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
   const calendarType = calendarProps.calendar_type || 'monthly';
   const startDate = calendarProps.start_date ? new Date(calendarProps.start_date) : new Date();
   const showWeekdays = calendarProps.show_weekdays !== false;
-  const showMonthYear = calendarProps.show_month_year !== false;
+  const showMonthName = calendarProps.show_month_name !== false;
+  const showYear = calendarProps.show_year !== false;
   const showGridLines = calendarProps.show_grid_lines !== false;
   const weekStartDay = calendarProps.first_day_of_week || 'monday'; // European default
   const cellMinSize = Math.max(20, calendarProps.cell_min_size || 44);
@@ -54,7 +55,8 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
       : Math.max(4, Math.min(6, weeksNeeded));
 
     const gridHeight = widget.position.height;
-    const headerHeight = showMonthYear ? calendarFontSize * 2 : 0;
+    const showHeader = showMonthName || showYear;
+    const headerHeight = showHeader ? calendarFontSize * 2 : 0;
     const weekdayHeight = showWeekdays ? calendarFontSize * 1.5 : 0;
     const minRequiredHeight = headerHeight + weekdayHeight + (actualWeeks * cellMinSize);
     isWidgetTooSmall = minRequiredHeight > gridHeight;
@@ -98,7 +100,8 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
     const gridWidth = widget.position.width - gutterWidth;
     const gridHeight = widget.position.height;
 
-    const headerHeight = showMonthYear ? calendarFontSize * 2 : 0;
+    const showHeader = showMonthName || showYear;
+    const headerHeight = showHeader ? calendarFontSize * 2 : 0;
     const weekdayHeight = showWeekdays ? calendarFontSize * 1.5 : 0;
     const availableHeight = gridHeight - headerHeight - weekdayHeight;
 
@@ -119,7 +122,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
         }}
       >
         {/* Week Header */}
-        {showMonthYear && (
+        {showHeader && (
           <div
             className="text-center font-semibold border-b"
             style={{
@@ -128,7 +131,10 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
               borderColor: showGridLines ? '#ccc' : 'transparent'
             }}
           >
-            {weekDays[0].toLocaleDateString(locale, { month: 'short', year: 'numeric' })} - Week {Math.ceil(weekDays[0].getDate() / 7)}
+            {[
+              showMonthName ? weekDays[0].toLocaleDateString(locale, { month: 'short' }) : null,
+              showYear ? weekDays[0].toLocaleDateString(locale, { year: 'numeric' }) : null
+            ].filter(Boolean).join(' ')} - Week {Math.ceil(weekDays[0].getDate() / 7)}
           </div>
         )}
 
@@ -234,7 +240,8 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
     const gridWidth = widget.position.width - weekdayGutterWidth;
     const gridHeight = widget.position.height;
 
-    const headerHeight = showMonthYear ? calendarFontSize * 2 : 0;
+    const showHeader = showMonthName || showYear;
+    const headerHeight = showHeader ? calendarFontSize * 2 : 0;
     const timeHeaderHeight = showTimeGrid ? calendarFontSize * 1.5 : 0;
     const availableHeight = gridHeight - headerHeight - timeHeaderHeight;
 
@@ -261,7 +268,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
         }}
       >
         {/* Week Header */}
-        {showMonthYear && (
+        {showHeader && (
           <div
             className="text-center font-semibold border-b"
             style={{
@@ -270,7 +277,10 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
               borderColor: showGridLines ? '#ccc' : 'transparent'
             }}
           >
-            {weekDays[0].toLocaleDateString(locale, { month: 'short', year: 'numeric' })} - Week {Math.ceil(weekDays[0].getDate() / 7)}
+            {[
+              showMonthName ? weekDays[0].toLocaleDateString(locale, { month: 'short' }) : null,
+              showYear ? weekDays[0].toLocaleDateString(locale, { year: 'numeric' }) : null
+            ].filter(Boolean).join(' ')} - Week {Math.ceil(weekDays[0].getDate() / 7)}
           </div>
         )}
 
@@ -395,7 +405,8 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
 
       // Calculate dimensions
       const gridHeight = widget.position.height;
-      const headerHeight = showMonthYear ? calendarFontSize * 2 : 0;
+      const showHeader = showMonthName || showYear;
+    const headerHeight = showHeader ? calendarFontSize * 2 : 0;
       const weekdayHeight = showWeekdays ? calendarFontSize * 1.5 : 0;
       const availableHeight = gridHeight - headerHeight - weekdayHeight;
 
@@ -478,7 +489,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
           }}
         >
           {/* Month/Year Header */}
-          {showMonthYear && (
+          {showHeader && (
             <div
               className="text-center font-bold"
               style={{
@@ -487,7 +498,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
                 borderBottom: showGridLines ? '1px solid #ccc' : 'none'
               }}
             >
-              {monthNames[month]} {year}
+              {[showMonthName ? monthNames[month] : null, showYear ? year : null].filter(Boolean).join(' ')}
             </div>
           )}
 

@@ -16,6 +16,7 @@ import PublicRoute from '@/components/common/PublicRoute';
 import LoginPage from '@/components/auth/LoginPage';
 import RegisterPage from '@/components/auth/RegisterPage';
 import PasswordResetPage from '@/components/auth/PasswordResetPage';
+import AdminDashboard from '@/pages/AdminDashboard';
 import type { Project } from '@/types';
 
 const AppShell = () => (
@@ -67,6 +68,7 @@ const App: React.FC = () => {
             <Route path="gallery" element={<GalleryRoute />} />
             <Route path="gallery/id/:projectId" element={<PublicProjectDetailRoute />} />
             <Route path="gallery/:slug" element={<PublicProjectDetailRoute />} />
+            <Route path="admin" element={<AdminDashboard />} />
           </Route>
 
           <Route

@@ -57,7 +57,8 @@ const PublicProjectCard = ({ project, onCloneSuccess, onView }: PublicProjectCar
   };
 
   const isCloning = cloningId === project.id;
-  const pdfPreviewUrl = `/api/public/projects/${project.id}/pdf?inline=1#page=1`;
+  // Add cache-busting parameter using updated_at timestamp to force reload when PDF changes
+  const pdfPreviewUrl = `/api/public/projects/${project.id}/pdf?inline=1&t=${new Date(project.updated_at).getTime()}#page=1`;
 
   return (
     <div

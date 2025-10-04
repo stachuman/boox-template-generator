@@ -337,6 +337,53 @@ async def compile_project(project_id: str, current_user: User = Depends(get_curr
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"PDF generation failed: {exc}") from exc
 
+    # If project is public, sync all project files to public directory and update timestamp
+    try:
+        public_dir = public_project_manager._public_root / project_id  # noqa: SLF001
+        if public_dir.exists():
+            # Project is public - sync all project files (not just PDF)
+            source_dir = _project_dir(current_user, project_id)
+
+            # Sync compiled directory (PDF and YAML)
+            public_compiled_dir = public_dir / "compiled"
+            public_compiled_dir.mkdir(parents=True, exist_ok=True)
+            if (compiled_dir / "latest.pdf").exists():
+                shutil.copy2(compiled_dir / "latest.pdf", public_compiled_dir / "latest.pdf")
+            if (compiled_dir / "latest.yaml").exists():
+                shutil.copy2(compiled_dir / "latest.yaml", public_compiled_dir / "latest.yaml")
+
+            # Sync masters directory
+            masters_dir = source_dir / "masters"
+            if masters_dir.exists():
+                public_masters_dir = public_dir / "masters"
+                if public_masters_dir.exists():
+                    shutil.rmtree(public_masters_dir)
+                shutil.copytree(masters_dir, public_masters_dir)
+
+            # Sync plan.yaml
+            plan_path = source_dir / "plan.yaml"
+            if plan_path.exists():
+                shutil.copy2(plan_path, public_dir / "plan.yaml")
+
+            # Sync project.yaml
+            project_yaml_path = source_dir / "project.yaml"
+            if project_yaml_path.exists():
+                shutil.copy2(project_yaml_path, public_dir / "project.yaml")
+
+            # Update the public project's updated_at timestamp
+            with public_project_manager._lock:  # noqa: SLF001
+                entry = public_project_manager._index.get(project_id)  # noqa: SLF001
+                if entry:
+                    from datetime import timezone
+                    entry.updated_at = datetime.now(timezone.utc).isoformat()
+                    # Also update metadata in index to reflect any project changes
+                    entry.metadata = project.metadata.model_dump()
+                    public_project_manager._index[project_id] = entry  # noqa: SLF001
+                    public_project_manager._save_index()  # noqa: SLF001
+    except Exception as e:
+        # Don't fail compilation if public sync fails - just log it
+        logging.warning(f"Failed to sync project files to public directory: {e}")
+
     return CompileProjectResponse(
         template_yaml=template_yaml,
         compilation_stats=result.compilation_stats,

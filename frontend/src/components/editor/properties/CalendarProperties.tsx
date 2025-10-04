@@ -116,10 +116,19 @@ const CalendarProperties: React.FC<CalendarPropertiesProps> = ({ widget, onUpdat
               onChange={(checked) => updateProperty('show_weekdays', checked)}
             />
             <CheckboxInput
-              label="Show Month/Year"
-              checked={properties.show_month_year !== false}
-              onChange={(checked) => updateProperty('show_month_year', checked)}
+              label="Show Month Name"
+              checked={properties.show_month_name !== false}
+              onChange={(checked) => updateProperty('show_month_name', checked)}
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <CheckboxInput
+              label="Show Year"
+              checked={properties.show_year !== false}
+              onChange={(checked) => updateProperty('show_year', checked)}
+            />
+            <div></div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

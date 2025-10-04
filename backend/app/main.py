@@ -17,6 +17,7 @@ from .api import templates, pdf, profiles, compile as compile_api, projects, ass
 from .api import public as public_api
 from .api import auth_db  # Database-backed authentication
 from .api import pdf_jobs  # Async PDF job generation
+from .api import admin  # Admin endpoints
 from .core_services import TemplateService
 import os
 from .websockets import handle_websocket_connection
@@ -56,6 +57,7 @@ app.include_router(projects.router, prefix="/api")
 app.include_router(assets.router, prefix="/api")
 app.include_router(public_api.router, prefix="/api")
 app.include_router(auth_db.router, prefix="/api")  # Use database-backed auth
+app.include_router(admin.router, prefix="/api")  # Admin endpoints
 
 
 @app.get("/", response_model=HealthResponse)

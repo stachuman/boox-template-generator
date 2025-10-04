@@ -70,52 +70,11 @@ async def download_public_project_pdf(project_id: str, inline: bool = False):
     # Check if compiled PDF exists in the public directory
     pdf_path = public_dir / "compiled" / "latest.pdf"
     if not pdf_path.exists():
-        # Try to compile the project on-demand
-        try:
-            from einkpdf.services.compilation_service import CompilationService
-            from einkpdf.core.profiles import load_device_profile
-
-            compilation_service = CompilationService()
-
-            # Load device profile
-            try:
-                profile_obj = load_device_profile(project.metadata.device_profile)
-                device_profile_payload = profile_obj.model_dump()
-            except Exception:
-                device_profile_payload = None
-
-            # Compile the project
-            result = compilation_service.compile_project(project, device_profile_payload)
-
-            # Generate PDF
-            import yaml
-
-            template_yaml = yaml.safe_dump(
-                convert_enums_for_serialization(result.template.model_dump()),
-                sort_keys=False,
-                allow_unicode=True,
-            )
-
-            # Create compiled directory
-            compiled_dir = public_dir / "compiled"
-            compiled_dir.mkdir(parents=True, exist_ok=True)
-
-            # Generate PDF
-            pdf_bytes, _ = pdf_service.generate_pdf_with_warnings(
-                yaml_content=template_yaml,
-                profile=project.metadata.device_profile,
-                deterministic=True,
-            )
-
-            # Save PDF
-            with open(pdf_path, "wb") as f:
-                f.write(pdf_bytes)
-
-        except Exception as exc:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to generate PDF: {exc}"
-            ) from exc
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"PDF not available for project '{project_id}'. The project owner needs to compile it first."
+        )
+        # No compile on demand!
 
     # Read and return PDF
     try:

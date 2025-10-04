@@ -1,93 +1,76 @@
-version: "3.9"
+0version: "3.9"
 
 services:
   backend:
+    image: eink-backend:latest
     build:
       context: .
       dockerfile: Dockerfile.backend
     environment:
-      # Database configuration (Phase 0 - SQLite with WAL mode)
-      - DATABASE_URL=sqlite:///data/einkpdf.sqlite
-      - DB_ECHO=false
-
       # Core application settings
-      - APP_NAME=einkpdf
-      - APP_VERSION=0.2.3
-      - DEBUG=false
+      - DEBUG=false  # Production mode - enables secure cookies for HTTPS
       - EINK_CLEANUP_TTL_DAYS=14
       - EINK_PROFILE_DIR=/app/config/profiles
       - EINK_DATA_DIR=/app/backend/data
+      # - EINK_CLEANUP_MAX_TEMPLATES=500
 
-      # Storage paths (Phase 0 - unified data directory)
-      - STORAGE_DIR=/app/backend/data
-      - ASSETS_DIR=/app/backend/data/assets
-      - JOBS_DIR=/app/backend/data/jobs
+      # JWT Authentication
+      - EINK_JWT_SECRET_FILE=/app/backend/data/users/jwt_secret.txt
+      - EINK_JWT_ALGORITHM=HS256
+      - EINK_JWT_EXPIRES_MINUTES=43200  # 30 days
 
-      # JWT Authentication settings
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secrNicIn-change-i892oduction}
-      - JWT_ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=30
-      - REFRESH_TOKEN_EXPIRE_DAYS=7
-
-      # Password reset settings
+      # Password reset
       - EINK_PASSWORD_RESET_TTL_MINUTES=60
-      - EINK_PASSWORD_RESET_URL=${PASSWORD_RESET_URL:-http://localhost:3000/reset-password}
+      # Frontend will be served under Traefik on the same host; use public URL if you send links in emails:
+      - EINK_PASSWORD_RESET_URL=${PASSWORD_RESET_URL:-https://dokumenty.cgpsmapper.com/reset-password}
 
-      # Email settings (for password reset)
-      # For development, emails will be saved to files
+      # Email (file-based by default; switch to SMTP in production when ready)
       - EINK_EMAIL_OUTPUT_DIR=/app/backend/data/emails
-      # For production, configure SMTP:
       # - EINK_SMTP_HOST=smtp.example.com
       # - EINK_SMTP_PORT=587
       # - EINK_SMTP_USERNAME=noreply@example.com
       # - EINK_SMTP_PASSWORD=your_smtp_password
       # - EINK_SMTP_FROM=noreply@example.com
       # - EINK_SMTP_USE_TLS=true
-
-      # PDF Generation Limits (Phase 1)
-      - MAX_PDF_PAGES=1000
-      - MAX_PDF_SIZE_MB=50
-      - PDF_TIMEOUT_SECONDS=600
-
-      # Image Upload Limits (Phase 1)
-      - MAX_IMAGE_SIZE_BYTES=524288  # 0.5MB
-
-      # Rate Limiting (Phase 1)
-      - RATE_LIMIT_ENABLED=true
-      - PDF_GENERATE_RATE_LIMIT=10/minute
-      - PDF_PREVIEW_RATE_LIMIT=30/minute
-      - IMAGE_UPLOAD_RATE_LIMIT=20/minute
-
-      # CORS configuration
-      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173
-
-      # Logging
-      - LOG_LEVEL=INFO
-      - LOG_FORMAT=json
     volumes:
-      # Phase 0: Unified data directory for database, assets, jobs, and user projects
-      - eink_data:/app/backend/data
-      - ./config/profiles:/app/config/profiles:ro
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      # Keep QNAP bind-mounts
+      - /share/homes/staszek/eink/data:/app/backend/data
+      - /share/homes/staszek/eink/config/profiles:/app/config/profiles:ro
+    # Do NOT publish backend to the host; Traefik/front will reach it via the Docker network
+    restart: unless-stopped
+    networks:
+      - proxy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/health || exit 1"]
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      timeout: 5s
+      retries: 5
 
   frontend:
+    image: eink-frontend:latest
     build:
       context: .
       dockerfile: Dockerfile.frontend
+    # Optional: keep host port if you also want to reach it directly (outside Traefik)
     ports:
       - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       - backend
     environment:
-      - VITE_API_BASE_URL=http://localhost:${BACKEND_PORT:-8000}/api
+      # IMPORTANT: Same-origin API to avoid 'localhost' in the browser.
+      # Your frontend web server (e.g., nginx) should proxy /api -> http://backend:8000
+      - VITE_API_BASE_URL=/api
+    restart: unless-stopped
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
 
-volumes:
-  # Phase 0: Unified data directory for all persistent data
-  eink_data: {}
+networks:
+  proxy:
+    external: true
+
+

@@ -5,7 +5,7 @@ Replaces file-based auth with SQLAlchemy database auth.
 """
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from ..db import get_db
@@ -43,6 +43,7 @@ def _to_user_response(user: User) -> UserResponse:
         email=user.email,
         created_at=user.created_at,
         is_active=user.is_active,
+        is_admin=user.is_admin,
         terms_accepted_at=user.terms_accepted_at,
     )
 
@@ -94,9 +95,15 @@ async def login(
 
 
 @router.get("/me", response_model=UserResponse)
-async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
+async def me(request: Request, current_user: User = Depends(get_current_user)) -> UserResponse:
     """Return the authenticated user's profile."""
-    return _to_user_response(current_user)
+    user_response = _to_user_response(current_user)
+
+    # Check if admin is impersonating this user
+    impersonate_cookie = request.cookies.get("admin_impersonate")
+    user_response.is_impersonating = impersonate_cookie is not None
+
+    return user_response
 
 
 @router.post(

@@ -4,7 +4,9 @@ export interface UserResponse {
   email: string;
   created_at: string;
   is_active: boolean;
+  is_admin: boolean;
   terms_accepted_at?: string;
+  is_impersonating?: boolean;
 }
 
 export interface TokenResponse {

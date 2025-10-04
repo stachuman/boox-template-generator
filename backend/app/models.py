@@ -40,7 +40,9 @@ class UserResponse(BaseModel):
     email: EmailStr = Field(..., description="Account email address")
     created_at: datetime = Field(..., description="Account creation timestamp")
     is_active: bool = Field(True, description="Whether the account is active")
+    is_admin: bool = Field(False, description="Whether the user has admin privileges")
     terms_accepted_at: Optional[datetime] = Field(default=None, description="When user accepted terms of use")
+    is_impersonating: bool = Field(False, description="Whether an admin is currently impersonating this user")
 
 
 class AcceptTermsRequest(BaseModel):

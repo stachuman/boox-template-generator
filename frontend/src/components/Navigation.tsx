@@ -6,19 +6,31 @@
  */
 
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { LogOut, Folder, Globe, BookOpen, ExternalLink, Heart } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { LogOut, Folder, Globe, BookOpen, ExternalLink, Heart, Shield, XCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '@/auth/useAuth';
 import { VersionService } from '@/services/version';
+import { AdminAPI } from '@/services/adminApi';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
+
+  const handleStopImpersonation = async () => {
+    try {
+      await AdminAPI.stopImpersonation();
+      window.location.href = '/admin';
+    } catch (err) {
+      console.error('Failed to stop impersonation:', err);
+    }
+  };
 
   const navItems = [
     { path: '/', label: 'Projects', icon: Folder },
     { path: '/gallery', label: 'Public gallery', icon: Globe },
+    ...(user?.is_admin ? [{ path: '/admin', label: 'Admin', icon: Shield }] : []),
   ];
 
   const isActive = (path: string) => {
@@ -29,24 +41,40 @@ const Navigation: React.FC = () => {
   };
 
   return (
-    <nav className="toolbar h-12 flex items-center justify-between px-4">
-      <div className="flex items-center space-x-1">
-        {navItems.map(({ path, label, icon: Icon }) => (
-          <Link
-            key={path}
-            to={path}
-            className={clsx(
-              'flex items-center space-x-2 px-3 py-2 rounded-md transition-colors',
-              isActive(path)
-                ? 'bg-eink-black text-eink-white'
-                : 'text-eink-dark-gray hover:bg-eink-pale-gray'
-            )}
+    <>
+      {user?.is_impersonating && (
+        <div className="bg-yellow-100 border-b border-yellow-200 px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center space-x-2 text-sm text-yellow-800">
+            <Shield className="h-4 w-4" />
+            <span>Impersonating user: <strong>{user.username}</strong></span>
+          </div>
+          <button
+            onClick={handleStopImpersonation}
+            className="flex items-center space-x-1 px-3 py-1 bg-yellow-200 hover:bg-yellow-300 rounded-md text-sm text-yellow-900 transition-colors"
           >
-            <Icon className="w-4 h-4" />
-            <span>{label}</span>
-          </Link>
-        ))}
-      </div>
+            <XCircle className="h-4 w-4" />
+            <span>Stop Impersonating</span>
+          </button>
+        </div>
+      )}
+      <nav className="toolbar h-12 flex items-center justify-between px-4">
+        <div className="flex items-center space-x-1">
+          {navItems.map(({ path, label, icon: Icon }) => (
+            <Link
+              key={path}
+              to={path}
+              className={clsx(
+                'flex items-center space-x-2 px-3 py-2 rounded-md transition-colors',
+                isActive(path)
+                  ? 'bg-eink-black text-eink-white'
+                  : 'text-eink-dark-gray hover:bg-eink-pale-gray'
+              )}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{label}</span>
+            </Link>
+          ))}
+        </div>
 
       <div className="flex items-center space-x-3">
         <a
@@ -82,7 +110,8 @@ const Navigation: React.FC = () => {
           <span>Sign out</span>
         </button>
       </div>
-    </nav>
+      </nav>
+    </>
   );
 };
 
