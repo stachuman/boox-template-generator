@@ -1,15 +1,17 @@
 /**
  * Link list widget properties component.
  *
- * Handles link_list widget properties (composite list of internal links).
+ * Handles link_list widget properties using explicit labels and destinations arrays.
  * Follows CLAUDE.md coding standards - no dummy implementations.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Widget } from '@/types';
 import NumberInput from './shared/NumberInput';
 import SelectInput from './shared/SelectInput';
 import ColorPicker from './shared/ColorPicker';
+import { Edit3 } from 'lucide-react';
+import LinkListEditorModal from '../LinkListEditorModal';
 
 interface LinkListPropertiesProps {
   widget: Widget;
@@ -18,6 +20,9 @@ interface LinkListPropertiesProps {
 
 const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdate }) => {
   const properties = widget.properties || {};
+  const labels = Array.isArray(properties.labels) ? properties.labels : [];
+  const destinations = Array.isArray(properties.destinations) ? properties.destinations : [];
+  const [isEditingContent, setIsEditingContent] = useState(false);
 
   const updateProperty = (key: string, value: any) => {
     onUpdate({
@@ -28,6 +33,17 @@ const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdat
     });
   };
 
+  const handleSaveLinks = (newLabels: string[], newDestinations: string[]) => {
+    onUpdate({
+      properties: {
+        ...properties,
+        labels: newLabels,
+        destinations: newDestinations
+      }
+    });
+    setIsEditingContent(false);
+  };
+
   const orientationOptions = [
     { value: 'horizontal', label: 'Horizontal' },
     { value: 'vertical', label: 'Vertical' }
@@ -35,54 +51,82 @@ const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdat
 
   return (
     <div className="space-y-6">
-      {/* List Structure */}
+      {/* Links Data */}
       <div>
-        <h4 className="font-medium mb-3">List Structure</h4>
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <NumberInput
-              label="Item Count"
-              value={properties.count || 10}
-              onChange={(value) => updateProperty('count', value)}
-              min={1}
-              max={100}
-              helpText="Number of list items"
-            />
-            <NumberInput
-              label="Start Index"
-              value={properties.start_index || 1}
-              onChange={(value) => updateProperty('start_index', value)}
-              min={1}
-              helpText="Starting number for items"
-            />
-          </div>
+        <h4 className="font-medium mb-3">Links Data</h4>
+        <button
+          onClick={() => setIsEditingContent(true)}
+          className="w-full px-4 py-3 border-2 border-eink-blue text-eink-blue rounded-lg hover:bg-eink-blue hover:text-white transition-colors flex items-center justify-center gap-2 font-medium"
+        >
+          <Edit3 size={18} />
+          Edit Links ({labels.length} item{labels.length !== 1 ? 's' : ''})
+        </button>
 
-          <div className="grid grid-cols-2 gap-3">
-            <NumberInput
-              label="Index Padding"
-              value={properties.index_pad || 3}
-              onChange={(value) => updateProperty('index_pad', value)}
-              min={1}
-              max={10}
-              helpText="Zero-padding for numbers (e.g., 001, 002)"
-            />
-            <NumberInput
-              label="Columns"
-              value={properties.columns || 2}
-              onChange={(value) => updateProperty('columns', value)}
-              min={1}
-              max={10}
-              helpText="Number of columns in layout"
-            />
+        {labels.length !== destinations.length && (
+          <div className="mt-2 bg-red-50 border border-red-200 rounded p-2 text-sm text-red-800">
+            ⚠️ Warning: {labels.length} labels but {destinations.length} destinations (must match!)
           </div>
-        </div>
+        )}
+
+        {labels.length === 0 && (
+          <p className="mt-2 text-sm text-gray-500 italic">
+            No links defined. Click "Edit Links" to add labels and destinations.
+          </p>
+        )}
+
+        {labels.length > 0 && labels.length === destinations.length && (
+          <div className="mt-2 bg-blue-50 border border-blue-200 rounded p-2 text-xs">
+            <strong>Preview:</strong>
+            <ul className="mt-1 space-y-1">
+              {labels.slice(0, 3).map((label: string, index: number) => (
+                <li key={index} className="font-mono">
+                  "{label}" → {destinations[index]}
+                </li>
+              ))}
+              {labels.length > 3 && (
+                <li className="text-gray-500 italic">
+                  ... and {labels.length - 3} more
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
       </div>
 
-      {/* Layout & Spacing */}
+      {/* Layout */}
       <div>
-        <h4 className="font-medium mb-3">Layout & Spacing</h4>
+        <h4 className="font-medium mb-3">Layout</h4>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
+            <NumberInput
+              label="Columns"
+              value={properties.columns || 1}
+              onChange={(value) => updateProperty('columns', value)}
+              min={1}
+              max={25}
+              helpText="Number of columns"
+            />
+            <NumberInput
+              label="Item Height"
+              value={properties.item_height || 24}
+              onChange={(value) => updateProperty('item_height', value)}
+              min={12}
+              max={100}
+              unit="pt"
+              helpText="Height of each item"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <NumberInput
+              label="Horizontal Gap"
+              value={properties.gap_x || 0}
+              onChange={(value) => updateProperty('gap_x', value)}
+              min={0}
+              max={50}
+              unit="pt"
+              helpText="Space between columns"
+            />
             <NumberInput
               label="Vertical Gap"
               value={properties.gap_y || 6}
@@ -92,15 +136,6 @@ const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdat
               unit="pt"
               helpText="Space between rows"
             />
-            <NumberInput
-              label="Item Height"
-              value={properties.item_height || 24}
-              onChange={(value) => updateProperty('item_height', value)}
-              min={12}
-              max={100}
-              unit="pt"
-              helpText="Height of each list item"
-            />
           </div>
 
           <SelectInput
@@ -108,132 +143,28 @@ const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdat
             value={properties.orientation || 'horizontal'}
             onChange={(value) => updateProperty('orientation', value)}
             options={orientationOptions}
-            helpText="Text direction for list items"
+            helpText="Text direction"
           />
         </div>
       </div>
 
-      {/* Content Templates */}
+      {/* Highlighting */}
       <div>
-        <h4 className="font-medium mb-3">Content Templates</h4>
+        
         <div className="space-y-3">
           <div>
             <label className="block text-sm font-medium mb-1">
-              Label Template
-            </label>
-            <input
-              type="text"
-              value={properties.label_template || 'Note {index_padded}'}
-              onChange={(e) => updateProperty('label_template', e.target.value)}
-              placeholder="e.g., Note {index_padded}, Day {index}"
-              className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
-            />
-            <p className="text-xs text-eink-light-gray mt-1">
-              Use {'{index}'} or {'{index_padded}'} tokens
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Link Template
-            </label>
-            <input
-              type="text"
-              value={properties.bind || 'notes(@index)'}
-              onChange={(e) => updateProperty('bind', e.target.value)}
-              placeholder="e.g., notes(@index), month(@year-@index_padded)"
-              className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
-            />
-            <p className="text-xs text-eink-light-gray mt-1">
-              Destination pattern using @index, @index_padded, @year tokens
-            </p>
-          </div>
-
-          {/* Destination Preview */}
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Destination Preview
-            </label>
-            <div className="bg-eink-off-white rounded border p-3 text-xs space-y-1">
-              {(() => {
-                const bindExpr = properties.bind || 'notes(@index)';
-                const count = Math.min(5, Math.max(1, properties.count || 10)); // Show max 5 examples
-                const startIndex = properties.start_index || 1;
-                const indexPad = properties.index_pad || 3;
-                const previews = [];
-
-                for (let i = 0; i < count; i++) {
-                  const idx = startIndex + i;
-                  const idxPadded = String(idx).padStart(indexPad, '0');
-
-                  // Handle both numeric and token highlighting
-                  let isHighlighted = false;
-                  if (properties.highlight_index) {
-                    const highlightValue = properties.highlight_index;
-                    if (typeof highlightValue === 'number') {
-                      isHighlighted = idx === highlightValue;
-                    } else if (typeof highlightValue === 'string') {
-                      // For string tokens, try parsing as number first
-                      const numValue = parseInt(highlightValue);
-                      if (!isNaN(numValue)) {
-                        isHighlighted = idx === numValue;
-                      } else {
-                        // For tokens like {page}, show a preview indicator
-                        isHighlighted = i === 0; // Highlight first item as example for tokens
-                      }
-                    }
-                  }
-
-                  // Simple preview generation (basic token replacement)
-                  let preview = bindExpr
-                    .replace(/@index_padded/g, idxPadded)
-                    .replace(/@index/g, String(idx))
-                    .replace(/@year/g, '2025'); // Example year
-
-                  const highlightIndicator = isHighlighted ? (
-                    typeof properties.highlight_index === 'string' && isNaN(parseInt(properties.highlight_index))
-                      ? ` ★ (${properties.highlight_index} example)`
-                      : ' ★'
-                  ) : '';
-
-                  previews.push(
-                    <div key={i} className={`text-eink-gray ${isHighlighted ? 'font-semibold' : ''}`}>
-                      Item {idx}{highlightIndicator}: <span className={`font-mono ${isHighlighted ? 'text-blue-800' : 'text-blue-600'}`}>{preview}</span>
-                    </div>
-                  );
-                }
-
-                return previews.length > 0 ? previews : (
-                  <div className="text-eink-light-gray italic">No preview available</div>
-                );
-              })()}
-              {properties.count > 5 && (
-                <div className="text-eink-light-gray italic pt-1 border-t">
-                  ... and {properties.count - 5} more items
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Highlight & Colors */}
-      <div>
-        <h4 className="font-medium mb-3">Highlight & Colors</h4>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Index or token
+              Highlight Index (Token or Number)
             </label>
             <input
               type="text"
               value={properties.highlight_index || ''}
               onChange={(e) => updateProperty('highlight_index', e.target.value || null)}
-              placeholder="e.g., 3, {page}, {month}"
+              placeholder="e.g., {month}, {index}, or 3"
               className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
             />
             <p className="text-xs text-eink-light-gray mt-1">
-              Index or token to highlight (number, {'{page}'}, {'{month}'}, etc.)
+              Use a token like <code className="bg-eink-off-white px-1">{'{month}'}</code>, <code className="bg-eink-off-white px-1">{'{index}'}</code> for dynamic highlighting, or a number (1-{labels.length || 1}) for static
             </p>
           </div>
 
@@ -242,17 +173,26 @@ const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdat
               label="Highlight Color"
               value={properties.highlight_color || '#dbeafe'}
               onChange={(value) => updateProperty('highlight_color', value)}
-              helpText="Background color for highlighted item"
+              helpText="Color for highlighted item"
             />
             <ColorPicker
               label="Background Color"
               value={properties.background_color || 'transparent'}
               onChange={(value) => updateProperty('background_color', value)}
-              helpText="Background color for all items"
+              helpText="Background for all items"
             />
           </div>
         </div>
       </div>
+
+      {/* Modal */}
+      <LinkListEditorModal
+        isOpen={isEditingContent}
+        labels={labels}
+        destinations={destinations}
+        onClose={() => setIsEditingContent(false)}
+        onSave={handleSaveLinks}
+      />
     </div>
   );
 };

@@ -155,6 +155,17 @@ const CalendarProperties: React.FC<CalendarPropertiesProps> = ({ widget, onUpdat
               helpText="How weekly calendar is laid out"
             />
           )}
+
+          {calendarType === 'monthly' && (
+            <NumberInput
+              label="Force Weeks"
+              value={properties.force_weeks || null}
+              onChange={(value) => updateProperty('force_weeks', value || null)}
+              min={4}
+              max={6}
+              helpText="Force specific number of weeks (4-6) for consistent height. Leave empty for auto."
+            />
+          )}
         </div>
       </div>
 

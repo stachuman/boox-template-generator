@@ -208,19 +208,11 @@ class ProjectService:
             clone_count=0,
         )
 
-        # Create default calendar for one month
-        from datetime import date, timedelta
-        today = date.today()
-        start_date = today.replace(day=1)
-        if start_date.month == 12:
-            end_date = start_date.replace(year=start_date.year + 1, month=1, day=1) - timedelta(days=1)
-        else:
-            end_date = start_date.replace(month=start_date.month + 1, day=1) - timedelta(days=1)
-
+        # Create default plan without calendar dates (sections define their own dates)
         default_plan = Plan(
             calendar=CalendarConfig(
-                start_date=start_date.isoformat(),
-                end_date=end_date.isoformat(),
+                start_date=None,
+                end_date=None,
                 pages_per_day=1
             ),
             sections=[],

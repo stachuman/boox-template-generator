@@ -34,12 +34,8 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
         if (existingData && existingData[r] && existingData[r][c] !== undefined) {
           row.push(existingData[r][c]);
         } else {
-          // Generate default content for new cells
-          if (r === 0 && hasHeader) {
-            row.push(`Header ${c + 1}`);
-          } else {
-            row.push(`Row ${hasHeader ? r : r + 1}, Col ${c + 1}`);
-          }
+          
+          row.push(``);
         }
       }
       newData.push(row);
@@ -136,7 +132,7 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
               value={properties.columns || 3}
               onChange={(value) => updateProperty('columns', value)}
               min={1}
-              max={20}
+              max={100}
               helpText="Number of columns"
             />
           </div>

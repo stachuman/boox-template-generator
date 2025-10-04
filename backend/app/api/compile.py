@@ -86,7 +86,7 @@ def _parse_plan(plan_data: Dict[str, Any]) -> ProjectPlan:
             count=s.get("count"),
             pages_per_item=s.get("pages_per_item", 1),
             context=s.get("context", {}),
-            anchors=s.get("anchors", []),
+            counters=s.get("counters", {}),
         ))
     plan = ProjectPlan(
         calendar={

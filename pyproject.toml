@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "einkpdf"
-version = "0.2.0"
+version = "0.2.3"
 description = "Interactive PDF template system optimized for Boox Onyx e-readers"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -158,7 +158,7 @@ ignore_missing_imports = true
 
 # Pytest configuration
 [tool.pytest.ini_options]
-minversion = "7.0"
+minversion = "7.4"
 addopts = [
     "-ra",                    # Show short test summary
     "--strict-markers",       # Treat unknown markers as errors

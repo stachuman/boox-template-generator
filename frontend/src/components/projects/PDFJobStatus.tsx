@@ -155,7 +155,7 @@ export const PDFJobStatusComponent: React.FC<PDFJobStatusProps> = ({
       : null;
 
   const renderWarningList = (warnings: string[]) => (
-    <ul className="list-disc pl-5 space-y-1">
+    <ul className="list-disc pl-5 space-y-1 max-h-40 overflow-y-auto">
       {warnings.map((warning, index) => (
         <li key={index} className="text-xs text-yellow-800">{warning}</li>
       ))}

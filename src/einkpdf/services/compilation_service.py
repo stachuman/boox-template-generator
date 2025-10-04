@@ -37,42 +37,63 @@ class PlanEnumerator:
     def enumerate_section(self, section: PlanSection, calendar_start: date,
                          calendar_end: date) -> Iterator[BindingContext]:
         """Enumerate a plan section into binding contexts."""
+        iteration = 0  # Track iteration for counter variables
+
         if section.generate == GenerateMode.ONCE:
-            yield self._build_context(section, index=1)
+            yield self._build_context(section, index=1, iteration=iteration)
 
         elif section.generate == GenerateMode.COUNT:
             if section.count is None:
                 raise CompilationServiceError(f"Count not specified for section {section.kind}")
             for i in range(1, section.count + 1):
-                yield self._build_context(section, index=i, total=section.count)
+                yield self._build_context(section, index=i, total=section.count, iteration=iteration)
+                iteration += 1
 
         elif section.generate == GenerateMode.EACH_DAY:
             start_date = self._parse_date(section.start_date) if section.start_date else calendar_start
             end_date = self._parse_date(section.end_date) if section.end_date else calendar_end
 
+            if start_date is None or end_date is None:
+                raise CompilationServiceError(
+                    f"Section '{section.kind}' with EACH_DAY generation requires start_date and end_date"
+                )
+
             for current_date in self._date_range(start_date, end_date):
-                yield self._build_context(section, date_obj=current_date)
+                yield self._build_context(section, date_obj=current_date, iteration=iteration)
+                iteration += 1
 
         elif section.generate == GenerateMode.EACH_WEEK:
             start_date = self._parse_date(section.start_date) if section.start_date else calendar_start
             end_date = self._parse_date(section.end_date) if section.end_date else calendar_end
 
+            if start_date is None or end_date is None:
+                raise CompilationServiceError(
+                    f"Section '{section.kind}' with EACH_WEEK generation requires start_date and end_date"
+                )
+
             for iso_week, week_start in self._week_range(start_date, end_date):
-                yield self._build_context(section, date_obj=week_start, iso_week=iso_week)
+                yield self._build_context(section, date_obj=week_start, iso_week=iso_week, iteration=iteration)
+                iteration += 1
 
         elif section.generate == GenerateMode.EACH_MONTH:
             start_date = self._parse_date(section.start_date) if section.start_date else calendar_start
             end_date = self._parse_date(section.end_date) if section.end_date else calendar_end
 
+            if start_date is None or end_date is None:
+                raise CompilationServiceError(
+                    f"Section '{section.kind}' with EACH_MONTH generation requires start_date and end_date"
+                )
+
             for year, month in self._month_range(start_date, end_date):
                 month_date = date(year, month, 1)
-                yield self._build_context(section, date_obj=month_date)
+                yield self._build_context(section, date_obj=month_date, iteration=iteration)
+                iteration += 1
         else:
             raise CompilationServiceError(f"Unsupported generate mode: {section.generate}")
 
     def _build_context(self, section: PlanSection, date_obj: Optional[date] = None,
                       index: Optional[int] = None, total: Optional[int] = None,
-                      iso_week: Optional[str] = None) -> BindingContext:
+                      iso_week: Optional[str] = None, iteration: int = 0) -> BindingContext:
         """Build binding context for template substitution."""
         context = BindingContext()
 
@@ -112,14 +133,32 @@ class PlanEnumerator:
         if iso_week:
             context.iso_week = iso_week
 
-        # Custom context from section
+        # Custom context from section (static values)
         context.custom = dict(section.context)
+
         # Add plan locale to context
         try:
             context.locale = getattr(self, 'plan_locale', 'en')
             context.custom['locale'] = context.locale
         except Exception:
             pass
+
+        # Process counter variables (dynamic values that increment per page)
+        counters = getattr(section, 'counters', {}) or {}
+        for counter_name, counter_config in counters.items():
+            try:
+                start = float(counter_config.get('start', 0))
+                step = float(counter_config.get('step', 1))
+                # Calculate counter value for this iteration
+                counter_value = start + (iteration * step)
+                # Store as integer if it's a whole number, otherwise float
+                if counter_value == int(counter_value):
+                    context.custom[counter_name] = int(counter_value)
+                else:
+                    context.custom[counter_name] = counter_value
+            except (ValueError, TypeError, KeyError) as e:
+                # Skip invalid counters, log warning
+                logger.warning(f"Invalid counter '{counter_name}' in section: {e}")
 
         return context
 
@@ -414,30 +453,28 @@ class BindingResolver:
 
     def _validate_binding_grammar(self, bind_expr: str) -> None:
         """
-        Validate that binding expression follows canonical function-like grammar.
+        Validate that binding expression follows allowed grammar.
 
-        Raises CompilationServiceError if binding uses deprecated brace-style syntax.
+        Allowed patterns:
+        1. Function-like: func(arg), func(@var), func(literal) with optional #suffix
+        2. Simple @variable: @var
+        3. Direct destination with optional tokens: month:{year}-{index_padded}, year:2026, etc.
+        4. Curly brace tokens for template substitution: {var}, {var:format}
         """
-        # Check for deprecated brace-style patterns like {var} or day:{date}
-        brace_pattern = re.compile(r'\{[^}]*\}')
-        if brace_pattern.search(bind_expr):
-            raise CompilationServiceError(
-                f"Binding '{bind_expr}' uses deprecated brace-style syntax. "
-                f"Use function-like syntax instead: func(@var), func(literal), or @var"
-            )
-
         # Valid patterns:
         # 1. Function-like: func(arg), func(@var), func(literal)
         # 2. Simple @variable: @var
-        # 3. Direct destination: home:index, year:2026, etc.
+        # 3. Direct destination: home:index, year:2026, month:2026-01, month:{year}-{index_padded} etc.
+        # 4. Tokens that will be substituted: {var}, @var
 
         func_pattern = re.compile(r'^(\w+)\(([^)]+)\)(#.*)?$')
         var_pattern = re.compile(r'^@\w+$')
-        direct_dest_pattern = re.compile(r'^[a-z0-9][a-z0-9:-_]{1,127}$', re.IGNORECASE)
+        # Allow destinations with tokens like month:{year}-{index_padded} or already-resolved like month:2026-01
+        dest_with_tokens_pattern = re.compile(r'^[a-z0-9][a-z0-9:_\-\{\}@]+$', re.IGNORECASE)
 
         if not (func_pattern.match(bind_expr) or
                 var_pattern.match(bind_expr) or
-                direct_dest_pattern.match(bind_expr)):
+                dest_with_tokens_pattern.match(bind_expr)):
             raise CompilationServiceError(
                 f"Binding '{bind_expr}' uses invalid syntax. "
                 f"Valid patterns: func(@var), func(literal), @var, or direct:destination"
@@ -477,9 +514,13 @@ class CompilationService:
         except Exception:
             self.enumerator.plan_locale = 'en'
 
-        # Parse calendar dates
-        calendar_start = date.fromisoformat(project.plan.calendar.start_date)
-        calendar_end = date.fromisoformat(project.plan.calendar.end_date)
+        # Parse calendar dates (optional, used as fallback for sections without dates)
+        calendar_start = None
+        calendar_end = None
+        if project.plan.calendar.start_date:
+            calendar_start = date.fromisoformat(project.plan.calendar.start_date)
+        if project.plan.calendar.end_date:
+            calendar_end = date.fromisoformat(project.plan.calendar.end_date)
 
         # Create destination registry for named destinations
         destination_registry = DestinationRegistry()
@@ -759,185 +800,142 @@ class CompilationService:
         """Expand a link_list composite into multiple internal_link widgets.
 
         Properties supported:
-          - count: number of links (required)
-          - start_index: starting index (default 1)
-          - index_pad: zero-pad width for index_padded (default 3)
+          - labels: array of label strings (required)
+          - destinations: array of destination IDs (required, must match labels length)
           - columns: layout columns (default 1)
-          - item_height: fixed row height (optional); otherwise computed from box height
+          - orientation: 'horizontal' or 'vertical' (default 'horizontal')
           - gap_x, gap_y: spacing between cells (default 0)
-          - label_template: content label template (default "Note {index_padded}")
-          - bind: binding expression for destination (default "notes(@index)")
+          - item_height: fixed row height (optional); otherwise computed from box height
+          - highlight_index: index to highlight (1-based)
+          - highlight_color: color for highlighted item
+          - background_color: background color for all items
         """
         widgets: List[Widget] = []
         props = widget_dict.get("properties", {}) or {}
         position = widget_dict.get("position", {}) or {}
         base_styling = widget_dict.get("styling", {}) or {}
 
-        # Robust parsing helpers (handle None/''/strings)
-        def _to_int(v, default):
-            try:
-                if v is None:
-                    return default
-                if isinstance(v, str) and not v.strip():
-                    return default
-                return int(v)
-            except Exception:
-                return default
+        # Get required arrays
+        labels = props.get("labels", [])
+        destinations = props.get("destinations", [])
 
-        def _to_float(v, default):
-            try:
-                if v is None:
-                    return default
-                if isinstance(v, str) and not v.strip():
-                    return default
-                return float(v)
-            except Exception:
-                return default
-
-        count = _to_int(props.get("count", 1), 1)
-        start_index = _to_int(props.get("start_index", 1), 1)
-        index_pad = _to_int(props.get("index_pad", 3), 3)
-        columns = max(1, _to_int(props.get("columns", 1), 1))
-        gap_x = _to_float(props.get("gap_x", 0.0), 0.0)
-        gap_y = _to_float(props.get("gap_y", 0.0), 0.0)
-        item_height_raw = props.get("item_height")
-        item_height = None if (isinstance(item_height_raw, str) and not item_height_raw.strip()) else _to_float(item_height_raw, None)
-
-        label_template = props.get("label_template", "Note {index_padded}")
-        orientation = props.get("orientation", "horizontal")
-        bind_expr = props.get("bind")
-        # Optional: highlight selection and color
-        hi_raw = props.get("highlight_index")
-        hi_color = props.get("highlight_color")
-        bg_color = props.get("background_color")
-
-        # Resolve highlight_index which may be a number or a token like {month}
-        highlight_index: Optional[int] = None
-        if isinstance(hi_raw, (int, float)):
-            try:
-                highlight_index = int(hi_raw)
-            except Exception:
-                highlight_index = None
-        elif isinstance(hi_raw, str):
-            try:
-                resolved_hi = binding_resolver._substitute_tokens(hi_raw, context)
-                if isinstance(resolved_hi, str) and resolved_hi.strip():
-                    highlight_index = int(resolved_hi)
-            except Exception:
-                highlight_index = None
-        if not bind_expr or (isinstance(bind_expr, str) and not bind_expr.strip()):
+        # Validation
+        if not isinstance(labels, list) or not isinstance(destinations, list):
             wid = widget_dict.get("id", f"page_{page_number}_links_{widget_index}")
             raise CompilationServiceError(
-                f"link_list '{wid}' is missing properties.bind. Set bind to a destination (e.g., month(@year-@index_padded))."
+                f"link_list '{wid}': labels and destinations must be arrays"
             )
 
+        if len(labels) == 0:
+            return widgets  # Empty link list, nothing to render
+
+        if len(labels) != len(destinations):
+            wid = widget_dict.get("id", f"page_{page_number}_links_{widget_index}")
+            raise CompilationServiceError(
+                f"link_list '{wid}': labels and destinations arrays must have the same length "
+                f"(labels: {len(labels)}, destinations: {len(destinations)})"
+            )
+
+        # Layout properties
+        columns = max(1, int(props.get("columns", 1)))
+        orientation = props.get("orientation", "horizontal")
+
+        # Handle empty strings for numeric properties
+        gap_x_raw = props.get("gap_x", 0.0)
+        gap_x = float(gap_x_raw) if gap_x_raw not in (None, '') else 0.0
+
+        gap_y_raw = props.get("gap_y", 0.0)
+        gap_y = float(gap_y_raw) if gap_y_raw not in (None, '') else 0.0
+
+        item_height_raw = props.get("item_height")
+        item_height = None
+        if item_height_raw not in (None, ''):
+            try:
+                item_height = float(item_height_raw)
+            except (ValueError, TypeError):
+                item_height = None
+
+        # Highlighting - resolve token to number
+        highlight_index = props.get("highlight_index")
+        if highlight_index is not None:
+            # Try to resolve as token first (e.g., {month}, {index})
+            if isinstance(highlight_index, str):
+                resolved_highlight = binding_resolver._substitute_tokens(highlight_index, context)
+                try:
+                    highlight_index = int(resolved_highlight)
+                except (ValueError, TypeError):
+                    # If can't convert to int, ignore highlight
+                    highlight_index = None
+            else:
+                try:
+                    highlight_index = int(highlight_index)
+                except (ValueError, TypeError):
+                    highlight_index = None
+        highlight_color = props.get("highlight_color")
+        background_color = props.get("background_color")
+
+        # Calculate layout
+        count = len(labels)
         rows = int(math.ceil(count / columns))
 
-        # Calculate cell dimensions
-        total_width = _to_float(position.get("width", 400), 400.0)
-        total_height = _to_float(position.get("height", 300), 300.0)
-        base_cell_w = (total_width - (columns - 1) * gap_x) / max(1, columns)
-        base_cell_h = (total_height - (rows - 1) * gap_y) / max(1, rows)
+        total_width = float(position.get("width", 400))
+        total_height = float(position.get("height", 300))
+        base_cell_w = (total_width - (columns - 1) * gap_x) / columns
+        base_cell_h = (total_height - (rows - 1) * gap_y) / rows
 
         if orientation == 'vertical':
-            # Vertical: swap base dimensions and clamp height to fit available space
-            # Width from item_height or per-row height; height fits rows with gaps
             cell_height = base_cell_h
             cell_width = item_height if item_height is not None else base_cell_w
         else:
-            # Horizontal: standard
             cell_width = base_cell_w
             cell_height = item_height if item_height is not None else base_cell_h
 
-        base_x = _to_float(position.get("x", 0), 0.0)
-        base_y = _to_float(position.get("y", 0), 0.0)
+        base_x = float(position.get("x", 0))
+        base_y = float(position.get("y", 0))
 
+        # Generate link widgets
         for i in range(count):
-            idx = start_index + i
             row = i // columns
             col = i % columns
 
             cell_x = base_x + col * (cell_width + gap_x)
             cell_y = base_y + row * (cell_height + gap_y)
 
-            # Build a mini context for token substitution
-            cell_ctx = BindingContext()
-            cell_ctx.custom = context.to_dict()
-            cell_ctx.custom["index"] = idx
-            cell_ctx.custom["index_padded"] = f"{idx:0{index_pad}d}"
-            cell_ctx.custom["page"] = idx  # Add page for @page:format tokens
+            # Get label and destination for this item
+            label = str(labels[i])
+            destination = str(destinations[i])
 
-            # Pre-format label to avoid relying solely on downstream substitution
-            label_content = str(label_template or "")
-            try:
-                padded = f"{idx:02d}"
-                padded3 = f"{idx:03d}"
-            except Exception:
-                padded = str(idx)
-            # Basic tokens
-            label_content = label_content.replace("{index_padded}", padded).replace("{index}", str(idx))
-            # Month helpers
-            # Locale-aware month names via shared i18n
-            try:
-                from ..i18n import get_month_names
-                loc = context.to_dict().get('locale', 'en')
-                if 1 <= idx <= 12:
-                    mn = get_month_names(loc, short=False)[idx - 1]
-                    ma = get_month_names(loc, short=True)[idx - 1]
-                else:
-                    mn = str(idx)
-                    ma = str(idx)
-            except Exception:
-                if 1 <= idx <= 12:
-                    mn = ["January","February","March","April","May","June","July","August","September","October","November","December"][idx-1]
-                    ma = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][idx-1]
-                else:
-                    mn = str(idx)
-                    ma = str(idx)
-            label_content = (label_content
-                             .replace("{month_name}", mn)
-                             .replace("{month_abbr}", ma)
-                             .replace("{month_padded}", padded)
-                             .replace("{month_padded3}", padded3))
-            # Year token (if provided in context)
-            try:
-                year_val = context.to_dict().get('year')
-                if year_val is not None:
-                    label_content = label_content.replace("{year}", str(year_val))
-            except Exception:
-                pass
+            # Apply token substitution to both label and destination
+            label_resolved = binding_resolver._substitute_tokens(label, context)
+            dest_resolved = binding_resolver._substitute_tokens(destination, context)
 
-            # Pre-resolve tokens in bind expression too, to avoid brace-style validation errors
-            bexpr = str(bind_expr or "")
-            bexpr = bexpr.replace("{index_padded}", padded).replace("{index}", str(idx))
-
+            # Build widget
             cell_widget = {
                 "type": "internal_link",
                 "position": {
-                    "x": cell_x, "y": cell_y,
-                    "width": cell_width, "height": cell_height
+                    "x": cell_x,
+                    "y": cell_y,
+                    "width": cell_width,
+                    "height": cell_height
                 },
-                "content": label_content,
+                "content": label_resolved,
                 "styling": base_styling,
                 "properties": {
-                    "bind": bexpr,
+                    "bind": dest_resolved,
                     "orientation": orientation,
-                    # pass colors down so renderer can use them
-                    **({"highlight_color": hi_color} if hi_color else {}),
-                    **({"background_color": bg_color} if bg_color else {})
+                    **({"highlight_color": highlight_color} if highlight_color else {}),
+                    **({"background_color": background_color} if background_color else {})
                 },
                 "page": page_number,
-                "id": f"page_{page_number}_links_{widget_index}_{i+1}"
+                "id": f"page_{page_number}_links_{widget_index}_{i}"
             }
 
-            # Apply highlight flag if matched
-            if highlight_index is not None and idx == highlight_index:
+            # Apply highlight if this is the highlighted index (1-based)
+            if highlight_index is not None and (i + 1) == highlight_index:
                 cell_widget["properties"]["highlight"] = True
-                if hi_color:
-                    cell_widget["properties"]["highlight_color"] = hi_color
 
-            # Resolve tokens and bind
-            resolved_cell = binding_resolver.resolve_widget_bindings(cell_widget, cell_ctx)
+            # Resolve bindings (converts bind to to_dest)
+            resolved_cell = binding_resolver.resolve_widget_bindings(cell_widget, context)
             widgets.append(Widget.model_validate(resolved_cell))
 
         return widgets

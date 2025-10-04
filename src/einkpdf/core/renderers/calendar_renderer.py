@@ -171,14 +171,6 @@ class CalendarRenderer(BaseWidgetRenderer):
             )
         config['link_strategy'] = normalized_link
 
-        # Parse text alignment
-        config['text_align'] = props.get('text_align', 'center')
-        if config['text_align'] not in ['left', 'center', 'right']:
-            raise RenderingError(
-                f"Calendar widget '{widget_id}': invalid text_align '{config['text_align']}'. "
-                f"Must be: left, center, right"
-            )
-
         return config
 
     def _parse_start_date(self, date_str: str, widget_id: str, page_num: int = 1, total_pages: int = 1) -> date:
@@ -275,7 +267,7 @@ class CalendarRenderer(BaseWidgetRenderer):
         cell_min_size = config['cell_min_size']
         first_day_of_week = config['first_day_of_week']
         link_strategy = config['link_strategy']
-        text_align = config['text_align']
+        text_align = text_options.text_align
 
         # Get additional properties
         props = getattr(widget, 'properties', {}) or {}
@@ -335,7 +327,16 @@ class CalendarRenderer(BaseWidgetRenderer):
 
         days_in_month = calendar.monthrange(year, month)[1]
         weeks_needed = math.ceil((days_in_month + first_weekday) / 7)
-        actual_weeks = max(4, min(6, weeks_needed))  # 4-6 weeks
+
+        # Check for force_weeks property (for consistent layout when stacking calendars)
+        force_weeks = props.get('force_weeks')
+        if force_weeks:
+            try:
+                actual_weeks = max(4, min(6, int(force_weeks)))
+            except (ValueError, TypeError):
+                actual_weeks = max(4, min(6, weeks_needed))  # Fallback to auto
+        else:
+            actual_weeks = max(4, min(6, weeks_needed))  # Auto-calculate
 
         # Calculate cell dimensions (7 columns for days of week) to FIT bounds
         available_height = max(0.0, available_height)
@@ -419,7 +420,7 @@ class CalendarRenderer(BaseWidgetRenderer):
                     font_name=text_options.font_name,
                     font_size=font_size * 0.8,
                     color=text_options.color,
-                    text_align='center',
+                    text_align=text_align,
                     orientation=text_options.orientation
                 )
 
@@ -500,6 +501,8 @@ class CalendarRenderer(BaseWidgetRenderer):
                     self.text_engine.render_text(pdf_canvas, day_box, day_text, day_text_options)
 
                     # Link for current month days (only for dates >= start_date)
+                    logger.info(f"Calendar link debug - Link strategy: {link_strategy}, current_date: {current_date}, "f"start_date: {start_date}, ")
+                 
                     if link_strategy != 'none' and current_date and is_current_month and current_date >= start_date:
                         self._create_calendar_date_link(
                             pdf_canvas, widget, current_date,
@@ -559,7 +562,7 @@ class CalendarRenderer(BaseWidgetRenderer):
                     font_name=text_options.font_name,
                     font_size=font_size * 0.8,
                     color=text_options.color,
-                    text_align='center',
+                    text_align=text_align,
                     orientation=text_options.orientation
                 )
 
@@ -576,7 +579,7 @@ class CalendarRenderer(BaseWidgetRenderer):
         show_month_year = config['show_month_year']
         show_grid_lines = config['show_grid_lines']
         cell_min_size = config['cell_min_size']
-        text_align = config['text_align']
+        text_align = text_options.text_align
         link_strategy = config['link_strategy']
         raw_link_strategy = config.get('raw_link_strategy')
 
@@ -652,7 +655,7 @@ class CalendarRenderer(BaseWidgetRenderer):
                 font_name=text_options.font_name,
                 font_size=text_options.font_size,
                 color=text_options.color,
-                text_align='center',
+                text_align=text_align,
                 orientation=text_options.orientation
             )
             self.text_engine.render_text(pdf_canvas, header_box, header_text, header_options)
@@ -667,7 +670,7 @@ class CalendarRenderer(BaseWidgetRenderer):
                 font_name=text_options.font_name,
                 font_size=font_size * 0.8,
                 color=text_options.color,
-                text_align='center',
+                text_align=text_align,
                 orientation=text_options.orientation
             )
             weekday_y = grid_top - font_size
@@ -779,9 +782,9 @@ class CalendarRenderer(BaseWidgetRenderer):
 
             # Only create links for dates in the same month/year as start_date
             if (link_strategy != 'none' and
-                day_date >= start_date and
-                day_date.year == start_date.year and
-                day_date.month == start_date.month):
+                # day_date >= start_date and
+                day_date.year == start_date.year):
+                # day_date.month == start_date.month):
                 self._create_calendar_date_link(
                     pdf_canvas, widget, day_date,
                     cell_x, cell_y, cell_width, cell_height,
@@ -799,7 +802,7 @@ class CalendarRenderer(BaseWidgetRenderer):
         show_month_year = config['show_month_year']
         show_grid_lines = config['show_grid_lines']
         cell_min_size = config['cell_min_size']
-        text_align = config['text_align']
+        text_align = text_options.text_align
         link_strategy = config['link_strategy']
         raw_link_strategy = config.get('raw_link_strategy')
 

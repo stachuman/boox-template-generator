@@ -51,7 +51,7 @@ class TextRenderer(BaseWidgetRenderer):
 
     def _render_text_block(self, pdf_canvas: canvas.Canvas, widget: Widget,
                           page_num: int, total_pages: int, enforcer=None) -> None:
-        """Render text block widget using TextEngine with token processing."""
+        """Render text block widget using TextEngine with token processing and word wrapping."""
         if not widget.content:
             return  # Skip empty text blocks
 
@@ -85,15 +85,31 @@ class TextRenderer(BaseWidgetRenderer):
         # Get bounding box for text positioning
         box = self.converter.convert_position_for_drawing(widget.position)
 
-        # Handle multi-line text
-        lines = str(content_text).splitlines() if isinstance(content_text, str) else [str(content_text)]
+        # Split text into lines and apply word wrapping
+        raw_lines = str(content_text).splitlines() if isinstance(content_text, str) else [str(content_text)]
 
-        if len(lines) <= 1:
+        # Apply word wrapping to each line based on box width
+        wrapped_lines = []
+        for line in raw_lines:
+            if not line.strip():
+                # Preserve empty lines
+                wrapped_lines.append('')
+            else:
+                # Wrap line to fit within box width
+                # For vertical text, use height as wrapping constraint
+                wrap_width = box['height'] if orientation == 'vertical' else box['width']
+                line_wrapped = TextFormatter.wrap_text(
+                    line, wrap_width, text_options.font_name,
+                    text_options.font_size, pdf_canvas
+                )
+                wrapped_lines.extend(line_wrapped if line_wrapped else [''])
+
+        if len(wrapped_lines) <= 1:
             # Single line text - use TextEngine directly
-            self.text_engine.render_text(pdf_canvas, box, lines[0] if lines else '', text_options)
+            self.text_engine.render_text(pdf_canvas, box, wrapped_lines[0] if wrapped_lines else '', text_options)
         else:
             # Multi-line text - render each line
-            self._render_multi_line_text(pdf_canvas, box, lines, text_options, constrained_styling)
+            self._render_multi_line_text(pdf_canvas, box, wrapped_lines, text_options, constrained_styling)
 
     def _apply_styling_constraints(self, styling: dict, enforcer=None) -> dict:
         """Apply device profile constraints to styling parameters."""

@@ -43,13 +43,15 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
         errors.push({ section: `${index}`, field: 'count', message: 'Count must be at least 1' });
       }
 
-      // Section-level dates are optional; if omitted, plan.calendar dates are used.
-      // If one is provided, both must be provided for clarity.
+      // Date-based generation modes require both start and end dates
       const needsDates = (section.generate === GenerateMode.EACH_DAY || section.generate === GenerateMode.EACH_MONTH);
-      const hasStart = !!section.start_date;
-      const hasEnd = !!section.end_date;
-      if (needsDates && ((hasStart && !hasEnd) || (!hasStart && hasEnd))) {
-        errors.push({ section: `${index}`, field: 'dates', message: 'Provide both start and end, or leave both empty to use plan defaults' });
+      if (needsDates) {
+        if (!section.start_date) {
+          errors.push({ section: `${index}`, field: 'dates', message: 'Start date is required for date-based generation' });
+        }
+        if (!section.end_date) {
+          errors.push({ section: `${index}`, field: 'dates', message: 'End date is required for date-based generation' });
+        }
       }
     });
 
@@ -134,7 +136,18 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
       const sectionKinds = plan.sections.map(s => s.kind).filter(k => k && k.trim().length > 0);
       const orderFiltered = plan.order.filter(k => sectionKinds.includes(k));
       const missing = sectionKinds.filter(k => !orderFiltered.includes(k));
-      const normalizedPlan: Plan = { ...plan, order: [...orderFiltered, ...missing] };
+
+      // Clean up calendar dates - convert empty strings to null
+      const normalizedPlan: Plan = {
+        ...plan,
+        order: [...orderFiltered, ...missing],
+        calendar: {
+          ...plan.calendar,
+          start_date: plan.calendar.start_date?.trim() || null,
+          end_date: plan.calendar.end_date?.trim() || null,
+        }
+      };
+
       await onSave(normalizedPlan);
     } finally {
       setIsSaving(false);
@@ -174,17 +187,13 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
       {/* Instruction Legend */}
       <InstructionLegend />
 
-      {/* Calendar Configuration */}
+      {/* Locale Configuration */}
       <Card>
         <CardHeader>
-          <CardTitle>Calendar Configuration</CardTitle>
+          <CardTitle>Locale Settings</CardTitle>
         </CardHeader>
         <CardContent>
-          <CalendarConfigEditor
-            config={plan.calendar}
-            onChange={handleCalendarChange}
-          />
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="locale">Locale</Label>
               <Select
@@ -195,6 +204,18 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
                 <SelectItem value="pl">Polski (pl)</SelectItem>
               </Select>
               <p className="text-xs text-gray-500 mt-1">Affects month/weekday names and label tokens</p>
+            </div>
+            <div>
+              <Label htmlFor="pages-per-day">Default Pages per Day</Label>
+              <Input
+                id="pages-per-day"
+                type="number"
+                min="1"
+                max="10"
+                value={plan.calendar.pages_per_day}
+                onChange={(e) => handleCalendarChange({ ...plan.calendar, pages_per_day: parseInt(e.target.value) })}
+              />
+              <p className="text-xs text-gray-500 mt-1">For multi-page daily sections</p>
             </div>
           </div>
         </CardContent>
@@ -297,45 +318,6 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
   );
 };
 
-// Calendar Configuration Editor Component
-const CalendarConfigEditor: React.FC<{
-  config: CalendarConfig;
-  onChange: (config: CalendarConfig) => void;
-}> = ({ config, onChange }) => {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div>
-        <Label htmlFor="start-date">Start Date</Label>
-        <Input
-          id="start-date"
-          type="date"
-          value={config.start_date}
-          onChange={(e) => onChange({ ...config, start_date: e.target.value })}
-        />
-      </div>
-      <div>
-        <Label htmlFor="end-date">End Date</Label>
-        <Input
-          id="end-date"
-          type="date"
-          value={config.end_date}
-          onChange={(e) => onChange({ ...config, end_date: e.target.value })}
-        />
-      </div>
-      <div>
-        <Label htmlFor="pages-per-day">Pages per Day</Label>
-        <Input
-          id="pages-per-day"
-          type="number"
-          min="1"
-          max="10"
-          value={config.pages_per_day}
-          onChange={(e) => onChange({ ...config, pages_per_day: parseInt(e.target.value) })}
-        />
-      </div>
-    </div>
-  );
-};
 
 // Section Editor Component
 const SectionEditor: React.FC<{
@@ -437,6 +419,7 @@ const SectionEditor: React.FC<{
                 value={section.start_date || ''}
                 onChange={(e) => onChange({ ...section, start_date: e.target.value })}
                 className={validationErrors.some(e => e.field === 'dates') ? 'border-red-300' : ''}
+                required
               />
             </div>
             <div>
@@ -447,6 +430,7 @@ const SectionEditor: React.FC<{
                 value={section.end_date || ''}
                 onChange={(e) => onChange({ ...section, end_date: e.target.value })}
                 className={validationErrors.some(e => e.field === 'dates') ? 'border-red-300' : ''}
+                required
               />
             </div>
           </div>
@@ -469,22 +453,25 @@ const SectionEditor: React.FC<{
         </div>
 
         <div>
-          <Label>Named Destinations (Anchors)</Label>
-          <AnchorsEditor
-            anchors={section.anchors || []}
-            onChange={(anchors) => onChange({ ...section, anchors })}
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Define named destinations like home:index, year:2026, month:2026-01
-          </p>
-        </div>
-
-        <div>
-          <Label>Context Variables</Label>
+          <Label>Context Variables (Static)</Label>
           <ContextEditor
             context={section.context || {}}
             onChange={(context) => onChange({ ...section, context })}
           />
+          <p className="text-xs text-gray-500 mt-1">
+            Static values that remain the same for all pages in this section
+          </p>
+        </div>
+
+        <div>
+          <Label>Counter Variables (Dynamic)</Label>
+          <CountersEditor
+            counters={section.counters || {}}
+            onChange={(counters) => onChange({ ...section, counters })}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Variables that increment per generated page. Use {'{counter_name}'} in your widgets.
+          </p>
         </div>
       </CardContent>
     </Card>
@@ -569,74 +556,123 @@ const ContextEditor: React.FC<{
   );
 };
 
-// Anchors Editor Component
-const AnchorsEditor: React.FC<{
-  anchors: Array<Record<string, string>>;
-  onChange: (anchors: Array<Record<string, string>>) => void;
-}> = ({ anchors, onChange }) => {
-  const [newDestId, setNewDestId] = useState('');
+// Counters Editor Component
+const CountersEditor: React.FC<{
+  counters: Record<string, { start: number; step: number }>;
+  onChange: (counters: Record<string, { start: number; step: number }>) => void;
+}> = ({ counters, onChange }) => {
+  const [newName, setNewName] = useState('');
+  const [newStart, setNewStart] = useState('0');
+  const [newStep, setNewStep] = useState('1');
 
-  const addAnchor = () => {
-    if (newDestId.trim()) {
-      onChange([...anchors, { dest_id: newDestId.trim() }]);
-      setNewDestId('');
+  const addCounter = () => {
+    if (newName.trim()) {
+      const start = parseFloat(newStart) || 0;
+      const step = parseFloat(newStep) || 1;
+      onChange({ ...counters, [newName.trim()]: { start, step } });
+      setNewName('');
+      setNewStart('0');
+      setNewStep('1');
     }
   };
 
-  const removeAnchor = (index: number) => {
-    onChange(anchors.filter((_, i) => i !== index));
+  const removeCounter = (name: string) => {
+    const newCounters = { ...counters };
+    delete newCounters[name];
+    onChange(newCounters);
   };
 
-  const updateAnchor = (index: number, dest_id: string) => {
-    const newAnchors = [...anchors];
-    newAnchors[index] = { dest_id };
-    onChange(newAnchors);
+  const updateCounter = (name: string, field: 'start' | 'step', value: string) => {
+    const numValue = parseFloat(value) || 0;
+    onChange({
+      ...counters,
+      [name]: {
+        ...counters[name],
+        [field]: numValue
+      }
+    });
   };
 
   return (
-    <div className="space-y-2">
-      {anchors.map((anchor, index) => (
-        <div key={index} className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="e.g., home:index, year:2026, month:2026-01"
-              value={anchor.dest_id || ''}
-              onChange={(e) => updateAnchor(index, e.target.value)}
-              className="flex-1 font-mono text-sm"
-            />
-            <Button
-              onClick={() => removeAnchor(index)}
-              variant="ghost"
-              size="sm"
-              className="text-red-600 hover:text-red-800"
-            >
-              ×
-            </Button>
-          </div>
-          {(anchor.dest_id || '').includes('@') && (
-            <div className="text-xs text-red-600">
-              Destination IDs cannot contain '@'. Use tokens like {'{year}'} in dest_id, and use @vars only inside bind(...).
-            </div>
-          )}
+    <div className="space-y-3">
+      {Object.entries(counters).map(([name, config]) => (
+        <div key={name} className="grid grid-cols-[1fr_auto_80px_auto_80px_auto] gap-2 items-center">
+          <Input value={name} disabled />
+          <span className="text-xs text-gray-500 whitespace-nowrap">start:</span>
+          <Input
+            type="number"
+            value={config.start}
+            onChange={(e) => updateCounter(name, 'start', e.target.value)}
+          />
+          <span className="text-xs text-gray-500 whitespace-nowrap">step:</span>
+          <Input
+            type="number"
+            value={config.step}
+            onChange={(e) => updateCounter(name, 'step', e.target.value)}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => removeCounter(name)}
+            className="text-red-600"
+          >
+            <Trash2 size={16} />
+          </Button>
         </div>
       ))}
 
-      <div className="flex items-center gap-2">
+      <div className="grid grid-cols-[1fr_auto_80px_auto_80px_auto] gap-2 items-center">
         <Input
-          placeholder="Add destination ID (e.g., home:index)"
-          value={newDestId}
-          onChange={(e) => setNewDestId(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && addAnchor()}
-          className="flex-1 font-mono text-sm"
+          placeholder="Counter name (e.g., page_num)"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addCounter();
+            }
+          }}
         />
-        <Button onClick={addAnchor} size="sm">
+        <span className="text-xs text-gray-500 whitespace-nowrap">start:</span>
+        <Input
+          type="number"
+          placeholder="0"
+          value={newStart}
+          onChange={(e) => setNewStart(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addCounter();
+            }
+          }}
+        />
+        <span className="text-xs text-gray-500 whitespace-nowrap">step:</span>
+        <Input
+          type="number"
+          placeholder="1"
+          value={newStep}
+          onChange={(e) => setNewStep(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addCounter();
+            }
+          }}
+        />
+        <Button onClick={addCounter} size="sm">
           <Plus size={16} />
         </Button>
       </div>
 
-      {anchors.length === 0 && (
+      {Object.keys(counters).length === 0 && (
         <div className="text-sm text-gray-500 italic">
-          No anchors defined. Add destination IDs like "home:index" or "year:2026"
+          No counters defined. Add counters that increment with each generated page.
+        </div>
+      )}
+
+      {Object.keys(counters).length > 0 && (
+        <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+          💡 <strong>Example:</strong> Counter "page_num" with start=1, step=1 produces: 1, 2, 3, 4... for each page
         </div>
       )}
     </div>
@@ -716,12 +752,15 @@ const InstructionLegend: React.FC = () => {
               <div className="text-sm space-y-2">
                 <p><strong>Typical sections for a complete book:</strong></p>
                 <ol className="list-decimal list-inside space-y-1 ml-4">
-                  <li><strong>Index section:</strong> kind="index", master="Index", generate=ONCE, anchors=[{`{dest_id: "home:index"}`}]</li>
+                  <li><strong>Index section:</strong> kind="index", master="Index", generate=ONCE</li>
                   <li><strong>Notes section:</strong> kind="notes_pages", master="NotePage", generate=COUNT, count=10</li>
-                  <li><strong>Year section:</strong> kind="year_page", master="Year", generate=ONCE, anchors=[{`{dest_id: "year:2026"}`}]</li>
+                  <li><strong>Year section:</strong> kind="year_page", master="Year", generate=ONCE</li>
                   <li><strong>Months section:</strong> kind="month_pages", master="Month", generate=EACH_MONTH</li>
                   <li><strong>Days section:</strong> kind="day_pages", master="Day", generate=EACH_DAY</li>
                 </ol>
+                <p className="text-xs text-gray-600 mt-2">
+                  💡 <strong>Tip:</strong> Define navigation anchors using anchor widgets in your masters (e.g., dest_id="home:index")
+                </p>
                 <p className="text-blue-700 font-medium mt-3">
                   💡 This produces: Index (1) + Notes (10) + Year (1) + Months (12) + Days (365) = 389 pages for 2026
                 </p>

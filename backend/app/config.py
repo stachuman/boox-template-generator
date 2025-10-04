@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = "einkpdf"
-    APP_VERSION: str = "0.2.0"
+    APP_VERSION: str = "0.2.3"
     DEBUG: bool = False
 
     # Database
@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     # Authentication
     JWT_SECRET_KEY: str = "dev-secret-key-change-in-production"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 90
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # User Migration

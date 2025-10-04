@@ -12,7 +12,7 @@ services:
 
       # Core application settings
       - APP_NAME=einkpdf
-      - APP_VERSION=0.2.0
+      - APP_VERSION=0.2.3
       - DEBUG=false
       - EINK_CLEANUP_TTL_DAYS=14
       - EINK_PROFILE_DIR=/app/config/profiles
@@ -24,7 +24,7 @@ services:
       - JOBS_DIR=/app/backend/data/jobs
 
       # JWT Authentication settings
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secrNicIn-change-i892oduction}
       - JWT_ALGORITHM=HS256
       - ACCESS_TOKEN_EXPIRE_MINUTES=30
       - REFRESH_TOKEN_EXPIRE_DAYS=7

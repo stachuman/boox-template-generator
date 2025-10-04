@@ -45,7 +45,7 @@ DB_ECHO=false
 
 # Application
 APP_NAME=einkpdf
-APP_VERSION=0.2.0
+APP_VERSION=0.2.1
 DEBUG=false
 
 # JWT Authentication

@@ -18,7 +18,7 @@ const ProjectEditor: React.FC = () => {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'masters' | 'plan' | 'preview'>('masters');
+  const [activeTab, setActiveTab] = useState<'masters' | 'plan' | 'preview' | 'sharing'>('masters');
   const [compiledTemplate, setCompiledTemplate] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewPage, setPreviewPage] = useState<number>(1);
@@ -218,8 +218,8 @@ const ProjectEditor: React.FC = () => {
   useEffect(() => {
     // Handle tab parameter from URL and reload project data
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['masters', 'plan', 'preview'].includes(tabParam)) {
-      setActiveTab(tabParam as 'masters' | 'plan' | 'preview');
+    if (tabParam && ['masters', 'plan', 'preview', 'sharing'].includes(tabParam)) {
+      setActiveTab(tabParam as 'masters' | 'plan' | 'preview' | 'sharing');
       // Reload project data when returning from sub-routes with tab parameter
       if (projectId) {
         loadProject();
@@ -565,33 +565,8 @@ const ProjectEditor: React.FC = () => {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleCreatePDF}
-            disabled={creatingPDF || jobInProgress || project.masters.length === 0 || project.plan.sections.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-eink-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {creatingPDF ? (
-              <>
-                <RefreshCw className="w-5 h-5 animate-spin" />
-                Preparing job...
-              </>
-            ) : (
-              <>
-                <Plus className="w-5 h-5" />
-                Create PDF
-              </>
-            )}
-          </button>
-          {completedPDFJobId && (
-            <button
-              onClick={handleDownloadReadyPDF}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              <Download className="w-5 h-5" />
-              Download Ready PDF
-            </button>
-          )}
+        <div className="text-sm text-eink-dark-gray">
+          Updated: {formatDate(project.metadata.updated_at)}
         </div>
       </div>
 
@@ -602,112 +577,48 @@ const ProjectEditor: React.FC = () => {
         </div>
       )}
 
-      {/* PDF Job Status */}
-      {currentPDFJobId && (
-        <div className="mb-6">
-          <PDFJobStatusComponent
-            jobId={currentPDFJobId}
-            autoDownload={false}
-            onComplete={async (job) => {
-              console.log('[ProjectEditor] Job completed:', job.id);
-              // Job completed successfully - save job ID for download button
-              setCompletedPDFJobId(job.id);
-              setCurrentPDFJobId(job.id);
-              setJobInProgress(false);
-              persistActiveJob(null);
-              persistCompletedJob(job.id);
-
-              // Auto-refresh preview if on preview tab
-              if (activeTab === 'preview' && project) {
-                try {
-                  const url = await createPreviewUrl(project.id);
-                  setPreviewUrl(url);
-                } catch (err) {
-                  console.error('Failed to auto-refresh preview:', err);
-                }
-              }
-            }}
-            onError={() => {
-              // Job failed
-              setJobInProgress(false);
-              persistActiveJob(null);
-              persistCompletedJob(null);
-            }}
-            onCancel={() => {
-              // Job cancelled
-              setJobInProgress(false);
-              persistActiveJob(null);
-              persistCompletedJob(null);
-            }}
-          />
-        </div>
-      )}
-
-      <div className="mb-6">
-        <ProjectSharingControls project={project} onProjectUpdated={handleProjectUpdated} />
-      </div>
-
-      {/* Project Stats */}
-      <div className="mb-6 p-4 bg-gray-50 border border-eink-light-gray rounded-lg">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div className="flex flex-col">
-            <span className="font-medium text-eink-black mb-1">Device Profile</span>
-            <div className="max-w-xs">
-              <ProfileSelect
-                value={project.metadata.device_profile}
-                profiles={profiles}
-                loading={profilesLoading || savingProfile}
-                onChange={handleChangeProfile}
-              />
-            </div>
-          </div>
-          <div>
-            <span className="font-medium text-eink-black">Masters:</span>
-            <div className="text-eink-dark-gray">{project.masters.length}</div>
-          </div>
-          <div>
-            <span className="font-medium text-eink-black">Plan Sections:</span>
-            <div className="text-eink-dark-gray">{project.plan.sections.length}</div>
-          </div>
-          <div>
-            <span className="font-medium text-eink-black">Updated:</span>
-            <div className="text-eink-dark-gray">{formatDate(project.metadata.updated_at)}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="border-b border-eink-light-gray mb-6">
-        <nav className="flex space-x-8">
+      {/* Tab Navigation - Moved to top with improved styling */}
+      <div className="mb-6 bg-white border-b-2 border-eink-pale-gray">
+        <nav className="flex space-x-1">
           <button
             onClick={() => setActiveTab('masters')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-3 px-6 font-medium transition-all ${
               activeTab === 'masters'
-                ? 'border-eink-black text-eink-black'
-                : 'border-transparent text-eink-dark-gray hover:text-eink-black hover:border-gray-300'
+                ? 'bg-eink-black text-white'
+                : 'bg-eink-pale-gray text-eink-dark-gray hover:bg-eink-light-gray hover:text-eink-black'
             }`}
           >
-            Masters ({project.masters.length})
+            Masters
           </button>
           <button
             onClick={() => setActiveTab('plan')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-3 px-6 font-medium transition-all ${
               activeTab === 'plan'
-                ? 'border-eink-black text-eink-black'
-                : 'border-transparent text-eink-dark-gray hover:text-eink-black hover:border-gray-300'
+                ? 'bg-eink-black text-white'
+                : 'bg-eink-pale-gray text-eink-dark-gray hover:bg-eink-light-gray hover:text-eink-black'
             }`}
           >
-            Plan Configuration ({project.plan.sections.length})
+            Plan Configuration
           </button>
           <button
             onClick={() => setActiveTab('preview')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-3 px-6 font-medium transition-all ${
               activeTab === 'preview'
-                ? 'border-eink-black text-eink-black'
-                : 'border-transparent text-eink-dark-gray hover:text-eink-black hover:border-gray-300'
+                ? 'bg-eink-black text-white'
+                : 'bg-eink-pale-gray text-eink-dark-gray hover:bg-eink-light-gray hover:text-eink-black'
             }`}
           >
             Preview & Compile
+          </button>
+          <button
+            onClick={() => setActiveTab('sharing')}
+            className={`py-3 px-6 font-medium transition-all ${
+              activeTab === 'sharing'
+                ? 'bg-eink-black text-white'
+                : 'bg-eink-pale-gray text-eink-dark-gray hover:bg-eink-light-gray hover:text-eink-black'
+            }`}
+          >
+            Sharing
           </button>
         </nav>
       </div>
@@ -801,6 +712,95 @@ const ProjectEditor: React.FC = () => {
 
       {activeTab === 'preview' && (
         <div>
+          {/* Device Profile and PDF Generation Section */}
+          <div className="mb-6 p-4 bg-gray-50 border border-eink-light-gray rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <div className="flex flex-col">
+                  <span className="font-medium text-eink-black mb-2">Device Profile</span>
+                  <div className="w-64">
+                    <ProfileSelect
+                      value={project.metadata.device_profile}
+                      profiles={profiles}
+                      loading={profilesLoading || savingProfile}
+                      onChange={handleChangeProfile}
+                    />
+                  </div>
+                </div>
+                <div className="text-sm text-eink-dark-gray">
+                  <div><span className="font-medium">Masters:</span> {project.masters.length}</div>
+                  <div><span className="font-medium">Plan Sections:</span> {project.plan.sections.length}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleCreatePDF}
+                  disabled={creatingPDF || jobInProgress || project.masters.length === 0 || project.plan.sections.length === 0}
+                  className="flex items-center gap-2 px-4 py-2 bg-eink-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {creatingPDF ? (
+                    <>
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                      Preparing job...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-5 h-5" />
+                      Create PDF
+                    </>
+                  )}
+                </button>
+                {completedPDFJobId && (
+                  <button
+                    onClick={handleDownloadReadyPDF}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <Download className="w-5 h-5" />
+                    Download Ready PDF
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* PDF Job Status */}
+          {currentPDFJobId && (
+            <div className="mb-6">
+              <PDFJobStatusComponent
+                jobId={currentPDFJobId}
+                autoDownload={false}
+                onComplete={async (job) => {
+                  console.log('[ProjectEditor] Job completed:', job.id);
+                  setCompletedPDFJobId(job.id);
+                  setCurrentPDFJobId(job.id);
+                  setJobInProgress(false);
+                  persistActiveJob(null);
+                  persistCompletedJob(job.id);
+
+                  // Auto-refresh preview
+                  if (project) {
+                    try {
+                      const url = await createPreviewUrl(project.id);
+                      setPreviewUrl(url);
+                    } catch (err) {
+                      console.error('Failed to auto-refresh preview:', err);
+                    }
+                  }
+                }}
+                onError={() => {
+                  setJobInProgress(false);
+                  persistActiveJob(null);
+                  persistCompletedJob(null);
+                }}
+                onCancel={() => {
+                  setJobInProgress(false);
+                  persistActiveJob(null);
+                  persistCompletedJob(null);
+                }}
+              />
+            </div>
+          )}
+
           <PlanPreview
             plan={project.plan}
             masters={project.masters}
@@ -821,7 +821,7 @@ const ProjectEditor: React.FC = () => {
               </div>
             )}
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold">Inline PDF Preview</h3>
+              <h3 className="font-semibold">PDF Preview</h3>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1 mr-3 text-sm">
                   <button
@@ -851,7 +851,6 @@ const ProjectEditor: React.FC = () => {
                     ▶
                   </button>
                 </div>
-                {/* Render Preview button removed - async job system handles compilation and rendering */}
               </div>
             </div>
 
@@ -863,6 +862,13 @@ const ProjectEditor: React.FC = () => {
               <div className="text-sm text-eink-dark-gray">No preview yet. Create PDF to generate and preview it.</div>
             )}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'sharing' && (
+        <div>
+          <h2 className="text-lg font-semibold text-eink-black mb-4">Project Sharing</h2>
+          <ProjectSharingControls project={project} onProjectUpdated={handleProjectUpdated} />
         </div>
       )}
 

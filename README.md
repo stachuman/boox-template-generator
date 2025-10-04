@@ -35,7 +35,7 @@ A complete web application for designing interactive PDF templates optimized for
 - Responsive design optimized for desktop and mobile
 - User registration and authentication system
 - Project cloning and sharing capabilities
-- Version tracking (v0.1.0)
+- Version tracking (v0.2.1)
 - Donation support integration
 
 ## 🎯 Features
@@ -341,7 +341,7 @@ Place YAML files under `/config/profiles` on the host. The backend reads from `/
 - **Container Ready**: Docker deployment with volume persistence
 
 ### Current Version
-- **Application Version**: v0.1.0
+- **Application Version**: v0.2.1
 - **API Compatibility**: Stable v1 endpoints
 - **Database Migration**: Automatic user data migration support
 
@@ -386,4 +386,4 @@ Your support helps maintain and improve the project for the entire community!
 
 ---
 
-**Version**: v0.1.0 | **Built with**: React + FastAPI + ReportLab | **Optimized for**: E-ink devices
+**Version**: v0.2.1 | **Built with**: React + FastAPI + ReportLab | **Optimized for**: E-ink devices

@@ -275,6 +275,11 @@ export enum GenerateMode {
   COUNT = 'count'
 }
 
+export interface CounterConfig {
+  start: number;
+  step: number;
+}
+
 export interface PlanSection {
   kind: string;
   master: string;
@@ -284,7 +289,7 @@ export interface PlanSection {
   count?: number;
   pages_per_item?: number;
   context?: Record<string, any>;
-  anchors?: Array<Record<string, string>>;
+  counters?: Record<string, CounterConfig>;
 }
 
 export interface CalendarConfig {

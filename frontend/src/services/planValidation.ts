@@ -64,48 +64,8 @@ export class PlanValidationService {
   private validateCalendar(calendar: any): ValidationError[] {
     const errors: ValidationError[] = [];
 
-    if (!calendar.start_date) {
-      errors.push({
-        section: 'calendar',
-        field: 'start_date',
-        message: 'Start date is required',
-        severity: 'error'
-      });
-    }
-
-    if (!calendar.end_date) {
-      errors.push({
-        section: 'calendar',
-        field: 'end_date',
-        message: 'End date is required',
-        severity: 'error'
-      });
-    }
-
-    if (calendar.start_date && calendar.end_date) {
-      const startDate = new Date(calendar.start_date);
-      const endDate = new Date(calendar.end_date);
-
-      if (startDate >= endDate) {
-        errors.push({
-          section: 'calendar',
-          field: 'date_range',
-          message: 'End date must be after start date',
-          severity: 'error'
-        });
-      }
-
-      // Check for unreasonably long date ranges
-      const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (daysDiff > 365 * 2) {
-        errors.push({
-          section: 'calendar',
-          field: 'date_range',
-          message: 'Date range exceeds 2 years. Consider smaller ranges for better performance.',
-          severity: 'warning'
-        });
-      }
-    }
+    // Calendar dates are now optional (legacy field, sections define their own dates)
+    // Only validate pages_per_day
 
     if (!calendar.pages_per_day || calendar.pages_per_day < 1) {
       errors.push({

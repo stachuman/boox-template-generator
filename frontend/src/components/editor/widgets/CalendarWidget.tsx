@@ -46,7 +46,12 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
     }
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const weeksNeeded = Math.ceil((daysInMonth + firstDayOfWeek) / 7);
-    const actualWeeks = Math.max(4, Math.min(6, weeksNeeded));
+
+    // Check for force_weeks property (for consistent layout when stacking calendars)
+    const forceWeeks = calendarProps.force_weeks;
+    const actualWeeks = forceWeeks
+      ? Math.max(4, Math.min(6, parseInt(String(forceWeeks)) || weeksNeeded))
+      : Math.max(4, Math.min(6, weeksNeeded));
 
     const gridHeight = widget.position.height;
     const headerHeight = showMonthYear ? calendarFontSize * 2 : 0;
@@ -376,8 +381,17 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
       const daysInMonth = lastDay.getDate();
       const daysInPreviousMonth = new Date(year, month, 0).getDate();
 
+      // Calculate how many weeks to show
+      const weeksNeeded = Math.ceil((daysInMonth + firstDayOfWeek) / 7);
+
+      // Check for force_weeks property (for consistent layout when stacking calendars)
+      const forceWeeks = calendarProps.force_weeks;
+      const weeksToShow = forceWeeks
+        ? Math.max(4, Math.min(6, parseInt(String(forceWeeks)) || weeksNeeded))
+        : weeksNeeded;
+
       // Calculate how many cells we need
-      const totalCells = Math.ceil((daysInMonth + firstDayOfWeek) / 7) * 7;
+      const totalCells = weeksToShow * 7;
 
       // Calculate dimensions
       const gridHeight = widget.position.height;
@@ -385,7 +399,6 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
       const weekdayHeight = showWeekdays ? calendarFontSize * 1.5 : 0;
       const availableHeight = gridHeight - headerHeight - weekdayHeight;
 
-      const weeksToShow = Math.ceil((daysInMonth + firstDayOfWeek) / 7);
       const cellHeight = Math.max(cellMinSize, availableHeight / weeksToShow);
       const cellWidth = widget.position.width / 7;
 
@@ -506,7 +519,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
             <div className="absolute inset-0 bg-red-50 bg-opacity-90 flex items-center justify-center">
               <div className="text-red-600 text-xs text-center p-2">
                 Widget too small for month view.<br />
-                Minimum height needed: {Math.ceil((headerHeight + weekdayHeight + (Math.ceil((daysInMonth + firstDayOfWeek) / 7) * cellMinSize)) / 10) * 10}px
+                Minimum height needed: {Math.ceil((headerHeight + weekdayHeight + (weeksToShow * cellMinSize)) / 10) * 10}px
               </div>
             </div>
           )}

@@ -67,8 +67,30 @@ class PlanSection(BaseModel):
     # Static context
     context: Dict[str, Any] = Field(default_factory=dict, description="Static context variables")
 
-    # Navigation anchors (for this section)
-    anchors: List[Dict[str, str]] = Field(default_factory=list, description="Named destinations")
+    # Counter variables (increment per generated page)
+    counters: Dict[str, Dict[str, float]] = Field(
+        default_factory=dict,
+        description="Counter variables with start and step (e.g., {'page_num': {'start': 1, 'step': 1}})"
+    )
+
+    @validator("counters")
+    def validate_counters(cls, v):
+        """Validate counter format."""
+        if not v:
+            return v
+        for counter_name, counter_config in v.items():
+            if not isinstance(counter_config, dict):
+                raise ValueError(f"Counter '{counter_name}' must be a dictionary with 'start' and 'step'")
+            if "start" not in counter_config:
+                raise ValueError(f"Counter '{counter_name}' missing required 'start' field")
+            if "step" not in counter_config:
+                raise ValueError(f"Counter '{counter_name}' missing required 'step' field")
+            try:
+                float(counter_config["start"])
+                float(counter_config["step"])
+            except (ValueError, TypeError):
+                raise ValueError(f"Counter '{counter_name}' start and step must be numeric values")
+        return v
 
     @validator("start_date", "end_date")
     def validate_date_format(cls, v):
@@ -83,13 +105,16 @@ class PlanSection(BaseModel):
 
 class CalendarConfig(BaseModel):
     """Calendar configuration for the plan."""
-    start_date: str = Field(..., description="Plan start date")
-    end_date: str = Field(..., description="Plan end date")
+    start_date: Optional[str] = Field(None, description="Plan start date (legacy, use section dates)")
+    end_date: Optional[str] = Field(None, description="Plan end date (legacy, use section dates)")
     pages_per_day: int = Field(1, gt=0, description="Pages per day for day_pages sections")
 
-    @validator("start_date", "end_date")
+    @validator("start_date", "end_date", pre=True)
     def validate_date_format(cls, v):
         """Validate date format."""
+        # Convert empty strings to None
+        if v is None or v == "" or (isinstance(v, str) and v.strip() == ""):
+            return None
         try:
             date.fromisoformat(v)
         except ValueError:
