@@ -182,11 +182,11 @@ class LinkRenderer(BaseWidgetRenderer):
         """Render background/highlight for link with minimal state management."""
         try:
             is_highlighted = props.get('highlight', False)
-            highlight_color = props.get('highlight_color')
+            highlight_color = props.get('highlight_color', '#dbeafe')  # Default light blue
             background_color = props.get('background_color')
 
-            if is_highlighted and highlight_color:
-                # Parse hex color to RGB
+            if is_highlighted:
+                # Highlight always works if highlight flag is set, using highlight_color
                 color_rgb = self._hex_to_rgb(highlight_color)
                 if color_rgb:
                     pdf_canvas.setFillColor(color_rgb)

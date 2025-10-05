@@ -8,6 +8,7 @@
 import React from 'react';
 import { Widget } from '@/types';
 import { getFontCSS } from '@/lib/fonts';
+import { normalizeOrientation, isVerticalOrientation } from './textUtils';
 
 interface LinkListWidgetProps {
   widget: Widget;
@@ -54,14 +55,16 @@ const LinkListWidget: React.FC<LinkListWidgetProps> = ({ widget }) => {
   const rawItemH = lp.item_height;
   const lItemH = (rawItemH === null || rawItemH === undefined || String(rawItemH).trim() === '') ? null : toFloat(rawItemH, 24);
 
-  // Check orientation - for vertical, swap dimensions for layout
-  const listOrientation = lp.orientation || 'horizontal';
-  const isVertical = listOrientation === 'vertical_cw' || listOrientation === 'vertical_ccw';
+  // Determine orientation
+  const orientation = normalizeOrientation(lp.orientation);
+  const isVertical = isVerticalOrientation(orientation);
 
-  // Calculate layout - swap dimensions for vertical orientation
-  // For vertical: the physical height becomes the layout width (items spread along the tall dimension)
+  // Calculate layout in the rotated content space
+  // CanvasWidget swaps dimensions for vertical orientation, so we need to match that
   const lCount = labels.length;
   const rows = Math.ceil(lCount / lCols);
+
+  // For vertical orientations, use swapped dimensions to match CanvasWidget's content space
   const boxW = isVertical ? widget.position.height : widget.position.width;
   const boxH = isVertical ? widget.position.width : widget.position.height;
 

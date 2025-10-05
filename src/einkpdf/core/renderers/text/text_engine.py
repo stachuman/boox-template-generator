@@ -112,8 +112,9 @@ class TextEngine:
             cy = box['y'] + box['height'] / 2.0
 
             # Apply rotation transformation
+            # PDF uses bottom-left origin, so -90 in PDF space = +90 visual rotation
             pdf_canvas.translate(cx, cy)
-            pdf_canvas.rotate(90)
+            pdf_canvas.rotate(-90)
 
             # Calculate text position based on alignment
             # After +90° rotation, text flows bottom-to-top in rotated space
@@ -165,8 +166,9 @@ class TextEngine:
             cy = box['y'] + box['height'] / 2.0
 
             # Apply rotation transformation
+            # PDF uses bottom-left origin, so +90 in PDF space = -90 visual rotation
             pdf_canvas.translate(cx, cy)
-            pdf_canvas.rotate(-90)
+            pdf_canvas.rotate(90)
 
             # Calculate text position based on alignment
             # After -90° rotation, text flows top-to-bottom in rotated space

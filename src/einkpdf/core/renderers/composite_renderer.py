@@ -75,11 +75,19 @@ class CompositeRenderer(BaseWidgetRenderer):
         """Parse and validate link_list configuration properties."""
         config = {}
 
-        # Parse count with validation
-        try:
-            config['count'] = max(1, int(props.get('count', 1)))
-        except (ValueError, TypeError):
-            raise RenderingError(f"link_list '{widget_id}': invalid count, must be positive integer")
+        # If labels array is provided, use its length for count
+        # This matches UI behavior where labels takes precedence
+        labels = props.get('labels')
+        if labels and isinstance(labels, list):
+            config['count'] = len(labels)
+            config['labels'] = labels
+        else:
+            # Otherwise use count property
+            try:
+                config['count'] = max(1, int(props.get('count', 1)))
+            except (ValueError, TypeError):
+                raise RenderingError(f"link_list '{widget_id}': invalid count, must be positive integer")
+            config['labels'] = None
 
         # Parse start_index with validation
         try:
@@ -154,15 +162,12 @@ class CompositeRenderer(BaseWidgetRenderer):
 
     def _calculate_link_list_layout(self, widget: Widget, config: Dict[str, Any]) -> Dict[str, Any]:
         """Calculate layout parameters for link_list items."""
-        # Use original (unrotated) dimensions for layout
-        # The 'columns' property refers to the original orientation
-        # Rotation is applied later to the individual link widgets
-        orientation = config['orientation']
-        # For vertical orientations, swap width/height for layout calculations
-        # (rotation is applied later by the rendering engine)
+        # For vertical orientations, swap dimensions to match the rotated content space
+        # This matches the UI behavior where CanvasWidget swaps dimensions
+        orientation = config.get('orientation', 'horizontal')
         is_vertical = orientation in ['vertical_cw', 'vertical_ccw']
+
         if is_vertical:
-            
             total_w = float(widget.position.height)
             total_h = float(widget.position.width)
         else:
@@ -173,8 +178,8 @@ class CompositeRenderer(BaseWidgetRenderer):
         gap_x = config['gap_x']
         gap_y = config['gap_y']
         item_height = config['item_height']
+        columns = config['columns']
 
-        columns = config['columns']    
         # Calculate rows
         rows = int(math.ceil(count / columns)) if columns > 0 else count
 
@@ -185,6 +190,11 @@ class CompositeRenderer(BaseWidgetRenderer):
         # Cell dimensions
         cell_w = base_cell_w
         cell_h = item_height if item_height is not None else base_cell_h
+
+        logger.info(f"[link_list] Layout calc: widget_pos=({widget.position.x},{widget.position.y},{widget.position.width}x{widget.position.height})")
+        logger.info(f"[link_list] count={count}, columns={columns}, rows={rows}, orientation={config.get('orientation')}")
+        logger.info(f"[link_list] total_w={total_w}, total_h={total_h}")
+        logger.info(f"[link_list] cell_w={cell_w}, cell_h={cell_h}, gap_x={gap_x}, gap_y={gap_y}")
 
         return {
             'base_x': float(widget.position.x),
@@ -208,6 +218,7 @@ class CompositeRenderer(BaseWidgetRenderer):
         bind_expr = config['bind_expr']
         highlight_index = config['highlight_index']
         highlight_color = config['highlight_color']
+        labels_array = config.get('labels')  # May be None if using template
 
         base_x = layout['base_x']
         base_y = layout['base_y']
@@ -216,6 +227,10 @@ class CompositeRenderer(BaseWidgetRenderer):
         gap_x = layout['gap_x']
         gap_y = layout['gap_y']
         columns = layout['columns']
+
+        # Also get destinations array if provided
+        props = getattr(widget, 'properties', {}) or {}
+        destinations_array = props.get('destinations')
 
         for i in range(count):
             # Calculate position in grid
@@ -226,47 +241,58 @@ class CompositeRenderer(BaseWidgetRenderer):
             x = base_x + col * (cell_w + gap_x)
             y = base_y + row * (cell_h + gap_y)
 
+            logger.info(f"[link_list] Item {i}: row={row}, col={col}, pos=({x},{y}), size=({cell_w}x{cell_h})")
+
             # Calculate index values
             actual_index = start_index + i
             index_padded = str(actual_index).zfill(index_pad)
 
-            # Generate label from template with token processing
-            try:
-                # First process any tokens in the template
-                processed_template = label_template
+            # Generate label - use labels array if available, otherwise use template
+            if labels_array and i < len(labels_array):
+                label = str(labels_array[i])
+                logger.info(f"[link_list] Item {i}: Using label from array: '{label}'")
+            else:
+                # Generate label from template with token processing
                 try:
-                    render_context = RenderingTokenContext(
-                        page_num=page_num,
-                        total_pages=total_pages
+                    # First process any tokens in the template
+                    processed_template = label_template
+                    try:
+                        render_context = RenderingTokenContext(
+                            page_num=page_num,
+                            total_pages=total_pages
+                        )
+                        processed_template = TokenProcessor.replace_rendering_tokens(label_template, render_context)
+                    except Exception as token_err:
+                        logger.warning(f"link_list '{widget.id}': token processing in label_template failed: {token_err}")
+
+                    # Then format with index values
+                    label = processed_template.format(
+                        index=actual_index,
+                        index_padded=index_padded
                     )
-                    processed_template = TokenProcessor.replace_rendering_tokens(label_template, render_context)
-                except Exception as token_err:
-                    logger.warning(f"link_list '{widget.id}': token processing in label_template failed: {token_err}")
+                except (KeyError, ValueError) as e:
+                    logger.warning(f"link_list '{widget.id}': label template error: {e}")
+                    label = f"Item {actual_index}"
 
-                # Then format with index values
-                label = processed_template.format(
-                    index=actual_index,
-                    index_padded=index_padded
-                )
-            except (KeyError, ValueError) as e:
-                logger.warning(f"link_list '{widget.id}': label template error: {e}")
-                label = f"Item {actual_index}"
+            # Generate destination - use destinations array if available, otherwise use bind expression
+            if destinations_array and i < len(destinations_array):
+                destination = str(destinations_array[i])
+            else:
+                # Generate destination from bind expression with formatting support
+                try:
+                    normalized_bind = bind_expr.replace('{PAGE}', '{page}').replace('{TOTAL_PAGES}', '{total_pages}')
+                    normalized_bind = normalized_bind.replace('@index', '{index}').replace('@index_padded', '{index_padded}')
 
-            # Generate destination from bind expression with formatting support
-            try:
-                normalized_bind = bind_expr.replace('{PAGE}', '{page}').replace('{TOTAL_PAGES}', '{total_pages}')
-                normalized_bind = normalized_bind.replace('@index', '{index}').replace('@index_padded', '{index_padded}')
-
-                values = {
-                    'index': actual_index,
-                    'index_padded': index_padded,
-                    'page': page_num,
-                    'total_pages': total_pages
-                }
-                destination = TokenProcessor._replace_tokens(normalized_bind, values)
-            except Exception as e:
-                logger.warning(f"link_list '{widget.id}': bind expression error: {e}")
-                destination = f"item_{actual_index}"
+                    values = {
+                        'index': actual_index,
+                        'index_padded': index_padded,
+                        'page': page_num,
+                        'total_pages': total_pages
+                    }
+                    destination = TokenProcessor._replace_tokens(normalized_bind, values)
+                except Exception as e:
+                    logger.warning(f"link_list '{widget.id}': bind expression error: {e}")
+                    destination = f"item_{actual_index}"
 
             # Create position for this link
             position = Position(
@@ -282,6 +308,7 @@ class CompositeRenderer(BaseWidgetRenderer):
             # Pass orientation to generated links
             if config.get('orientation') in ['vertical_cw', 'vertical_ccw']:
                 link_props['orientation'] = config['orientation']
+                logger.info(f"[link_list] Item {i}: Setting orientation={config['orientation']}")
 
             # Add highlight if this is the highlighted index
             if highlight_index is not None and actual_index == highlight_index:

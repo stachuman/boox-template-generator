@@ -882,30 +882,68 @@ class CompilationService:
 
         # Calculate layout
         count = len(labels)
-        rows = int(math.ceil(count / columns))
 
-        total_width = float(position.get("width", 400))
-        total_height = float(position.get("height", 300))
+        # For vertical orientations, swap dimensions to match the rotated content space
+        # This matches the UI behavior where CanvasWidget swaps dimensions
+        is_vertical = orientation in ('vertical_cw', 'vertical_ccw')
+        if is_vertical:
+            total_width = float(position.get("height", 300))
+            total_height = float(position.get("width", 400))
+        else:
+            total_width = float(position.get("width", 400))
+            total_height = float(position.get("height", 300))
+
+        rows = int(math.ceil(count / columns))
         base_cell_w = (total_width - (columns - 1) * gap_x) / columns
         base_cell_h = (total_height - (rows - 1) * gap_y) / rows
 
-        if orientation in ('vertical_cw', 'vertical_ccw'):
-            cell_height = base_cell_h
-            cell_width = item_height if item_height is not None else base_cell_w
-        else:
-            cell_width = base_cell_w
-            cell_height = item_height if item_height is not None else base_cell_h
+        # Cell dimensions
+        cell_width = base_cell_w
+        cell_height = item_height if item_height is not None else base_cell_h
 
         base_x = float(position.get("x", 0))
         base_y = float(position.get("y", 0))
 
+        logger.warning(f"[compilation] link_list expansion: orientation={orientation}")
+        logger.warning(f"[compilation] position: {position.get('width')}x{position.get('height')}")
+        logger.warning(f"[compilation] columns={columns}, rows={rows}, count={count}")
+        logger.warning(f"[compilation] cell size: {cell_width}x{cell_height}")
+
         # Generate link widgets
         for i in range(count):
-            row = i // columns
-            col = i % columns
+            # Calculate row/col based on orientation and rotation behavior
+            if orientation == 'vertical_cw':
+                # CW rotation: fill bottom row first (row 1), left-to-right, then top row
+                # Item order: 0→(0,1), 1→(1,1), 2→(2,1), 3→(0,0), 4→(1,0), 5→(2,0)
+                # Result: 4|1, 5|2, 6|3 (reading top-to-bottom, left-to-right)
+                row = rows - 1 - (i // columns)  # Start from bottom row
+                col = i % columns
+            elif orientation == 'vertical_ccw':
+                # CCW rotation: fill rows right-to-left
+                # Item order: 0→(2,0), 1→(1,0), 2→(0,0), 3→(2,1), 4→(1,1), 5→(0,1)
+                # Result: 3|6, 2|5, 1|4 (reading top-to-bottom, left-to-right)
+                row = i // columns
+                col = columns - 1 - (i % columns)  # Reverse column order
+            else:
+                # Horizontal: normal row-major order
+                row = i // columns
+                col = i % columns
 
-            cell_x = base_x + col * (cell_width + gap_x)
-            cell_y = base_y + row * (cell_height + gap_y)
+            # Calculate position in the layout space (swapped if vertical)
+            layout_x = col * (cell_width + gap_x)
+            layout_y = row * (cell_height + gap_y)
+
+            # For vertical orientations, transform positions to account for rotation
+            # The layout is done in swapped space, but positions need to be in original space
+            if is_vertical:
+                # Transform from swapped space to original space
+                # Swapped horizontal position becomes original vertical position
+                cell_x = base_x + layout_y
+                cell_y = base_y + layout_x
+            else:
+                # No transformation needed for horizontal
+                cell_x = base_x + layout_x
+                cell_y = base_y + layout_y
 
             # Get label and destination for this item
             label = str(labels[i])
@@ -915,20 +953,31 @@ class CompilationService:
             label_resolved = binding_resolver._substitute_tokens(label, context)
             dest_resolved = binding_resolver._substitute_tokens(destination, context)
 
+            # For vertical orientations, also swap cell dimensions
+            # Each cell's width/height are in the swapped space, so we need to swap them back
+            if is_vertical:
+                final_cell_width = cell_height
+                final_cell_height = cell_width
+            else:
+                final_cell_width = cell_width
+                final_cell_height = cell_height
+
+            logger.warning(f"[compilation] Cell {i} ({label}): row={row}, col={col}, pos=({cell_x},{cell_y}), size=({final_cell_width}x{final_cell_height})")
+
             # Build widget
             cell_widget = {
                 "type": "internal_link",
                 "position": {
                     "x": cell_x,
                     "y": cell_y,
-                    "width": cell_width,
-                    "height": cell_height
+                    "width": final_cell_width,
+                    "height": final_cell_height
                 },
                 "content": label_resolved,
                 "styling": base_styling,
                 "properties": {
                     "bind": dest_resolved,
-                    "orientation": orientation,
+                    "orientation": orientation,  # Pass orientation to each cell
                     **({"highlight_color": highlight_color} if highlight_color else {}),
                     **({"background_color": background_color} if background_color else {})
                 },
