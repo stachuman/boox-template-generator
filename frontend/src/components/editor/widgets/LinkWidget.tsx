@@ -8,6 +8,7 @@
 import React from 'react';
 import { Widget } from '@/types';
 import { resolveFontFamily, mapJustify } from './utils';
+import { normalizeOrientation, isVerticalOrientation } from './textUtils';
 
 interface LinkWidgetProps {
   widget: Widget;
@@ -16,50 +17,30 @@ interface LinkWidgetProps {
 const LinkWidget: React.FC<LinkWidgetProps> = ({ widget }) => {
   const linkContent = widget.content || 'Internal Link';
   const linkStyling = widget.styling || {};
-  const linkFontSize = (linkStyling.size || 12);
+  const linkFontSize = linkStyling.size || 12;
   const linkFontFamily = resolveFontFamily(linkStyling.font);
   const linkColor = linkStyling.color || '#0066CC';
-  const linkOrientation = widget.properties?.orientation || 'horizontal';
-  const isLinkVertical = linkOrientation === 'vertical';
-
-  if (isLinkVertical) {
-    // For vertical links, use height as the wrapping constraint
-    return (
-      <div
-        className="h-full w-full flex items-center justify-center px-1 cursor-pointer hover:bg-blue-50 transition-colors"
-        style={{
-          fontSize: linkFontSize,
-          fontFamily: linkFontFamily,
-          color: linkColor,
-          textDecoration: 'underline',
-          minHeight: '44px',
-          writingMode: 'vertical-rl' as any,
-          textOrientation: 'mixed',
-          textAlign: (widget.styling?.text_align as any) || 'left',
-          whiteSpace: 'pre-wrap',
-          overflowWrap: 'anywhere',
-          overflow: 'hidden'
-        }}
-      >
-        <span>{linkContent}</span>
-      </div>
-    );
-  }
+  const orientation = normalizeOrientation(widget.properties?.orientation);
+  const vertical = isVerticalOrientation(orientation);
 
   return (
     <div
-      className="h-full flex items-center justify-center px-1 cursor-pointer hover:bg-blue-50 transition-colors"
+      className="h-full w-full flex px-1 cursor-pointer hover:bg-blue-50 transition-colors"
       style={{
         fontSize: linkFontSize,
         fontFamily: linkFontFamily,
         color: linkColor,
         textAlign: (widget.styling?.text_align as any) || 'left',
         justifyContent: mapJustify(widget.styling?.text_align),
+        alignItems: vertical ? 'stretch' : 'center',
         textDecoration: 'underline',
-        minHeight: '44px'
+        minHeight: '44px',
+        whiteSpace: 'pre-wrap',
+        overflowWrap: 'anywhere',
+        overflow: 'hidden'
       }}
     >
-      <span className="truncate">{linkContent}</span>
+      {linkContent}
     </div>
   );
 };

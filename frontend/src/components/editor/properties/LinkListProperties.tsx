@@ -12,6 +12,7 @@ import SelectInput from './shared/SelectInput';
 import ColorPicker from './shared/ColorPicker';
 import { Edit3 } from 'lucide-react';
 import LinkListEditorModal from '../LinkListEditorModal';
+import { normalizeOrientation } from '../widgets/textUtils';
 
 interface LinkListPropertiesProps {
   widget: Widget;
@@ -46,7 +47,8 @@ const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdat
 
   const orientationOptions = [
     { value: 'horizontal', label: 'Horizontal' },
-    { value: 'vertical', label: 'Vertical' }
+    { value: 'vertical_cw', label: 'Vertical ↻ (+90°)' },
+    { value: 'vertical_ccw', label: 'Vertical ↺ (-90°)' }
   ];
 
   return (
@@ -140,7 +142,7 @@ const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdat
 
           <SelectInput
             label="Orientation"
-            value={properties.orientation || 'horizontal'}
+            value={normalizeOrientation(properties.orientation)}
             onChange={(value) => updateProperty('orientation', value)}
             options={orientationOptions}
             helpText="Text direction"

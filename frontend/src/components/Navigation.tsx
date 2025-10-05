@@ -100,15 +100,27 @@ const Navigation: React.FC = () => {
           <ExternalLink className="h-3 w-3" />
         </a>
         <span className="text-xs text-eink-dark-gray">{VersionService.getVersionString()}</span>
-        <span className="text-sm text-eink-dark-gray">{user ? `Signed in as ${user.username}` : ''}</span>
-        <button
-          type="button"
-          onClick={logout}
-          className="flex items-center space-x-1 rounded-md border border-eink-pale-gray px-3 py-2 text-sm text-eink-dark-gray transition-colors hover:border-eink-black hover:text-eink-black"
-        >
-          <LogOut className="h-4 w-4" />
-          <span>Sign out</span>
-        </button>
+        {user ? (
+          <>
+            <span className="text-sm text-eink-dark-gray">Signed in as {user.username}</span>
+            <button
+              type="button"
+              onClick={logout}
+              className="flex items-center space-x-1 rounded-md border border-eink-pale-gray px-3 py-2 text-sm text-eink-dark-gray transition-colors hover:border-eink-black hover:text-eink-black"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Sign out</span>
+            </button>
+          </>
+        ) : (
+          <Link
+            to="/login"
+            className="flex items-center space-x-1 rounded-md border border-eink-pale-gray px-3 py-2 text-sm text-eink-dark-gray transition-colors hover:border-eink-black hover:text-eink-black"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Sign in</span>
+          </Link>
+        )}
       </div>
       </nav>
     </>

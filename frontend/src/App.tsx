@@ -51,6 +51,14 @@ const App: React.FC = () => {
     <DndProvider backend={HTML5Backend}>
       <Router>
         <Routes>
+          {/* Public gallery routes - no auth required */}
+          <Route path="/" element={<AppShell />}>
+            <Route path="gallery" element={<GalleryRoute />} />
+            <Route path="gallery/id/:projectId" element={<PublicProjectDetailRoute />} />
+            <Route path="gallery/:slug" element={<PublicProjectDetailRoute />} />
+          </Route>
+
+          {/* Protected routes - require authentication */}
           <Route
             path="/"
             element={(
@@ -65,9 +73,6 @@ const App: React.FC = () => {
             <Route path="projects/:projectId/masters/new" element={<MasterEditor />} />
             <Route path="projects/:projectId/masters/:masterName" element={<MasterEditor />} />
             <Route path="projects/:projectId/compilation" element={<CompilationRulesEditor />} />
-            <Route path="gallery" element={<GalleryRoute />} />
-            <Route path="gallery/id/:projectId" element={<PublicProjectDetailRoute />} />
-            <Route path="gallery/:slug" element={<PublicProjectDetailRoute />} />
             <Route path="admin" element={<AdminDashboard />} />
           </Route>
 

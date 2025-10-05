@@ -29,25 +29,6 @@ interface WidgetType {
 
 const WIDGET_TYPES: WidgetType[] = [
   {
-    id: 'box',
-    type: 'box',
-    label: 'Box (Rect)',
-    icon: Square,
-    description: 'Background block with border and optional link',
-    defaultProps: {
-      position: { width: 240, height: 120 },
-      styling: {
-        fill_color: '#FFFFFF',
-        stroke_color: '#000000',
-        line_width: 1
-      },
-      properties: {
-        corner_radius: 0,
-        opacity: 1.0
-      }
-    }
-  },
-  {
     id: 'text_block',
     type: 'text_block',
     label: 'Text Block',
@@ -63,63 +44,6 @@ const WIDGET_TYPES: WidgetType[] = [
       },
       properties: {
         orientation: 'horizontal'
-      }
-    }
-  },
-  {
-    id: 'link_list',
-    type: 'link_list',
-    label: 'Link List',
-    icon: AlignJustify,
-    description: 'Composite list of internal links (auto layout)',
-    defaultProps: {
-      position: { width: 320, height: 160 },
-      styling: {
-        font: 'Helvetica',
-        size: 12,
-        color: '#0066CC'
-      },
-      properties: {
-        count: 10,
-        start_index: 1,
-        index_pad: 3,
-        columns: 2,
-        gap_y: 6,
-        item_height: 24,
-        label_template: 'Note {index_padded}',
-        bind: 'notes:{index}',
-        orientation: 'horizontal'
-      }
-    }
-  },
-  {
-    id: 'image',
-    type: 'image',
-    label: 'Image',
-    icon: Square,
-    description: 'Place PNG/JPEG (fit/stretch/actual size)',
-    defaultProps: {
-      content: '',
-      position: { width: 200, height: 120 },
-      properties: {
-        image_src: '',
-        image_fit: 'fit'
-      }
-    }
-  },
-  {
-    id: 'tap_zone',
-    type: 'tap_zone',
-    label: 'Tap Zone',
-    icon: Anchor,
-    description: 'Invisible link area (prev/next/page/destination)',
-    defaultProps: {
-      content: '',
-      position: { width: 120, height: 48 },
-      properties: {
-        tap_action: 'page_link',
-        target_page: 2,
-        outline: true
       }
     }
   },
@@ -175,6 +99,149 @@ const WIDGET_TYPES: WidgetType[] = [
     }
   },
   {
+    id: 'internal_link',
+    type: 'internal_link',
+    label: 'Internal Link',
+    icon: Anchor,
+    description: 'Text link to a named destination',
+    defaultProps: {
+      content: 'Internal Link',
+      position: { width: 140, height: 24 },
+      styling: {
+        font: 'Patrick-Hand',
+        size: 12,
+        color: '#0066CC'
+      },
+      properties: {
+        to_dest: 'notes:index',
+        orientation: 'horizontal'
+      }
+    }
+  },
+
+  {
+    id: 'anchor',
+    type: 'anchor',
+    label: 'Anchor (Destination)',
+    icon: Anchor,
+    description: 'Named destination marker (invisible)',
+    defaultProps: {
+      content: '',
+      position: { width: 1, height: 1 },
+      properties: {
+        dest_id: 'day:2026-01-01'
+      }
+    }
+  },
+  {
+    id: 'link_list',
+    type: 'link_list',
+    label: 'Link List',
+    icon: AlignJustify,
+    description: 'Composite list of internal links (auto layout)',
+    defaultProps: {
+      position: { width: 320, height: 160 },
+      styling: {
+        font: 'Helvetica',
+        size: 12,
+        color: '#0066CC'
+      },
+      properties: {
+        count: 10,
+        start_index: 1,
+        index_pad: 3,
+        columns: 2,
+        gap_y: 6,
+        item_height: 24,
+        label_template: 'Note {index_padded}',
+        bind: 'notes:{index}',
+        orientation: 'horizontal'
+      }
+    }
+  },
+   
+  {
+    id: 'tap_zone',
+    type: 'tap_zone',
+    label: 'Tap Zone',
+    icon: Anchor,
+    description: 'Invisible link area (prev/next/page/destination)',
+    defaultProps: {
+      content: '',
+      position: { width: 120, height: 48 },
+      properties: {
+        tap_action: 'page_link',
+        target_page: 2,
+        outline: true
+      }
+    }
+  },
+
+   {
+    id: 'calendar',
+    type: 'calendar',
+    label: 'Calendar',
+    icon: Calendar,
+    description: 'Interactive calendar with date navigation',
+    defaultProps: {
+      content: '',  // Calendar generates its own content
+      position: { width: 280, height: 200 },  // Standard monthly calendar size
+      styling: {
+        font: 'Patrick-Hand',
+        size: 10,
+        color: '#000000'
+      },
+      properties: {
+        calendar_type: 'monthly',
+        start_date: new Date().toISOString().split('T')[0],  // Today's date in YYYY-MM-DD
+        link_strategy: 'sequential_pages',
+        first_page_number: 2,     // Start from page 2 (page 1 might be calendar index)
+        pages_per_date: 1,        // One page per day
+        show_weekdays: true,
+        show_month_year: true,
+        cell_min_size: 44,        // E-ink touch target minimum
+        show_grid_lines: true,
+        first_day_of_week: 'monday'  // European default (Monday first)
+      }
+    }
+  },
+ 
+  {
+    id: 'box',
+    type: 'box',
+    label: 'Box (Rect)',
+    icon: Square,
+    description: 'Background block with border and optional link',
+    defaultProps: {
+      position: { width: 240, height: 120 },
+      styling: {
+        fill_color: '#FFFFFF',
+        stroke_color: '#000000',
+        line_width: 1
+      },
+      properties: {
+        corner_radius: 0,
+        opacity: 1.0
+      }
+    }
+  },
+
+  {
+    id: 'image',
+    type: 'image',
+    label: 'Image',
+    icon: Square,
+    description: 'Place PNG/JPEG (fit/stretch/actual size)',
+    defaultProps: {
+      content: '',
+      position: { width: 200, height: 120 },
+      properties: {
+        image_src: '',
+        image_fit: 'fit'
+      }
+    }
+  },
+  {
     id: 'divider',
     type: 'divider',
     label: 'Divider',
@@ -220,68 +287,7 @@ const WIDGET_TYPES: WidgetType[] = [
       }
     }
   },
-  {
-    id: 'anchor',
-    type: 'anchor',
-    label: 'Anchor (Destination)',
-    icon: Anchor,
-    description: 'Named destination marker (invisible)',
-    defaultProps: {
-      content: '',
-      position: { width: 1, height: 1 },
-      properties: {
-        dest_id: 'day:2026-01-01'
-      }
-    }
-  },
-  {
-    id: 'internal_link',
-    type: 'internal_link',
-    label: 'Internal Link',
-    icon: Anchor,
-    description: 'Text link to a named destination',
-    defaultProps: {
-      content: 'Internal Link',
-      position: { width: 140, height: 24 },
-      styling: {
-        font: 'Patrick-Hand',
-        size: 12,
-        color: '#0066CC'
-      },
-      properties: {
-        to_dest: 'notes:index',
-        orientation: 'horizontal'
-      }
-    }
-  },
-  {
-    id: 'calendar',
-    type: 'calendar',
-    label: 'Calendar',
-    icon: Calendar,
-    description: 'Interactive calendar with date navigation',
-    defaultProps: {
-      content: '',  // Calendar generates its own content
-      position: { width: 280, height: 200 },  // Standard monthly calendar size
-      styling: {
-        font: 'Patrick-Hand',
-        size: 10,
-        color: '#000000'
-      },
-      properties: {
-        calendar_type: 'monthly',
-        start_date: new Date().toISOString().split('T')[0],  // Today's date in YYYY-MM-DD
-        link_strategy: 'sequential_pages',
-        first_page_number: 2,     // Start from page 2 (page 1 might be calendar index)
-        pages_per_date: 1,        // One page per day
-        show_weekdays: true,
-        show_month_year: true,
-        cell_min_size: 44,        // E-ink touch target minimum
-        show_grid_lines: true,
-        first_day_of_week: 'monday'  // European default (Monday first)
-      }
-    }
-  },
+
   {
     id: 'table',
     type: 'table',

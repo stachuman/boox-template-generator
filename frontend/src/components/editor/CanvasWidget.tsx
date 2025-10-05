@@ -11,6 +11,7 @@ import clsx from 'clsx';
 import { Widget } from '@/types';
 import { getWidgetComponent } from './widgets';
 import { useEditorStore } from '@/stores/editorStore';
+import { normalizeOrientation, getOrientationLayoutStyle } from './widgets/textUtils';
 
 interface CanvasWidgetProps {
   widget: Widget;
@@ -131,6 +132,21 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
     );
   };
 
+  // Compute transform so oriented text respects the widget bounds
+  const orientation = normalizeOrientation(widget.properties?.orientation);
+  const orientationStyle = getOrientationLayoutStyle(widget.position, orientation);
+  const contentStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: orientationStyle.width,
+    height: orientationStyle.height,
+    transformOrigin: orientationStyle.transformOrigin,
+  };
+  if (orientationStyle.transform) {
+    contentStyle.transform = orientationStyle.transform;
+  }
+
   return (
     <div
       className={clsx(
@@ -142,7 +158,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         left: widget.position.x,
         top: widget.position.y,
         width: widget.position.width,
-        height: widget.position.height,
+        height: widget.position.height
       }}
       onClick={handleWidgetClick}
       onContextMenu={(e) => {
@@ -153,30 +169,29 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         }
       }}
     >
-      {/* Widget content */}
-      <div className="w-full h-full">
-        {/* Drag handle is the content layer only */}
-        <div ref={drag} className="absolute inset-0">
+      {/* Widget content - orientation transform keeps content within bounds */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div ref={drag} className="w-full h-full" style={contentStyle}>
           {renderWidgetContent()}
         </div>
-
-        {/* Selection Handles */}
-        {isSelected && (
-          <>
-            {/* Corner handles */}
-            <div onMouseDown={onHandleMouseDown('nw')} className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 border border-white cursor-nwse-resize z-10" />
-            <div onMouseDown={onHandleMouseDown('ne')} className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 border border-white cursor-nesw-resize z-10" />
-            <div onMouseDown={onHandleMouseDown('sw')} className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 border border-white cursor-nesw-resize z-10" />
-            <div onMouseDown={onHandleMouseDown('se')} className="absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 border border-white cursor-nwse-resize z-10" />
-
-            {/* Edge handles */}
-            <div onMouseDown={onHandleMouseDown('n')} className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 border border-white cursor-n-resize z-10" />
-            <div onMouseDown={onHandleMouseDown('s')} className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 border border-white cursor-s-resize z-10" />
-            <div onMouseDown={onHandleMouseDown('w')} className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-500 border border-white cursor-w-resize z-10" />
-            <div onMouseDown={onHandleMouseDown('e')} className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-500 border border-white cursor-e-resize z-10" />
-          </>
-        )}
       </div>
+
+      {/* Selection Handles - outside rotated content */}
+      {isSelected && (
+        <>
+          {/* Corner handles */}
+          <div onMouseDown={onHandleMouseDown('nw')} className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 border border-white cursor-nwse-resize z-10" />
+          <div onMouseDown={onHandleMouseDown('ne')} className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 border border-white cursor-nesw-resize z-10" />
+          <div onMouseDown={onHandleMouseDown('sw')} className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 border border-white cursor-nesw-resize z-10" />
+          <div onMouseDown={onHandleMouseDown('se')} className="absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 border border-white cursor-nwse-resize z-10" />
+
+          {/* Edge handles */}
+          <div onMouseDown={onHandleMouseDown('n')} className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 border border-white cursor-n-resize z-10" />
+          <div onMouseDown={onHandleMouseDown('s')} className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 border border-white cursor-s-resize z-10" />
+          <div onMouseDown={onHandleMouseDown('w')} className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-500 border border-white cursor-w-resize z-10" />
+          <div onMouseDown={onHandleMouseDown('e')} className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-500 border border-white cursor-e-resize z-10" />
+        </>
+      )}
     </div>
   );
 };

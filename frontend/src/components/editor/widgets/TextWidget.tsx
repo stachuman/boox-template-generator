@@ -9,46 +9,20 @@ import React from 'react';
 import { Widget } from '@/types';
 import { mapJustify } from './utils';
 import { getFontCSS } from '@/lib/fonts';
+import { normalizeOrientation, isVerticalOrientation } from './textUtils';
 
 interface TextWidgetProps {
   widget: Widget;
 }
 
 const TextWidget: React.FC<TextWidgetProps> = ({ widget }) => {
-  const textOrientation = widget.properties?.orientation || 'horizontal';
-  const isVertical = textOrientation === 'vertical';
   const fontCSS = getFontCSS(widget.styling?.font);
-
-  if (isVertical) {
-    // For vertical text, use height as the wrapping constraint
-    return (
-      <div
-        className="h-full w-full flex items-center justify-center"
-        style={{
-          fontFamily: fontCSS.fontFamily,
-          fontWeight: fontCSS.fontWeight,
-          fontStyle: fontCSS.fontStyle,
-          fontSize: (widget.styling?.size || 12),
-          color: widget.styling?.color || '#000000',
-          writingMode: 'vertical-rl' as any,
-          textOrientation: 'mixed',
-          textAlign: (widget.styling?.text_align as any) || 'left',
-          whiteSpace: 'pre-wrap',
-          overflowWrap: 'anywhere',
-          // Height becomes the width constraint for vertical text
-          width: '100%',
-          height: '100%',
-          overflow: 'hidden'
-        }}
-      >
-        {widget.content || 'Text Block'}
-      </div>
-    );
-  }
+  const orientation = normalizeOrientation(widget.properties?.orientation);
+  const vertical = isVerticalOrientation(orientation);
 
   return (
     <div
-      className="h-full w-full flex items-center justify-center"
+      className="h-full w-full flex"
       style={{
         fontFamily: fontCSS.fontFamily,
         fontWeight: fontCSS.fontWeight,
@@ -57,8 +31,10 @@ const TextWidget: React.FC<TextWidgetProps> = ({ widget }) => {
         color: widget.styling?.color || '#000000',
         textAlign: (widget.styling?.text_align as any) || 'left',
         justifyContent: mapJustify(widget.styling?.text_align),
+        alignItems: vertical ? 'stretch' : 'center',
         whiteSpace: 'pre-wrap',
-        overflowWrap: 'anywhere'
+        overflowWrap: 'anywhere',
+        overflow: 'hidden'
       }}
     >
       {widget.content || 'Text Block'}

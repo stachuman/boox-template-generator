@@ -78,8 +78,13 @@ class TextEngine:
             text_width = len(text) * (options.font_size * 0.6)
 
         # Render based on orientation
-        if options.orientation == 'vertical':
-            self._render_vertical_text(
+        # Legacy 'vertical' defaults to vertical_cw (+90) for backward compatibility
+        if options.orientation in ['vertical', 'vertical_cw']:
+            self._render_vertical_cw_text(
+                pdf_canvas, box, text, text_width, font_name, options
+            )
+        elif options.orientation == 'vertical_ccw':
+            self._render_vertical_ccw_text(
                 pdf_canvas, box, text, text_width, font_name, options
             )
         else:
@@ -87,12 +92,17 @@ class TextEngine:
                 pdf_canvas, box, text, text_width, font_name, options
             )
 
-    def _render_vertical_text(self, pdf_canvas: canvas.Canvas, box: Dict[str, float],
-                             text: str, text_width: float, font_name: str,
-                             options: TextRenderingOptions) -> None:
-        """Render text with vertical orientation (90-degree rotation)."""
+    def _render_vertical_cw_text(self, pdf_canvas: canvas.Canvas, box: Dict[str, float],
+                                 text: str, text_width: float, font_name: str,
+                                 options: TextRenderingOptions) -> None:
+        """Render text with vertical clockwise orientation (+90 degree rotation)."""
         pdf_canvas.saveState()
         try:
+            # Clip to bounding box to prevent overflow
+            path = pdf_canvas.beginPath()
+            path.rect(box['x'], box['y'], box['width'], box['height'])
+            pdf_canvas.clipPath(path, stroke=0, fill=0)
+
             # Set font and color
             pdf_canvas.setFont(font_name, options.font_size)
             pdf_canvas.setFillColor(HexColor(options.color))
@@ -106,12 +116,19 @@ class TextEngine:
             pdf_canvas.rotate(90)
 
             # Calculate text position based on alignment
+            # After +90° rotation, text flows bottom-to-top in rotated space
+            # The box height becomes the width in rotated coordinates
+            # Alignment refers to position along the original box height
+            box_rotated_width = box['height']
+
             if options.text_align == 'center':
                 start_x = -text_width / 2.0
             elif options.text_align == 'right':
-                start_x = -text_width
-            else:  # left alignment (default for vertical)
-                start_x = -text_width / 2.0
+                # Right align: position at far end of rotated width
+                start_x = (box_rotated_width / 2.0) - text_width
+            else:  # left alignment
+                # Left align: position at start of rotated width
+                start_x = -(box_rotated_width / 2.0)
 
             start_y = -options.font_size / 3.0
 
@@ -124,7 +141,60 @@ class TextEngine:
                 pdf_canvas.line(start_x, underline_y, start_x + text_width, underline_y)
 
         except Exception as e:
-            logger.warning(f"Failed to render vertical text: {e}")
+            logger.warning(f"Failed to render vertical CW text: {e}")
+        finally:
+            pdf_canvas.restoreState()
+
+    def _render_vertical_ccw_text(self, pdf_canvas: canvas.Canvas, box: Dict[str, float],
+                                  text: str, text_width: float, font_name: str,
+                                  options: TextRenderingOptions) -> None:
+        """Render text with vertical counter-clockwise orientation (-90 degree rotation)."""
+        pdf_canvas.saveState()
+        try:
+            # Clip to bounding box to prevent overflow
+            path = pdf_canvas.beginPath()
+            path.rect(box['x'], box['y'], box['width'], box['height'])
+            pdf_canvas.clipPath(path, stroke=0, fill=0)
+
+            # Set font and color
+            pdf_canvas.setFont(font_name, options.font_size)
+            pdf_canvas.setFillColor(HexColor(options.color))
+
+            # Calculate rotation center
+            cx = box['x'] + box['width'] / 2.0
+            cy = box['y'] + box['height'] / 2.0
+
+            # Apply rotation transformation
+            pdf_canvas.translate(cx, cy)
+            pdf_canvas.rotate(-90)
+
+            # Calculate text position based on alignment
+            # After -90° rotation, text flows top-to-bottom in rotated space
+            # The box height becomes the width in rotated coordinates
+            # Alignment refers to position along the original box height
+            box_rotated_width = box['height']
+
+            if options.text_align == 'center':
+                start_x = -text_width / 2.0
+            elif options.text_align == 'right':
+                # Right align: position at far end of rotated width
+                start_x = -(box_rotated_width / 2.0)
+            else:  # left alignment
+                # Left align: position at start of rotated width
+                start_x = (box_rotated_width / 2.0) - text_width
+
+            start_y = -options.font_size / 3.0
+
+            # Draw text
+            pdf_canvas.drawString(start_x, start_y, text)
+
+            # Draw underline if specified
+            if options.underline:
+                underline_y = start_y - options.font_size * 0.1
+                pdf_canvas.line(start_x, underline_y, start_x + text_width, underline_y)
+
+        except Exception as e:
+            logger.warning(f"Failed to render vertical CCW text: {e}")
         finally:
             pdf_canvas.restoreState()
 
@@ -132,8 +202,14 @@ class TextEngine:
                                text: str, text_width: float, font_name: str,
                                options: TextRenderingOptions) -> None:
         """Render text with horizontal orientation."""
+        pdf_canvas.saveState()
         try:
-            # Set font and color (no state save/restore needed for horizontal)
+            # Clip to bounding box to prevent overflow
+            path = pdf_canvas.beginPath()
+            path.rect(box['x'], box['y'], box['width'], box['height'])
+            pdf_canvas.clipPath(path, stroke=0, fill=0)
+
+            # Set font and color
             pdf_canvas.setFont(font_name, options.font_size)
             pdf_canvas.setFillColor(HexColor(options.color))
 
@@ -160,6 +236,8 @@ class TextEngine:
 
         except Exception as e:
             logger.warning(f"Failed to render horizontal text: {e}")
+        finally:
+            pdf_canvas.restoreState()
 
     def calculate_text_dimensions(self, pdf_canvas: canvas.Canvas, text: str,
                                  font_name: str, font_size: float) -> Dict[str, float]:
@@ -227,7 +305,10 @@ class TextEngine:
             text_align = 'left'
 
         orientation = styling.get('orientation', 'horizontal')
-        if orientation not in ['horizontal', 'vertical']:
+        # Legacy 'vertical' defaults to 'vertical_cw' for backward compatibility
+        if orientation == 'vertical':
+            orientation = 'vertical_cw'
+        if orientation not in ['horizontal', 'vertical_cw', 'vertical_ccw']:
             orientation = 'horizontal'
 
         # Extract formatting options

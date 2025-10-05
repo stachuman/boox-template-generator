@@ -87,7 +87,8 @@ class LinkRenderer(BaseWidgetRenderer):
         constrained_styling = self._apply_styling_constraints(styling, enforcer)
 
         orientation = props.get('orientation')
-        if isinstance(orientation, str) and orientation in ['horizontal', 'vertical']:
+        # Support both legacy 'vertical' and new 'vertical_cw'/'vertical_ccw'
+        if isinstance(orientation, str) and orientation in ['horizontal', 'vertical', 'vertical_cw', 'vertical_ccw']:
             constrained_styling['orientation'] = orientation
 
         text_options = self.text_engine.create_text_options(constrained_styling)
@@ -322,10 +323,10 @@ class LinkRenderer(BaseWidgetRenderer):
                 raise RenderingError(f"internal_link '{widget.id}': missing or invalid properties.to_dest")
 
             orientation = props.get('orientation')
-            if orientation is not None and orientation not in ['horizontal', 'vertical']:
+            if orientation is not None and orientation not in ['horizontal', 'vertical', 'vertical_cw', 'vertical_ccw']:
                 raise RenderingError(
                     f"internal_link '{widget.id}': invalid orientation '{orientation}'. "
-                    f"Valid orientations: ['horizontal', 'vertical']"
+                    f"Valid orientations: ['horizontal', 'vertical', 'vertical_cw', 'vertical_ccw']"
                 )
 
         elif widget.type == 'tap_zone':

@@ -9,6 +9,7 @@ import React from 'react';
 import { Widget } from '@/types';
 import SelectInput from './shared/SelectInput';
 import CheckboxInput from './shared/CheckboxInput';
+import { normalizeOrientation } from '../widgets/textUtils';
 
 interface TextPropertiesProps {
   widget: Widget;
@@ -29,14 +30,15 @@ const TextProperties: React.FC<TextPropertiesProps> = ({ widget, onUpdate }) => 
 
   const orientationOptions = [
     { value: 'horizontal', label: 'Horizontal' },
-    { value: 'vertical', label: 'Vertical' }
+    { value: 'vertical_cw', label: 'Vertical ↻ (+90°)' },
+    { value: 'vertical_ccw', label: 'Vertical ↺ (-90°)' }
   ];
 
   return (
     <div className="space-y-3">
       <SelectInput
         label="Orientation"
-        value={properties.orientation || 'horizontal'}
+        value={normalizeOrientation(properties.orientation)}
         onChange={(value) => updateProperty('orientation', value)}
         options={orientationOptions}
         helpText="Text direction on the page"

@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 class TextOrientation(Enum):
     """Supported text orientation modes."""
     HORIZONTAL = 'horizontal'
-    VERTICAL = 'vertical'
+    VERTICAL = 'vertical'  # Deprecated: legacy support, maps to VERTICAL_CW
+    VERTICAL_CW = 'vertical_cw'  # Clockwise 90° rotation (+90)
+    VERTICAL_CCW = 'vertical_ccw'  # Counter-clockwise 90° rotation (-90)
     ROTATED_90 = 'rotated_90'
     ROTATED_180 = 'rotated_180'
     ROTATED_270 = 'rotated_270'
@@ -49,6 +51,14 @@ class TextOrientationHandler:
         ),
         TextOrientation.VERTICAL: OrientationTransform(
             rotation_angle=90.0,
+            needs_state_save=True
+        ),
+        TextOrientation.VERTICAL_CW: OrientationTransform(
+            rotation_angle=90.0,
+            needs_state_save=True
+        ),
+        TextOrientation.VERTICAL_CCW: OrientationTransform(
+            rotation_angle=-90.0,
             needs_state_save=True
         ),
         TextOrientation.ROTATED_90: OrientationTransform(
@@ -89,8 +99,10 @@ class TextOrientationHandler:
             'horizontal': TextOrientation.HORIZONTAL,
             'h': TextOrientation.HORIZONTAL,
             'normal': TextOrientation.HORIZONTAL,
-            'vertical': TextOrientation.VERTICAL,
-            'v': TextOrientation.VERTICAL,
+            'vertical': TextOrientation.VERTICAL_CW,  # Legacy: default to CW for backward compatibility
+            'v': TextOrientation.VERTICAL_CW,
+            'vertical_cw': TextOrientation.VERTICAL_CW,
+            'vertical_ccw': TextOrientation.VERTICAL_CCW,
             'rotated_90': TextOrientation.ROTATED_90,
             '90': TextOrientation.ROTATED_90,
             'rotated_180': TextOrientation.ROTATED_180,
@@ -154,8 +166,12 @@ class TextOrientationHandler:
             return cls._calculate_horizontal_position(
                 box, text_width, font_size, text_align
             )
-        elif orientation in [TextOrientation.VERTICAL, TextOrientation.ROTATED_90]:
-            return cls._calculate_vertical_position(
+        elif orientation in [TextOrientation.VERTICAL, TextOrientation.VERTICAL_CW, TextOrientation.ROTATED_90]:
+            return cls._calculate_vertical_cw_position(
+                box, text_width, font_size, text_align
+            )
+        elif orientation == TextOrientation.VERTICAL_CCW:
+            return cls._calculate_vertical_ccw_position(
                 box, text_width, font_size, text_align
             )
         elif orientation == TextOrientation.ROTATED_180:
@@ -187,9 +203,9 @@ class TextOrientationHandler:
         return text_x, text_y
 
     @classmethod
-    def _calculate_vertical_position(cls, box: Dict[str, float], text_width: float,
-                                    font_size: float, text_align: str) -> Tuple[float, float]:
-        """Calculate position for vertical text (90-degree rotation)."""
+    def _calculate_vertical_cw_position(cls, box: Dict[str, float], text_width: float,
+                                        font_size: float, text_align: str) -> Tuple[float, float]:
+        """Calculate position for vertical clockwise text (+90 degree rotation)."""
         # For vertical text, alignment works differently due to rotation
         if text_align == 'center':
             start_x = -text_width / 2.0
@@ -199,6 +215,22 @@ class TextOrientationHandler:
             start_x = -text_width / 2.0
 
         start_y = -font_size / 3.0
+
+        return start_x, start_y
+
+    @classmethod
+    def _calculate_vertical_ccw_position(cls, box: Dict[str, float], text_width: float,
+                                         font_size: float, text_align: str) -> Tuple[float, float]:
+        """Calculate position for vertical counter-clockwise text (-90 degree rotation)."""
+        # For vertical CCW text, positioning is mirrored from CW
+        if text_align == 'center':
+            start_x = text_width / 2.0
+        elif text_align == 'right':
+            start_x = text_width
+        else:  # left alignment
+            start_x = text_width / 2.0
+
+        start_y = font_size / 3.0
 
         return start_x, start_y
 

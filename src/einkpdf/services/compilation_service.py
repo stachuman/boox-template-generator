@@ -838,7 +838,13 @@ class CompilationService:
 
         # Layout properties
         columns = max(1, int(props.get("columns", 1)))
-        orientation = props.get("orientation", "horizontal")
+        orientation_raw = props.get("orientation", "horizontal")
+        if orientation_raw == 'vertical':
+            orientation = 'vertical_cw'
+        elif orientation_raw in ('vertical_cw', 'vertical_ccw'):
+            orientation = orientation_raw
+        else:
+            orientation = 'horizontal'
 
         # Handle empty strings for numeric properties
         gap_x_raw = props.get("gap_x", 0.0)
@@ -883,7 +889,7 @@ class CompilationService:
         base_cell_w = (total_width - (columns - 1) * gap_x) / columns
         base_cell_h = (total_height - (rows - 1) * gap_y) / rows
 
-        if orientation == 'vertical':
+        if orientation in ('vertical_cw', 'vertical_ccw'):
             cell_height = base_cell_h
             cell_width = item_height if item_height is not None else base_cell_w
         else:

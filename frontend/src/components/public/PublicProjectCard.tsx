@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, CopyPlus, GitFork, Download, FileText } from 'lucide-react';
 import { usePublicProjectsStore } from '@/stores/public';
+import { useAuth } from '@/auth/useAuth';
 import CloneDialog from './CloneDialog';
 import type { PublicProject } from '@/types/public';
 import type { Project, CloneProjectRequestPayload } from '@/types';
@@ -13,6 +15,8 @@ interface PublicProjectCardProps {
 }
 
 const PublicProjectCard = ({ project, onCloneSuccess, onView }: PublicProjectCardProps) => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [cloneError, setCloneError] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState(false);
@@ -133,18 +137,31 @@ const PublicProjectCard = ({ project, onCloneSuccess, onView }: PublicProjectCar
               <Download className="h-4 w-4" />
               <span className="hidden sm:inline">PDF</span>
             </button>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setCloneError(null);
-                setDialogOpen(true);
-              }}
-              disabled={isCloning}
-              className="rounded-md bg-eink-black px-3 py-2 text-sm font-semibold text-eink-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isCloning ? 'Cloning…' : 'Clone project'}
-            </button>
+            {isAuthenticated ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setCloneError(null);
+                  setDialogOpen(true);
+                }}
+                disabled={isCloning}
+                className="rounded-md bg-eink-black px-3 py-2 text-sm font-semibold text-eink-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isCloning ? 'Cloning…' : 'Clone project'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  navigate('/login', { state: { from: '/gallery' } });
+                }}
+                className="rounded-md bg-eink-black px-3 py-2 text-sm font-semibold text-eink-white transition-opacity hover:opacity-90"
+              >
+                Sign in to clone
+              </button>
+            )}
           </div>
         </div>
       </div>

@@ -54,7 +54,6 @@ const LinkListWidget: React.FC<LinkListWidgetProps> = ({ widget }) => {
   const rawItemH = lp.item_height;
   const lItemH = (rawItemH === null || rawItemH === undefined || String(rawItemH).trim() === '') ? null : toFloat(rawItemH, 24);
   const listOrientation = lp.orientation || 'horizontal';
-  const isTextVertical = listOrientation === 'vertical';
 
   // Calculate layout
   const lCount = labels.length;
@@ -71,17 +70,9 @@ const LinkListWidget: React.FC<LinkListWidgetProps> = ({ widget }) => {
   const baseCellW = (boxW - (lCols - 1) * lGapX) / Math.max(1, lCols);
   const baseCellH = (boxH - (rows - 1) * lGapY) / Math.max(1, rows);
 
-  // Calculate cell dimensions based on orientation
-  let cellW: number, cellH: number;
-  if (isTextVertical) {
-    // Vertical: swap base dimensions
-    cellH = baseCellH;
-    cellW = lItemH != null ? lItemH : baseCellH;
-  } else {
-    // Horizontal: standard
-    cellW = baseCellW;
-    cellH = lItemH != null ? lItemH : baseCellH;
-  }
+  // Calculate cell dimensions
+  const cellW = baseCellW;
+  const cellH = lItemH != null ? lItemH : baseCellH;
 
   // Text alignment helper
   const getJustifyClass = (textAlign: string) => {
@@ -163,16 +154,16 @@ const LinkListWidget: React.FC<LinkListWidgetProps> = ({ widget }) => {
               }}
               title={destination ? `→ ${destination}` : undefined}
             >
-              <span style={{
-                display: 'inline-block',
-                whiteSpace: 'nowrap',
-                textOverflow: 'ellipsis',
-                overflow: 'hidden',
-                width: '100%',
-                transform: isTextVertical ? 'rotate(-90deg)' : 'none',
-                transformOrigin: 'center',
-                fontWeight: isHighlighted ? 'bold' : 'normal'
-              }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  whiteSpace: 'nowrap',
+                  textOverflow: 'ellipsis',
+                  overflow: 'hidden',
+                  width: '100%',
+                  fontWeight: isHighlighted ? 'bold' : 'normal'
+                }}
+              >
                 {label}
               </span>
             </div>

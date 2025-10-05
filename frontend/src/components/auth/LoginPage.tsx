@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Github, BookOpen, ExternalLink, Heart } from 'lucide-react';
+import { Github, BookOpen, ExternalLink, Heart, Globe } from 'lucide-react';
 import AuthLayout from './AuthLayout';
 import LoginForm from './LoginForm';
 import { VersionService } from '@/services/version';
@@ -23,6 +23,13 @@ const LoginPage = () => {
               Need an account?{' '}
               <Link to="/register" className="text-eink-black underline">
                 Create one now
+              </Link>
+              .
+            </div>
+            <div>
+              Just browsing?{' '}
+              <Link to="/gallery" className="text-eink-black underline">
+                Explore public gallery
               </Link>
               .
             </div>

@@ -96,8 +96,10 @@ class TextRenderer(BaseWidgetRenderer):
                 wrapped_lines.append('')
             else:
                 # Wrap line to fit within box width
-                # For vertical text, use height as wrapping constraint
-                wrap_width = box['height'] if orientation == 'vertical' else box['width']
+                # For vertical text (both CW and CCW), use height as wrapping constraint
+                # Legacy 'vertical' defaults to 'vertical_cw' for backward compatibility
+                normalized_orientation = 'vertical_cw' if orientation == 'vertical' else orientation
+                wrap_width = box['height'] if normalized_orientation in ['vertical_cw', 'vertical_ccw'] else box['width']
                 line_wrapped = TextFormatter.wrap_text(
                     line, wrap_width, text_options.font_name,
                     text_options.font_size, pdf_canvas
@@ -160,20 +162,54 @@ class TextRenderer(BaseWidgetRenderer):
         except Exception:
             line_spacing = 1.2
 
-        # Calculate line layout using TextFormatter
-        text_boxes = TextFormatter.calculate_multi_line_layout(
-            lines, box, text_options.font_size, line_spacing, 'center'
-        )
+        # Check orientation to determine layout direction
+        orientation = text_options.orientation
+        normalized_orientation = 'vertical_cw' if orientation == 'vertical' else orientation
+        is_vertical = normalized_orientation in ['vertical_cw', 'vertical_ccw']
 
-        # Render each line with TextEngine
-        for text_box in text_boxes:
+        if is_vertical:
+            # For vertical text, lines should be laid out horizontally (side by side)
+            self._render_multi_line_vertical_text(pdf_canvas, box, lines, text_options, line_spacing)
+        else:
+            # For horizontal text, use standard vertical stacking
+            text_boxes = TextFormatter.calculate_multi_line_layout(
+                lines, box, text_options.font_size, line_spacing, 'center'
+            )
+
+            # Render each line with TextEngine
+            for text_box in text_boxes:
+                line_box = {
+                    'x': text_box.x,
+                    'y': text_box.y,
+                    'width': text_box.width,
+                    'height': text_box.height
+                }
+                self.text_engine.render_text(pdf_canvas, line_box, text_box.text, text_options)
+
+    def _render_multi_line_vertical_text(self, pdf_canvas: canvas.Canvas, box: dict,
+                                         lines: list[str], text_options, line_spacing: float) -> None:
+        """Render multi-line vertical text with horizontal line layout."""
+        if not lines:
+            return
+
+        line_height = text_options.font_size * line_spacing
+        num_lines = len(lines)
+        total_width = num_lines * line_height
+
+        # Center the lines horizontally within the box
+        start_x = box['x'] + (box['width'] - total_width) / 2.0
+        current_x = start_x
+
+        # Each line gets a vertical slice of the box
+        for line in lines:
             line_box = {
-                'x': text_box.x,
-                'y': text_box.y,
-                'width': text_box.width,
-                'height': text_box.height
+                'x': current_x,
+                'y': box['y'],
+                'width': line_height,  # Width becomes the line spacing after rotation
+                'height': box['height']  # Height is the full box height for vertical text
             }
-            self.text_engine.render_text(pdf_canvas, line_box, text_box.text, text_options)
+            self.text_engine.render_text(pdf_canvas, line_box, line, text_options)
+            current_x += line_height
 
     def validate_text_properties(self, widget: Widget) -> None:
         """
@@ -208,7 +244,7 @@ class TextRenderer(BaseWidgetRenderer):
         # Validate orientation
         props = getattr(widget, 'properties', {}) or {}
         orientation = props.get('orientation', 'horizontal')
-        valid_orientations = ['horizontal', 'vertical']
+        valid_orientations = ['horizontal', 'vertical', 'vertical_cw', 'vertical_ccw']
         if orientation not in valid_orientations:
             raise RenderingError(
                 f"Text widget '{widget.id}': invalid orientation '{orientation}'. "
