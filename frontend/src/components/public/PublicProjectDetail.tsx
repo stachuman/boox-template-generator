@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Calendar, CopyPlus, GitFork, Globe, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calendar, CopyPlus, GitFork, Globe, Loader2, Download, FileText } from 'lucide-react';
 import { PublicAPI } from '@/services/public';
 import { usePublicProjectsStore } from '@/stores/public';
 import { useProjectStore } from '@/stores/projectStore';
+import { useAuth } from '@/auth/useAuth';
 import type { PublicProject } from '@/types/public';
 import type { Project } from '@/types';
 import CloneDialog from './CloneDialog';
@@ -16,6 +17,7 @@ interface RouteParams {
 const PublicProjectDetail = () => {
   const { slug, projectId } = useParams<RouteParams>();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   const cloneBySlug = usePublicProjectsStore((state) => state.cloneProjectBySlug);
   const cloneById = usePublicProjectsStore((state) => state.cloneProject);
@@ -27,6 +29,7 @@ const PublicProjectDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [cloneError, setCloneError] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState(false);
 
   const identifier = slug ?? projectId ?? '';
 
@@ -78,6 +81,27 @@ const PublicProjectDetail = () => {
     }
   };
 
+  const handleDownloadPDF = async () => {
+    if (!project) return;
+
+    try {
+      const response = await fetch(`/api/public/projects/${project.id}/pdf`);
+      if (!response.ok) throw new Error('Failed to download PDF');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${project.metadata.name}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Failed to download PDF:', error);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-eink-dark-gray">
@@ -110,6 +134,7 @@ const PublicProjectDetail = () => {
   const shareLink = project.metadata.public_url_slug
     ? `${window.location.origin}/gallery/${project.metadata.public_url_slug}`
     : `${window.location.origin}/gallery/id/${project.id}`;
+  const pdfPreviewUrl = `/api/public/projects/${project.id}/pdf?inline=1&t=${new Date(project.updated_at).getTime()}#page=1`;
 
   return (
     <div className="max-w-4xl space-y-6 px-6 py-8">
@@ -152,18 +177,61 @@ const PublicProjectDetail = () => {
           ) : null}
         </div>
         <div className="flex items-center gap-3">
+          {isAuthenticated ? (
+            <button
+              type="button"
+              onClick={() => {
+                setCloneError(null);
+                setDialogOpen(true);
+              }}
+              disabled={isSubmitting}
+              className="rounded-md bg-eink-black px-4 py-2 text-sm font-semibold text-eink-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSubmitting ? 'Cloning…' : 'Clone this project'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                navigate('/login', { state: { from: window.location.pathname } });
+              }}
+              className="rounded-md bg-eink-black px-4 py-2 text-sm font-semibold text-eink-white transition-opacity hover:opacity-90"
+            >
+              Sign in to clone
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => {
-              setCloneError(null);
-              setDialogOpen(true);
-            }}
-            disabled={isSubmitting}
-            className="rounded-md bg-eink-black px-4 py-2 text-sm font-semibold text-eink-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={handleDownloadPDF}
+            className="inline-flex items-center gap-2 rounded-md border border-eink-dark-gray bg-white px-4 py-2 text-sm font-semibold text-eink-black transition-colors hover:bg-eink-pale-gray"
+            title="Download PDF"
           >
-            {isSubmitting ? 'Cloning…' : 'Clone this project'}
+            <Download className="h-4 w-4" />
+            Download PDF
           </button>
           <span className="text-xs text-eink-dark-gray">Share link: {shareLink}</span>
+        </div>
+      </div>
+
+      {/* PDF Preview */}
+      <div className="rounded-lg border border-eink-pale-gray bg-white p-6">
+        <h2 className="mb-4 text-lg font-semibold text-eink-black">PDF Preview</h2>
+        <div className="relative h-96 w-full overflow-hidden rounded-lg bg-eink-pale-gray">
+          {!previewError ? (
+            <iframe
+              src={pdfPreviewUrl}
+              className="h-full w-full border-0"
+              title={`Preview of ${project.metadata.name}`}
+              onError={() => setPreviewError(true)}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <div className="text-center">
+                <FileText className="mx-auto h-16 w-16 text-eink-dark-gray opacity-50" />
+                <p className="mt-2 text-sm text-eink-dark-gray">Preview unavailable</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
