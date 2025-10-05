@@ -14,13 +14,20 @@ interface AnchorWidgetProps {
 
 const AnchorWidget: React.FC<AnchorWidgetProps> = ({ widget }) => {
   // Make anchors easy to find/select in the editor (visual-only)
-  const minSize = 24; // base minimum in points; scaled by canvas
+  const minSize = 40; // base minimum in points; scaled by canvas
   const anchorLabel = (widget.properties?.dest_id as string) || 'anchor';
+
+  // Ensure minimum size for visibility in editor
+  const displayWidth = Math.max(widget.position.width, minSize);
+  const displayHeight = Math.max(widget.position.height, minSize);
 
   return (
     <div
-      className="h-full w-full flex items-center justify-center"
-      style={{ minWidth: minSize, minHeight: minSize }}
+      className="flex items-center justify-center"
+      style={{
+        width: displayWidth,
+        height: displayHeight
+      }}
       title={anchorLabel}
     >
       <div

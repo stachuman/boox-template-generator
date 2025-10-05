@@ -127,7 +127,7 @@ const WIDGET_TYPES: WidgetType[] = [
     description: 'Named destination marker (invisible)',
     defaultProps: {
       content: '',
-      position: { width: 1, height: 1 },
+      position: { width: 100, height: 30 },
       properties: {
         dest_id: 'day:2026-01-01'
       }

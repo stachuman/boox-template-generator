@@ -53,13 +53,17 @@ const LinkListWidget: React.FC<LinkListWidgetProps> = ({ widget }) => {
   const lGapY = toFloat(lp.gap_y, 6);
   const rawItemH = lp.item_height;
   const lItemH = (rawItemH === null || rawItemH === undefined || String(rawItemH).trim() === '') ? null : toFloat(rawItemH, 24);
-  const listOrientation = lp.orientation || 'horizontal';
 
-  // Calculate layout
+  // Check orientation - for vertical, swap dimensions for layout
+  const listOrientation = lp.orientation || 'horizontal';
+  const isVertical = listOrientation === 'vertical_cw' || listOrientation === 'vertical_ccw';
+
+  // Calculate layout - swap dimensions for vertical orientation
+  // For vertical: the physical height becomes the layout width (items spread along the tall dimension)
   const lCount = labels.length;
   const rows = Math.ceil(lCount / lCols);
-  const boxW = widget.position.width;
-  const boxH = widget.position.height;
+  const boxW = isVertical ? widget.position.height : widget.position.width;
+  const boxH = isVertical ? widget.position.width : widget.position.height;
 
   // Typography
   const fontSize = Math.max(8, (lSty.size || 12));

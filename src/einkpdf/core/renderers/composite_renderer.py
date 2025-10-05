@@ -137,8 +137,14 @@ class CompositeRenderer(BaseWidgetRenderer):
 
         # Parse orientation
         orientation = props.get('orientation', 'horizontal')
-        if orientation not in ['horizontal', 'vertical']:
-            raise RenderingError(f"link_list '{widget_id}': invalid orientation '{orientation}', must be 'horizontal' or 'vertical'")
+        # Normalize legacy 'vertical' to 'vertical_cw' for backward compatibility
+        if orientation == 'vertical':
+            orientation = 'vertical_cw'
+        if orientation not in ['horizontal', 'vertical_cw', 'vertical_ccw']:
+            raise RenderingError(
+                f"link_list '{widget_id}': invalid orientation '{orientation}', "
+                f"must be 'horizontal', 'vertical_cw', or 'vertical_ccw'"
+            )
         config['orientation'] = orientation
 
         # Parse locale for potential future use
@@ -148,16 +154,27 @@ class CompositeRenderer(BaseWidgetRenderer):
 
     def _calculate_link_list_layout(self, widget: Widget, config: Dict[str, Any]) -> Dict[str, Any]:
         """Calculate layout parameters for link_list items."""
-        total_w = float(widget.position.width)
-        total_h = float(widget.position.height)
+        # Use original (unrotated) dimensions for layout
+        # The 'columns' property refers to the original orientation
+        # Rotation is applied later to the individual link widgets
+        orientation = config['orientation']
+        # For vertical orientations, swap width/height for layout calculations
+        # (rotation is applied later by the rendering engine)
+        is_vertical = orientation in ['vertical_cw', 'vertical_ccw']
+        if is_vertical:
+            
+            total_w = float(widget.position.height)
+            total_h = float(widget.position.width)
+        else:
+            total_w = float(widget.position.width)
+            total_h = float(widget.position.height)
 
         count = config['count']
-        columns = config['columns']
         gap_x = config['gap_x']
         gap_y = config['gap_y']
         item_height = config['item_height']
-        orientation = config['orientation']
 
+        columns = config['columns']    
         # Calculate rows
         rows = int(math.ceil(count / columns)) if columns > 0 else count
 
@@ -165,14 +182,9 @@ class CompositeRenderer(BaseWidgetRenderer):
         base_cell_w = (total_w - (columns - 1) * gap_x) / max(1, columns)
         base_cell_h = (total_h - (rows - 1) * gap_y) / max(1, rows)
 
-        if orientation == 'vertical':
-            # Vertical: width may be overridden by item_height, height fits rows with gaps
-            cell_h = base_cell_h
-            cell_w = item_height if item_height is not None else base_cell_w
-        else:
-            # Horizontal: width fixed by columns, height may be overridden by item_height
-            cell_w = base_cell_w
-            cell_h = item_height if item_height is not None else base_cell_h
+        # Cell dimensions
+        cell_w = base_cell_w
+        cell_h = item_height if item_height is not None else base_cell_h
 
         return {
             'base_x': float(widget.position.x),
@@ -267,8 +279,9 @@ class CompositeRenderer(BaseWidgetRenderer):
             # Prepare properties for the link
             link_props = {'to_dest': destination}
 
-            if config.get('orientation') == 'vertical':
-                link_props['orientation'] = 'vertical'
+            # Pass orientation to generated links
+            if config.get('orientation') in ['vertical_cw', 'vertical_ccw']:
+                link_props['orientation'] = config['orientation']
 
             # Add highlight if this is the highlighted index
             if highlight_index is not None and actual_index == highlight_index:
@@ -349,9 +362,13 @@ class CompositeRenderer(BaseWidgetRenderer):
 
             # Validate orientation
             orientation = props.get('orientation', 'horizontal')
-            if orientation not in ['horizontal', 'vertical']:
+            # Normalize legacy 'vertical' to 'vertical_cw'
+            if orientation == 'vertical':
+                orientation = 'vertical_cw'
+            if orientation not in ['horizontal', 'vertical_cw', 'vertical_ccw']:
                 raise RenderingError(
-                    f"link_list '{widget.id}': invalid orientation '{orientation}', must be 'horizontal' or 'vertical'"
+                    f"link_list '{widget.id}': invalid orientation '{orientation}', "
+                    f"must be 'horizontal', 'vertical_cw', or 'vertical_ccw'"
                 )
 
             # Validate templates are strings
