@@ -1,9 +1,0 @@
-README.md
-pyproject.toml
-src/einkpdf/__init__.py
-src/einkpdf.egg-info/PKG-INFO
-src/einkpdf.egg-info/SOURCES.txt
-src/einkpdf.egg-info/dependency_links.txt
-src/einkpdf.egg-info/entry_points.txt
-src/einkpdf.egg-info/requires.txt
-src/einkpdf.egg-info/top_level.txt
