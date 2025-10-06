@@ -86,22 +86,40 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
     const edge = resizeEdgeRef.current;
     const { x, y, width, height } = startRef.current;
     let newX = x, newY = y, newW = width, newH = height;
+
+    // For table widgets, height is locked to rows × row_height
+    const isTable = widget.type === 'table';
+
     // Resize logic
     if (edge.includes('e')) newW = Math.max(1, width + dx);
-    if (edge.includes('s')) newH = Math.max(1, height + dy);
+    if (edge.includes('s') && !isTable) newH = Math.max(1, height + dy);
     if (edge.includes('w')) {
       newW = Math.max(1, width - dx);
       newX = x + dx;
     }
-    if (edge.includes('n')) {
+    if (edge.includes('n') && !isTable) {
       newH = Math.max(1, height - dy);
       newY = y + dy;
     }
+
     // Snap
     newX = snap(newX);
     newY = snap(newY);
     newW = Math.max(1, snap(newW));
-    newH = Math.max(1, snap(newH));
+    if (!isTable) {
+      newH = Math.max(1, snap(newH));
+    }
+
+    // For tables, calculate height from (rows + header) × row_height
+    if (isTable) {
+      const tableProps = widget.properties || {};
+      const rows = Math.max(1, parseInt(String(tableProps.rows || 4), 10));
+      const hasHeader = tableProps.has_header !== false;
+      const totalRows = rows + (hasHeader ? 1 : 0);
+      const rowHeight = parseFloat(String(tableProps.row_height || 24));
+      newH = totalRows * (isNaN(rowHeight) || rowHeight <= 0 ? 24 : rowHeight);
+    }
+
     updateWidget(widget.id, { position: { x: newX, y: newY, width: newW, height: newH } });
   };
 
@@ -179,15 +197,23 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
       {/* Selection Handles - outside rotated content */}
       {isSelected && (
         <>
-          {/* Corner handles */}
-          <div onMouseDown={onHandleMouseDown('nw')} className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 border border-white cursor-nwse-resize z-10" />
-          <div onMouseDown={onHandleMouseDown('ne')} className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 border border-white cursor-nesw-resize z-10" />
-          <div onMouseDown={onHandleMouseDown('sw')} className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 border border-white cursor-nesw-resize z-10" />
-          <div onMouseDown={onHandleMouseDown('se')} className="absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 border border-white cursor-nwse-resize z-10" />
+          {/* Corner handles - for tables, only show horizontal corners */}
+          {widget.type !== 'table' && (
+            <>
+              <div onMouseDown={onHandleMouseDown('nw')} className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 border border-white cursor-nwse-resize z-10" />
+              <div onMouseDown={onHandleMouseDown('ne')} className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 border border-white cursor-nesw-resize z-10" />
+              <div onMouseDown={onHandleMouseDown('sw')} className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 border border-white cursor-nesw-resize z-10" />
+              <div onMouseDown={onHandleMouseDown('se')} className="absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 border border-white cursor-nwse-resize z-10" />
+            </>
+          )}
 
-          {/* Edge handles */}
-          <div onMouseDown={onHandleMouseDown('n')} className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 border border-white cursor-n-resize z-10" />
-          <div onMouseDown={onHandleMouseDown('s')} className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 border border-white cursor-s-resize z-10" />
+          {/* Edge handles - for tables, hide vertical (n/s) handles */}
+          {widget.type !== 'table' && (
+            <>
+              <div onMouseDown={onHandleMouseDown('n')} className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 border border-white cursor-n-resize z-10" />
+              <div onMouseDown={onHandleMouseDown('s')} className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-blue-500 border border-white cursor-s-resize z-10" />
+            </>
+          )}
           <div onMouseDown={onHandleMouseDown('w')} className="absolute -left-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-500 border border-white cursor-w-resize z-10" />
           <div onMouseDown={onHandleMouseDown('e')} className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-500 border border-white cursor-e-resize z-10" />
         </>

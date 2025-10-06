@@ -58,12 +58,13 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
   });
 
   const updateProperty = (key: string, value: any) => {
-    onUpdate({
+    // Calculate new height if rows or row_height changes
+    let updates: Partial<Widget> = {
       properties: {
         ...properties,
         [key]: value
       }
-    });
+    };
 
     // Update tableData dimensions when rows/columns/has_header changes
     if (key === 'rows' || key === 'columns' || key === 'has_header') {
@@ -75,15 +76,42 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
       const newTableData = generateTableData(rows, columns, hasHeader, tableData);
       setTableData(newTableData);
 
-      // Also update the stored table_data
-      onUpdate({
+      updates = {
         properties: {
           ...properties,
           [key]: value,
           table_data: newTableData
         }
-      });
+      };
+
+      // Update height when rows or has_header changes
+      if (key === 'rows' || key === 'has_header') {
+        const currentRows = key === 'rows' ? value : (properties.rows || 4);
+        const currentHasHeader = key === 'has_header' ? value : (properties.has_header !== false);
+        const totalRows = currentRows + (currentHasHeader ? 1 : 0);
+        const rowHeight = parseFloat(String(properties.row_height || 24));
+        const calculatedHeight = totalRows * (isNaN(rowHeight) || rowHeight <= 0 ? 24 : rowHeight);
+        updates.position = {
+          ...widget.position,
+          height: calculatedHeight
+        };
+      }
     }
+
+    // Update height when row_height changes
+    if (key === 'row_height') {
+      const rows = properties.rows || 4;
+      const hasHeader = properties.has_header !== false;
+      const totalRows = rows + (hasHeader ? 1 : 0);
+      const rowHeight = parseFloat(String(value));
+      const calculatedHeight = totalRows * (isNaN(rowHeight) || rowHeight <= 0 ? 24 : rowHeight);
+      updates.position = {
+        ...widget.position,
+        height: calculatedHeight
+      };
+    }
+
+    onUpdate(updates);
   };
 
   const handleSaveTableData = () => {

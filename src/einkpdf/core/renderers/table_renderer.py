@@ -230,8 +230,27 @@ class TableRenderer(BaseWidgetRenderer):
 
         # Position and draw the table
         try:
-            table.wrapOn(pdf_canvas, cal_pos['width'], cal_pos['height'])
-            table.drawOn(pdf_canvas, cal_pos['x'], cal_pos['y'])
+            # WrapOn calculates the table's actual dimensions
+            table_width, table_height = table.wrapOn(pdf_canvas, cal_pos['width'], cal_pos['height'])
+
+            logger.warning(f"[table] Widget '{widget.id}': widget_height={cal_pos['height']}, "
+                          f"calculated_table_height={table_height}, rows={len(table_data)}, "
+                          f"row_height={row_height}, stroke_width={stroke_width}, border_style={border_style}")
+
+            # ReportLab Table draws from bottom-left corner
+            # cal_pos['y'] is the widget's bottom edge (already converted from top-left)
+            # Adjust for border positioning:
+            # - ReportLab draws borders centered on the edge coordinates
+            # - For 'outer' or 'all' borders, offset by half stroke width to align outer edge with widget bounds
+            # - This ensures top/left borders start exactly at widget boundary
+            offset = 0
+            if border_style in ['outer', 'all']:
+                offset = stroke_width / 2.0
+
+            draw_x = cal_pos['x'] + offset
+            draw_y = cal_pos['y'] + offset
+
+            table.drawOn(pdf_canvas, draw_x, draw_y)
         except Exception as e:
             raise RenderingError(f"Table widget '{widget.id}' drawing failed: {str(e)}")
 

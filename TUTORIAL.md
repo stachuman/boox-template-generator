@@ -379,6 +379,329 @@ When using the Calendar widget, additional variables are available:
 
 ---
 
+## Advanced: Nested Structures and Custom Variables
+
+Once you're comfortable with basic plans, you can create more complex documents using **nested structures**. This is useful when you need pages organized in multiple levels, like projects containing meetings, or courses containing lessons.
+
+### What Are Nested Structures?
+
+Think of nested structures like folders within folders on your computer:
+- **Projects folder** (5 projects)
+  - **Project 1** has its own page
+    - **Meetings folder** (10 meetings for this project)
+      - Meeting 1 page
+      - Meeting 2 page
+      - ... and so on
+
+Instead of just creating one flat list of pages, nested structures let you create hierarchies where each parent item can have multiple child items.
+
+### Real-World Example: Meeting Notebook
+
+Let's say you manage 5 different projects, and each project has 10 meetings throughout the year.
+
+**Without nesting** (the hard way):
+- You'd need to manually track which meetings belong to which project
+- You'd create 50 separate meeting pages with confusing names
+- Hard to organize and navigate
+
+**With nesting** (the smart way):
+- Create 1 "Project Index" master page
+- Create 1 "Meeting Note" master page
+- Set up a nested plan that automatically creates:
+  - 5 project index pages (one per project)
+  - 10 meeting pages under each project (50 meeting pages total)
+- Each meeting page knows which project it belongs to
+
+### How Nested Structures Work
+
+**Parent Section** creates the outer loop:
+- Generates pages for each main item (like projects)
+- Passes information down to child sections
+
+**Child Section** creates the inner loop:
+- Generates pages for each sub-item (like meetings)
+- Receives information from the parent (which project we're in)
+- Can add its own information (which meeting number)
+
+**Think of it like a recipe that repeats:**
+```
+For each project (1 to 5):
+  - Make 1 project index page
+  - For each meeting (1 to 10):
+    - Make 1 meeting note page
+```
+
+### Setting Up Your First Nested Structure
+
+Let's create a simple project meeting notebook.
+
+**Step 1: Create Master Pages**
+
+**Project Index Page** (parent master):
+- Title: "Project {project_id}"
+- Section for project overview
+- Links to meetings 1-10 for this project
+
+**Meeting Note Page** (child master):
+- Title: "Project {project_id} - Meeting {meeting_id}"
+- Date: {date_long}
+- Meeting notes area
+
+**Step 2: Set Up the Plan**
+
+**Parent Section - Projects:**
+- Section name: "projects"
+- Master page: "Project Index"
+- Generate: Multiple copies
+- Count: 5 (for 5 projects)
+- Custom variable: `project_id` starting at 1
+
+**Child Section - Meetings** (nested inside projects):
+- Section name: "meetings"
+- Master page: "Meeting Note"
+- Generate: Multiple copies
+- Count: 10 (for 10 meetings per project)
+- Custom variable: `meeting_id` starting at 1
+
+**What Gets Generated:**
+```
+Page 1: Project 1 Index
+Pages 2-11: Project 1, Meetings 1-10
+Page 12: Project 2 Index
+Pages 13-22: Project 2, Meetings 1-10
+Page 23: Project 3 Index
+Pages 24-33: Project 3, Meetings 1-10
+... and so on
+Total: 5 + (5 × 10) = 55 pages
+```
+
+### Understanding Custom Variables
+
+Custom variables are like creating your own placeholders. Instead of just using dates, you can track things like project numbers, meeting numbers, or any sequence you need.
+
+**Built-in vs Custom Variables:**
+
+**Built-in** (provided by the system):
+- `{date}` - Today's date
+- `{weekday}` - Day of the week
+- `{month}` - Month number
+
+**Custom** (you create them):
+- `{project_id}` - Which project (1, 2, 3, 4, 5)
+- `{meeting_id}` - Which meeting (1, 2, 3... 10)
+- `{chapter}` - Chapter number
+- `{lesson_num}` - Lesson number
+
+**How Custom Variables Work:**
+
+When you set up a custom variable called `project_id`:
+1. Starting value: 1
+2. Step: 1 (increase by 1 each time)
+3. The system generates:
+   - First page: `{project_id}` = 1
+   - Second page: `{project_id}` = 2
+   - Third page: `{project_id}` = 3
+   - And so on...
+
+### Variable Inheritance: Parents Pass to Children
+
+This is the magic part: **child sections automatically receive all parent variables**.
+
+**Example:**
+- Project 1 creates pages with `{project_id}` = 1
+- All 10 meetings under Project 1 also have `{project_id}` = 1
+- Each meeting also has its own `{meeting_id}` (1, 2, 3... 10)
+
+**So on a meeting page you can use:**
+- `{project_id}` - Inherited from parent (which project we're in)
+- `{meeting_id}` - From this section (which meeting this is)
+
+**Example meeting title:**
+```
+"Project {project_id} - Meeting {meeting_id}"
+
+Becomes:
+Project 1 - Meeting 1
+Project 1 - Meeting 2
+...
+Project 1 - Meeting 10
+Project 2 - Meeting 1
+Project 2 - Meeting 2
+... and so on
+```
+
+### Rules for Nested Structures
+
+**1. Maximum Depth: 3 Levels**
+You can nest up to 3 levels deep:
+- Level 1: Projects
+  - Level 2: Meetings
+    - Level 3: Tasks
+
+**2. Unique Variable Names**
+Parent and child sections must use different variable names:
+- ✅ Good: Parent uses `project_id`, child uses `meeting_id`
+- ❌ Bad: Parent uses `id`, child also uses `id` (conflict!)
+
+**3. Variables Add Up**
+Each level can see all variables from levels above:
+- Project pages see: `{project_id}`
+- Meeting pages see: `{project_id}`, `{meeting_id}`
+- Task pages see: `{project_id}`, `{meeting_id}`, `{task_id}`
+
+**4. Page Counts Multiply**
+Be careful with large numbers:
+- 5 projects × 10 meetings = 50 pages ✅
+- 10 projects × 50 meetings × 20 tasks = 10,000 pages ❌ (too many!)
+
+### Common Use Cases for Nested Structures
+
+**1. Course Materials:**
+```
+Courses (5 courses)
+  └─ Lessons (12 lessons per course)
+     └─ Exercises (5 exercises per lesson)
+Total: 5 + 60 + 300 = 365 pages
+```
+
+**2. Reading Log:**
+```
+Books (20 books)
+  └─ Chapters (10 chapters per book)
+Total: 20 + 200 = 220 pages
+```
+
+**3. Project Management:**
+```
+Projects (3 projects)
+  └─ Sprints (8 sprints per project)
+     └─ Daily Standups (10 days per sprint)
+Total: 3 + 24 + 240 = 267 pages
+```
+
+**4. Weekly Planning:**
+```
+Months (12 months)
+  └─ Weeks (4 weeks per month)
+     └─ Days (7 days per week)
+Total: 12 + 48 + 336 = 396 pages
+```
+
+### Setting Up Custom Variables
+
+When creating a plan section, you can add custom variables:
+
+**Configuration:**
+- Variable name: `project_id` (must be unique within this hierarchy)
+- Starting value: 1
+- Step: 1 (increase by 1 each time)
+
+**Advanced Options:**
+- Start at different numbers: `chapter` starts at 0
+- Skip numbers: Step by 5 (5, 10, 15, 20...)
+- Count backwards: Step by -1 (10, 9, 8, 7...)
+
+### Navigation with Nested Structures
+
+Links work great with nested structures:
+
+**From Project Index to Meetings:**
+```
+Link text: "Meeting {meeting_id}"
+Link template: meeting({project_id}:{meeting_id})
+```
+
+**From Meeting back to Project:**
+```
+Link text: "← Back to Project {project_id}"
+Link template: project({project_id})
+```
+
+**Between Meetings:**
+```
+Next meeting: meeting({project_id}:{meeting_id} + 1)
+Previous meeting: meeting({project_id}:{meeting_id} - 1)
+```
+
+### Tips for Success with Nested Structures
+
+**1. Start Small**
+- Test with 2 projects × 3 meetings first
+- Make sure variables work correctly
+- Then scale up to full size
+
+**2. Check Your Math**
+- Calculate total pages before generating
+- 5 × 10 × 20 = 1,000 pages (might be too many!)
+- Stay under 1,000 pages for best performance
+
+**3. Use Clear Variable Names**
+- `project_id`, `meeting_id`, `task_id` (clear and different)
+- Not: `id`, `num`, `index` (confusing when nested)
+
+**4. Test Navigation**
+- Make sure links work between levels
+- Parent should link to children
+- Children should link back to parent
+
+### Common Mistakes to Avoid
+
+**1. Same Variable Names**
+- Parent: `id` = 1
+- Child: `id` = 5
+- **Problem:** Child overwrites parent value!
+- **Solution:** Use `project_id` and `meeting_id`
+
+**2. Too Many Pages**
+- 10 × 100 × 50 = 50,000 pages
+- **Problem:** Too large, system will reject
+- **Solution:** Keep total under 1,000 pages
+
+**3. Forgetting Inheritance**
+- Child meeting page tries to use `{project_id}`
+- But you didn't realize it's automatically available!
+- **Solution:** All parent variables automatically work in child pages
+
+**4. Wrong Nesting Level**
+- Trying to nest 4 or 5 levels deep
+- **Problem:** Maximum is 3 levels
+- **Solution:** Simplify your structure or combine levels
+
+### When to Use Nested Structures
+
+**Use nesting when:**
+- You have natural hierarchies (projects → meetings → tasks)
+- Child items belong to specific parent items
+- You want automatic numbering within each parent
+
+**Don't use nesting when:**
+- All pages are independent (just use multiple sections)
+- You only need simple date-based pages (use "Each Day" mode)
+- Structure is flat (like 365 daily pages)
+
+### Quick Nested Structure to Try
+
+**Simple Book Reading Log:**
+
+**Master 1: Book Index**
+- Title: "Book {book_num}: {book_title}"
+- Variable: `book_title` (you can add custom text variables too!)
+
+**Master 2: Chapter Notes**
+- Title: "Book {book_num} - Chapter {chapter}"
+- Notes area for chapter summary
+
+**Plan:**
+- Parent Section "books": 3 copies with `book_num`
+- Child Section "chapters": 10 copies with `chapter`
+
+**Result:**
+- 3 book index pages
+- 30 chapter note pages (10 per book)
+- Each chapter knows which book it belongs to
+
+---
+
 ## Step 3: Creating Your Plan and Generating Pages
 
 Great! You have a master page. Now let's turn that single template into many pages using a **plan**. Think of a plan as giving instructions to an assistant: "Take this daily page template and make me 31 copies for January."

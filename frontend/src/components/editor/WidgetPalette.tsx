@@ -295,7 +295,7 @@ const WIDGET_TYPES: WidgetType[] = [
     icon: Table,
     description: 'Structured data table with headers and styling',
     defaultProps: {
-      position: { width: 400, height: 200 },
+      position: { width: 400, height: 120 }, // 5 rows (4 data + 1 header) × 24 = 120
       properties: {
         rows: 4,
         columns: 3,

@@ -290,6 +290,7 @@ export interface PlanSection {
   pages_per_item?: number;
   context?: Record<string, any>;
   counters?: Record<string, CounterConfig>;
+  nested?: PlanSection[];  // Recursive nesting (max depth: 3)
 }
 
 export interface CalendarConfig {

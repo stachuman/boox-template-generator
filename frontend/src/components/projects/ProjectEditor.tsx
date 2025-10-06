@@ -31,6 +31,8 @@ const ProjectEditor: React.FC = () => {
   const [showCreateMasterModal, setShowCreateMasterModal] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState<string>('');
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [tempDescription, setTempDescription] = useState<string>('');
   const [creatingPDF, setCreatingPDF] = useState<boolean>(false);
   const [jobInProgress, setJobInProgress] = useState<boolean>(false);
   const [currentPDFJobId, setCurrentPDFJobId] = useState<string | null>(null);
@@ -409,6 +411,43 @@ const ProjectEditor: React.FC = () => {
     setEditingName(false);
   };
 
+  const handleUpdateProjectDescription = async (newDescription: string) => {
+    if (!project) return;
+
+    try {
+      setSavingProfile(true); // Reuse loading state
+      setError(null);
+      const updatedProject = await APIClient.updateProject(project.id, { description: newDescription.trim() });
+      setProject(updatedProject);
+      updateProjectList(updatedProject.id, { metadata: updatedProject.metadata });
+      setEditingDescription(false);
+    } catch (err: any) {
+      setError(err.message || 'Failed to update project description');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleDescriptionEdit = () => {
+    if (project) {
+      setTempDescription(project.metadata.description || '');
+      setEditingDescription(true);
+    }
+  };
+
+  const handleDescriptionSave = () => {
+    if (tempDescription.trim() !== (project?.metadata.description || '')) {
+      handleUpdateProjectDescription(tempDescription);
+    } else {
+      setEditingDescription(false);
+    }
+  };
+
+  const handleDescriptionCancel = () => {
+    setTempDescription(project?.metadata.description || '');
+    setEditingDescription(false);
+  };
+
   const handleProjectUpdated = (updatedProject: Project) => {
     setProject(updatedProject);
     updateProjectList(updatedProject.id, { metadata: updatedProject.metadata, masters: updatedProject.masters, plan: updatedProject.plan });
@@ -560,9 +599,52 @@ const ProjectEditor: React.FC = () => {
                 </div>
               )}
             </div>
-            <p className="text-eink-dark-gray mt-1">
-              {project.metadata.description || 'No description'}
-            </p>
+            {editingDescription ? (
+              <div className="flex items-center gap-2 mt-2">
+                <textarea
+                  value={tempDescription}
+                  onChange={(e) => setTempDescription(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') handleDescriptionCancel();
+                    if (e.key === 'Enter' && e.ctrlKey) handleDescriptionSave();
+                  }}
+                  placeholder="Enter project description..."
+                  className="flex-1 text-sm text-eink-dark-gray bg-white border border-eink-light-gray rounded px-2 py-1 focus:outline-none focus:border-eink-black resize-none"
+                  rows={2}
+                  autoFocus
+                  disabled={savingProfile}
+                />
+                <button
+                  onClick={handleDescriptionSave}
+                  disabled={savingProfile}
+                  className="text-green-600 hover:text-green-700 disabled:opacity-50"
+                  title="Save description (Ctrl+Enter)"
+                >
+                  <Check className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={handleDescriptionCancel}
+                  disabled={savingProfile}
+                  className="text-red-600 hover:text-red-700 disabled:opacity-50"
+                  title="Cancel (Esc)"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-eink-dark-gray">
+                  {project.metadata.description || 'No description'}
+                </p>
+                <button
+                  onClick={handleDescriptionEdit}
+                  className="text-eink-dark-gray hover:text-eink-black transition-colors"
+                  title="Edit project description"
+                >
+                  <Edit2 className="w-3 h-3" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <div className="text-sm text-eink-dark-gray">

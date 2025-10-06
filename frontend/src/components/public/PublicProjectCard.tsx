@@ -99,7 +99,6 @@ const PublicProjectCard = ({ project, onCloneSuccess, onView }: PublicProjectCar
         <div className="flex-1 space-y-3">
           <div>
             <h3 className="text-lg font-semibold text-eink-black">{project.metadata.name}</h3>
-            <p className="mt-1 text-sm text-eink-dark-gray">{project.metadata.description}</p>
           </div>
         <div className="flex flex-wrap gap-3 text-xs text-eink-dark-gray">
           <span className="inline-flex items-center space-x-1 rounded-full bg-eink-pale-gray px-2 py-1">
@@ -121,6 +120,11 @@ const PublicProjectCard = ({ project, onCloneSuccess, onView }: PublicProjectCar
             <span> · based on {project.original_author}</span>
           ) : null}
         </div>
+        {project.metadata.description && (
+          <div className="text-sm text-eink-dark-gray border-t border-eink-pale-gray pt-2">
+            {project.metadata.description}
+          </div>
+        )}
       </div>
 
         <div className="mt-4 flex items-center justify-between">

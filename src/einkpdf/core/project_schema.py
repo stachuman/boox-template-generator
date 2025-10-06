@@ -73,6 +73,12 @@ class PlanSection(BaseModel):
         description="Counter variables with start and step (e.g., {'page_num': {'start': 1, 'step': 1}})"
     )
 
+    # Nested sections (for hierarchical iteration)
+    nested: Optional[List['PlanSection']] = Field(
+        None,
+        description="Child sections that iterate within each parent iteration (max depth: 3)"
+    )
+
     @validator("counters")
     def validate_counters(cls, v):
         """Validate counter format."""
@@ -100,6 +106,68 @@ class PlanSection(BaseModel):
                 date.fromisoformat(v)
             except ValueError:
                 raise ValueError("Date must be in YYYY-MM-DD format")
+        return v
+
+    @validator("nested")
+    def validate_nesting_depth(cls, v, values):
+        """Prevent excessive nesting (max depth: 3)."""
+        if v is None:
+            return v
+
+        def get_depth(sections: List['PlanSection'], current_depth: int = 1) -> int:
+            if current_depth > 3:
+                parent_kind = values.get('kind', 'unknown')
+                raise ValueError(
+                    f"Maximum nesting depth is 3 levels. "
+                    f"Section '{parent_kind}' exceeds this limit at depth {current_depth}"
+                )
+            max_child_depth = current_depth
+            for section in sections:
+                if section.nested:
+                    child_depth = get_depth(section.nested, current_depth + 1)
+                    max_child_depth = max(max_child_depth, child_depth)
+            return max_child_depth
+
+        get_depth(v, 1)
+        return v
+
+    @validator("nested")
+    def validate_no_variable_collisions(cls, v, values):
+        """Ensure child sections don't redefine parent variables (including transitive ancestors)."""
+        if v is None:
+            return v
+
+        parent_context = values.get("context", {}) or {}
+        parent_counters = values.get("counters", {}) or {}
+        parent_vars = set(parent_context.keys()) | set(parent_counters.keys())
+        parent_kind = values.get('kind', 'unknown')
+
+        def validate_recursive(sections: List['PlanSection'], ancestor_vars: set, ancestor_chain: List[str]) -> None:
+            """Recursively validate no variable collisions with any ancestor."""
+            for section in sections:
+                section_context = section.context or {}
+                section_counters = section.counters or {}
+                section_vars = set(section_context.keys()) | set(section_counters.keys())
+
+                # Check collision with ALL ancestors (not just immediate parent)
+                collisions = ancestor_vars & section_vars
+                if collisions:
+                    chain_str = " → ".join(ancestor_chain + [section.kind])
+                    raise ValueError(
+                        f"Section '{section.kind}' redefines ancestor variables: {sorted(collisions)}. "
+                        f"Hierarchy: {chain_str}. "
+                        f"Use unique variable names (e.g., 'project_id' vs 'meeting_id' vs 'task_id') to avoid shadowing."
+                    )
+
+                # If this section has nested children, validate them with accumulated ancestor vars
+                if section.nested:
+                    combined_ancestor_vars = ancestor_vars | section_vars
+                    combined_ancestor_chain = ancestor_chain + [section.kind]
+                    validate_recursive(section.nested, combined_ancestor_vars, combined_ancestor_chain)
+
+        # Validate all nested sections with parent's variables as ancestors
+        validate_recursive(v, parent_vars, [parent_kind])
+
         return v
 
 
@@ -131,8 +199,10 @@ class Plan(BaseModel):
 
     @validator("order")
     def validate_order_matches_sections(cls, v, values):
-        """Ensure order list matches section kinds."""
+        """Ensure order list matches top-level section kinds only (nested sections inherit parent order)."""
         if "sections" in values:
+            # Only top-level sections should be in order list
+            # Nested sections are ordered implicitly (always after their parent)
             section_kinds = {section.kind for section in values["sections"]}
             order_kinds = set(v)
             if section_kinds != order_kinds:
@@ -262,6 +332,61 @@ class DestinationRegistry(BaseModel):
     def get_destination(self, dest_id: str) -> Optional[Dict[str, Any]]:
         """Get destination info."""
         return self.destinations.get(dest_id)
+
+
+def estimate_page_count(section: PlanSection) -> int:
+    """
+    Estimate total pages that will be generated from a section (including nested).
+
+    Returns:
+        Estimated page count (multiply with nested sections)
+
+    Raises:
+        ValueError: If section configuration is invalid for estimation
+    """
+    if section.generate == GenerateMode.ONCE:
+        base = 1
+    elif section.generate == GenerateMode.COUNT:
+        if section.count is None:
+            raise ValueError(f"Section '{section.kind}' with COUNT mode missing count value")
+        base = section.count
+    elif section.generate in (GenerateMode.EACH_DAY, GenerateMode.EACH_WEEK, GenerateMode.EACH_MONTH):
+        if section.start_date is None or section.end_date is None:
+            raise ValueError(
+                f"Section '{section.kind}' with {section.generate.value} mode requires start_date and end_date"
+            )
+        start = date.fromisoformat(section.start_date)
+        end = date.fromisoformat(section.end_date)
+
+        if section.generate == GenerateMode.EACH_DAY:
+            base = (end - start).days + 1
+        elif section.generate == GenerateMode.EACH_MONTH:
+            # Calculate months between dates
+            months = (end.year - start.year) * 12 + (end.month - start.month) + 1
+            base = months
+        elif section.generate == GenerateMode.EACH_WEEK:
+            # Estimate weeks (approximate, actual may vary slightly with ISO weeks)
+            days = (end - start).days + 1
+            base = (days + 6) // 7  # Round up to nearest week
+        else:
+            base = 1
+    else:
+        base = 1
+
+    # Multiply by pages per item
+    base *= section.pages_per_item
+
+    # If has nested sections, multiply by their estimated counts
+    if section.nested:
+        for child in section.nested:
+            child_count = estimate_page_count(child)
+            base *= child_count
+
+    return base
+
+
+# Update forward references for recursive model
+PlanSection.update_forward_refs()
 
 
 # Legacy support for existing API (will be removed)

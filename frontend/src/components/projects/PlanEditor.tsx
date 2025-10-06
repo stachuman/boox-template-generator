@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectItem } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Trash2, ChevronUp, ChevronDown, Info, Save, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, ChevronUp, ChevronDown, Info, Save, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Project, Plan, PlanSection, CalendarConfig, GenerateMode, Master } from '@/types';
 
 interface PlanEditorProps {
@@ -19,40 +19,168 @@ interface ValidationError {
   message: string;
 }
 
+// Helper: Estimate pages for a section (including nested)
+const estimateSectionPages = (section: PlanSection): { estimatedPages: number; details: string } => {
+  let base = section.pages_per_item || 1;
+  const generateMode = section.generate as string;
+  let details = `Master: ${section.master} | Mode: ${generateMode}`;
+
+  if (generateMode === 'count' && section.count) {
+    base *= section.count;
+    details += ` | Count: ${section.count}`;
+  } else if (generateMode === 'each_day' && section.start_date && section.end_date) {
+    const start = new Date(section.start_date);
+    const end = new Date(section.end_date);
+    const dayCount = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    base *= dayCount;
+    details += ` | ${section.start_date} to ${section.end_date} (${dayCount} days)`;
+  } else if (generateMode === 'each_month' && section.start_date && section.end_date) {
+    const start = new Date(section.start_date);
+    const end = new Date(section.end_date);
+    const monthCount = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+    base *= monthCount;
+    details += ` | ${section.start_date} to ${section.end_date} (${monthCount} months)`;
+  }
+
+  // Multiply by nested section pages
+  if (section.nested) {
+    section.nested.forEach(nested => {
+      const nestedEst = estimateSectionPages(nested);
+      base *= nestedEst.estimatedPages;
+    });
+  }
+
+  return { estimatedPages: base, details };
+};
+
+// Helper: Render nested section overview
+const renderNestedOverview = (section: PlanSection, index: number, depth: number): JSX.Element => {
+  const { estimatedPages, details } = estimateSectionPages(section);
+  const indentClass = `ml-${depth * 4}`;
+
+  return (
+    <div key={`nested-${index}-${depth}`} className="space-y-2">
+      <div className="flex items-center justify-between p-2 bg-blue-100 rounded border border-blue-300 text-sm">
+        <div className="flex-1">
+          <div className="font-medium text-blue-800">
+            <ChevronRight size={14} className="inline mr-1" />
+            {section.kind} <span className="text-xs text-blue-600">(Level {depth + 1})</span>
+          </div>
+          <div className="text-xs text-blue-600">{details}</div>
+        </div>
+        <div className="text-right">
+          <div className="font-medium text-blue-800">~{estimatedPages}</div>
+        </div>
+      </div>
+      {section.nested && section.nested.length > 0 && (
+        <div className="ml-4 pl-3 border-l border-blue-300 space-y-2">
+          {section.nested.map((nested, ni) => renderNestedOverview(nested, ni, depth + 1))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
   const [plan, setPlan] = useState<Plan>(project.plan);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [initialPlanJson, setInitialPlanJson] = useState(JSON.stringify(project.plan));
 
-  // Validate plan sections
+  // Detect unsaved changes
+  useEffect(() => {
+    const currentPlanJson = JSON.stringify(plan);
+    setHasUnsavedChanges(currentPlanJson !== initialPlanJson);
+  }, [plan, initialPlanJson]);
+
+  // Warn user before leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = ''; // Required for Chrome
+        return '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Keyboard shortcut: Ctrl+S / Cmd+S to save
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (hasUnsavedChanges && validationErrors.length === 0 && !isSaving) {
+          handleSave();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [hasUnsavedChanges, validationErrors, isSaving]);
+
+  // Validate plan sections (including nested)
   useEffect(() => {
     const errors: ValidationError[] = [];
 
-    plan.sections.forEach((section, index) => {
+    const validateSection = (section: PlanSection, index: number, ancestorVars: Set<string> = new Set()) => {
+      const sectionPath = `${index}`;
+
       if (!section.kind.trim()) {
-        errors.push({ section: `${index}`, field: 'kind', message: 'Section kind is required' });
+        errors.push({ section: sectionPath, field: 'kind', message: 'Section kind is required' });
       }
 
       if (!section.master) {
-        errors.push({ section: `${index}`, field: 'master', message: 'Master template is required' });
+        errors.push({ section: sectionPath, field: 'master', message: 'Master template is required' });
       } else if (!project.masters.find(m => m.name === section.master)) {
-        errors.push({ section: `${index}`, field: 'master', message: 'Referenced master does not exist' });
+        errors.push({ section: sectionPath, field: 'master', message: 'Referenced master does not exist' });
       }
 
       if (section.generate === GenerateMode.COUNT && (!section.count || section.count < 1)) {
-        errors.push({ section: `${index}`, field: 'count', message: 'Count must be at least 1' });
+        errors.push({ section: sectionPath, field: 'count', message: 'Count must be at least 1' });
       }
 
       // Date-based generation modes require both start and end dates
       const needsDates = (section.generate === GenerateMode.EACH_DAY || section.generate === GenerateMode.EACH_MONTH);
       if (needsDates) {
         if (!section.start_date) {
-          errors.push({ section: `${index}`, field: 'dates', message: 'Start date is required for date-based generation' });
+          errors.push({ section: sectionPath, field: 'dates', message: 'Start date is required for date-based generation' });
         }
         if (!section.end_date) {
-          errors.push({ section: `${index}`, field: 'dates', message: 'End date is required for date-based generation' });
+          errors.push({ section: sectionPath, field: 'dates', message: 'End date is required for date-based generation' });
         }
       }
+
+      // Check for variable collisions with ancestors
+      const sectionVars = new Set([
+        ...Object.keys(section.context || {}),
+        ...Object.keys(section.counters || {})
+      ]);
+
+      const collisions = [...sectionVars].filter(v => ancestorVars.has(v));
+      if (collisions.length > 0) {
+        errors.push({
+          section: sectionPath,
+          field: 'variables',
+          message: `Variables redefine ancestor variables: ${collisions.join(', ')}. Use unique names (e.g., project_id vs meeting_id)`
+        });
+      }
+
+      // Recursively validate nested sections
+      if (section.nested) {
+        const combinedVars = new Set([...ancestorVars, ...sectionVars]);
+        section.nested.forEach((nestedSection, nestedIndex) => {
+          validateSection(nestedSection, nestedIndex, combinedVars);
+        });
+      }
+    };
+
+    plan.sections.forEach((section, index) => {
+      validateSection(section, index);
     });
 
     setValidationErrors(errors);
@@ -149,6 +277,10 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
       };
 
       await onSave(normalizedPlan);
+
+      // Update initial plan JSON after successful save
+      setInitialPlanJson(JSON.stringify(normalizedPlan));
+      setHasUnsavedChanges(false);
     } finally {
       setIsSaving(false);
     }
@@ -157,7 +289,14 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Plan Configuration</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold">Plan Configuration</h2>
+          {hasUnsavedChanges && (
+            <span className="px-3 py-1 bg-amber-100 text-amber-800 text-sm font-medium rounded-full border border-amber-300">
+              Unsaved Changes
+            </span>
+          )}
+        </div>
         <div className="flex gap-2">
           {validationErrors.length > 0 && (
             <div className="text-red-600 text-sm">
@@ -175,14 +314,28 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
           )}
           <Button
             onClick={handleSave}
-            disabled={validationErrors.length > 0 || isSaving}
+            disabled={validationErrors.length > 0 || isSaving || !hasUnsavedChanges}
             className="flex items-center gap-2"
+            title={hasUnsavedChanges ? "Save changes (Ctrl+S / Cmd+S)" : "No changes to save"}
           >
             <Save size={16} />
             {isSaving ? 'Saving...' : 'Save Plan'}
           </Button>
         </div>
       </div>
+
+      {/* Unsaved changes reminder */}
+      {hasUnsavedChanges && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-amber-800">
+            <AlertCircle size={16} />
+            <span>You have unsaved changes. Remember to save before leaving this page.</span>
+          </div>
+          <span className="text-xs text-amber-600">
+            Press <kbd className="px-2 py-1 bg-white border border-amber-300 rounded">Ctrl+S</kbd> to save quickly
+          </span>
+        </div>
+      )}
 
       {/* Instruction Legend */}
       <InstructionLegend />
@@ -257,7 +410,7 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
       {plan.sections.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Generated Sections Overview</CardTitle>
+            <CardTitle>Generated Sections Overview (Estimated Pages)</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-600 mb-4">
@@ -268,48 +421,34 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
                 const section = plan.sections.find(s => s.kind === kind);
                 if (!section) return null;
 
-                // Calculate estimated page count
-                let estimatedPages = section.pages_per_item || 1;
-                const generateMode = section.generate as string; // Backend stores as string
-                if (generateMode === 'count' && section.count) {
-                  estimatedPages *= section.count;
-                } else if (generateMode === 'each_day' && section.start_date && section.end_date) {
-                  const start = new Date(section.start_date);
-                  const end = new Date(section.end_date);
-                  const dayCount = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                  estimatedPages *= dayCount;
-                } else if (generateMode === 'each_month' && section.start_date && section.end_date) {
-                  const start = new Date(section.start_date);
-                  const end = new Date(section.end_date);
-                  const monthCount = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
-                  estimatedPages *= monthCount;
-                }
+                const { estimatedPages, details } = estimateSectionPages(section);
 
                 return (
-                  <div
-                    key={kind}
-                    className="flex items-center justify-between p-3 bg-blue-50 rounded border border-blue-200"
-                  >
-                    <div className="flex-1">
-                      <div className="font-medium text-blue-900">{index + 1}. {kind}</div>
-                      <div className="text-sm text-blue-700">
-                        Master: {section.master} | Mode: {generateMode}
-                        {generateMode === 'count' && ` | Count: ${section.count || 1}`}
-                        {generateMode === 'each_day' && section.start_date && section.end_date &&
-                          ` | ${section.start_date} to ${section.end_date}`}
-                        {generateMode === 'each_month' && section.start_date && section.end_date &&
-                          ` | ${section.start_date} to ${section.end_date}`}
+                  <div key={kind} className="space-y-2">
+                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded border border-blue-200">
+                      <div className="flex-1">
+                        <div className="font-medium text-blue-900">{index + 1}. {kind}</div>
+                        <div className="text-sm text-blue-700">{details}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-medium text-blue-900">~{estimatedPages} pages</div>
+                        <div className="text-xs text-blue-600">
+                          {section.pages_per_item || 1} per item
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-medium text-blue-900">~{estimatedPages} pages</div>
-                      <div className="text-xs text-blue-600">
-                        {section.pages_per_item || 1} per item
+                    {section.nested && section.nested.length > 0 && (
+                      <div className="ml-6 pl-4 border-l-2 border-blue-300 space-y-2">
+                        {section.nested.map((nested, ni) => renderNestedOverview(nested, ni, 1))}
                       </div>
-                    </div>
+                    )}
                   </div>
                 );
               })}
+            </div>
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded text-sm">
+              <strong>⚠️ Page Limit:</strong> Maximum 1,000 pages per project.
+              Nested sections multiply parent iterations (e.g., 5 projects × 10 meetings = 50 meeting pages).
             </div>
           </CardContent>
         </Card>
@@ -327,31 +466,72 @@ const SectionEditor: React.FC<{
   validationErrors: ValidationError[];
   onChange: (section: PlanSection) => void;
   onDelete: () => void;
-}> = ({ section, sectionIndex, availableMasters, validationErrors, onChange, onDelete }) => {
+  depth?: number;  // Nesting depth (0 = top-level)
+}> = ({ section, sectionIndex, availableMasters, validationErrors, onChange, onDelete, depth = 0 }) => {
   const hasErrors = validationErrors.length > 0;
+  const [showNested, setShowNested] = useState(true);
+  const maxDepth = 3;
+  const canAddNested = depth < maxDepth - 1;
+
+  const handleAddNestedSection = () => {
+    const newNestedSection: PlanSection = {
+      kind: '',
+      master: '',
+      generate: GenerateMode.ONCE,
+      context: {},
+      counters: {}
+    };
+    onChange({
+      ...section,
+      nested: [...(section.nested || []), newNestedSection]
+    });
+  };
+
+  const handleNestedSectionChange = (nestedIndex: number, updatedNested: PlanSection) => {
+    const newNested = [...(section.nested || [])];
+    newNested[nestedIndex] = updatedNested;
+    onChange({ ...section, nested: newNested });
+  };
+
+  const handleRemoveNestedSection = (nestedIndex: number) => {
+    const newNested = (section.nested || []).filter((_, i) => i !== nestedIndex);
+    onChange({ ...section, nested: newNested.length > 0 ? newNested : undefined });
+  };
+
+  // Calculate indentation based on depth
+  const indentClass = depth > 0 ? `ml-${Math.min(depth * 6, 12)} pl-4 border-l-2 border-blue-300` : '';
 
   return (
-    <Card className={hasErrors ? 'border-red-300' : ''}>
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-lg">Section {sectionIndex + 1}</CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDelete}
-            className="text-red-600 hover:text-red-700"
-          >
-            <Trash2 size={16} />
-          </Button>
-        </div>
-        {hasErrors && (
-          <div className="text-sm text-red-600 space-y-1">
-            {validationErrors.map((error, index) => (
-              <div key={index}>• {error.message}</div>
-            ))}
+    <div className={indentClass}>
+      <Card className={hasErrors ? 'border-red-300' : depth > 0 ? 'border-blue-200' : ''}>
+        <CardHeader className="pb-3">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              {depth > 0 && (
+                <ChevronRight size={16} className="text-blue-600" />
+              )}
+              <CardTitle className="text-lg">
+                {depth > 0 ? `Nested Section ${sectionIndex + 1}` : `Section ${sectionIndex + 1}`}
+                {depth > 0 && <span className="text-xs text-blue-600 ml-2">(Level {depth + 1})</span>}
+              </CardTitle>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onDelete}
+              className="text-red-600 hover:text-red-700"
+            >
+              <Trash2 size={16} />
+            </Button>
           </div>
-        )}
-      </CardHeader>
+          {hasErrors && (
+            <div className="text-sm text-red-600 space-y-1">
+              {validationErrors.map((error, index) => (
+                <div key={index}>• {error.message}</div>
+              ))}
+            </div>
+          )}
+        </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -473,8 +653,61 @@ const SectionEditor: React.FC<{
             Variables that increment per generated page. Use {'{counter_name}'} in your widgets.
           </p>
         </div>
+
+        {/* Nested Sections */}
+        {canAddNested && (
+          <div className="mt-6 pt-4 border-t">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <Label className="text-base font-semibold">Nested Sections</Label>
+                <p className="text-xs text-gray-500 mt-1">
+                  Sections that iterate within each instance of this section (max depth: {maxDepth})
+                </p>
+              </div>
+              <Button
+                onClick={handleAddNestedSection}
+                size="sm"
+                variant="outline"
+                className="flex items-center gap-1"
+              >
+                <Plus size={16} />
+                Add Nested
+              </Button>
+            </div>
+
+            {section.nested && section.nested.length > 0 && (
+              <div className="space-y-4">
+                {section.nested.map((nestedSection, nestedIndex) => (
+                  <SectionEditor
+                    key={`nested-${sectionIndex}-${nestedIndex}`}
+                    section={nestedSection}
+                    sectionIndex={nestedIndex}
+                    availableMasters={availableMasters}
+                    validationErrors={[]}
+                    onChange={(updated) => handleNestedSectionChange(nestedIndex, updated)}
+                    onDelete={() => handleRemoveNestedSection(nestedIndex)}
+                    depth={depth + 1}
+                  />
+                ))}
+              </div>
+            )}
+
+            {(!section.nested || section.nested.length === 0) && (
+              <div className="text-center py-4 text-gray-400 text-sm border-2 border-dashed rounded">
+                No nested sections. Click "Add Nested" to create hierarchical structure.
+              </div>
+            )}
+          </div>
+        )}
+
+        {!canAddNested && (
+          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
+            ⚠️ Maximum nesting depth ({maxDepth} levels) reached. Cannot add more nested sections.
+          </div>
+        )}
       </CardContent>
     </Card>
+    </div>
   );
 };
 

@@ -131,7 +131,12 @@ def compile_build(req: CompileRequest) -> CompileResponse:
             })
         )
 
-        compiled = CompilationService().compile_project(project)
+        # Pass max_pages from settings to fail fast before compilation
+        from ..config import settings
+        compiled = CompilationService().compile_project(
+            project,
+            max_pages=settings.MAX_PDF_PAGES
+        )
 
         # Convert enum values to strings and dump YAML
         template_data = convert_enums_for_serialization(compiled.template.model_dump())

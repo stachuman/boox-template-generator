@@ -40,6 +40,7 @@ def _generate_pdf_subprocess(
     deterministic: bool,
     strict_mode: bool,
     timeout_seconds: int,
+    max_pages: int,
     result_queue: multiprocessing.Queue
 ) -> None:
     """Run compilation and PDF rendering in a separate process."""
@@ -112,7 +113,11 @@ def _generate_pdf_subprocess(
                 )
 
             compilation_service = CompilationService()
-            result = compilation_service.compile_project(project, device_profile_payload)
+            result = compilation_service.compile_project(
+                project,
+                device_profile_payload,
+                max_pages=max_pages
+            )
             diagnostics["compile"]["completed_at"] = _now_iso()
             diagnostics["compile"]["stats"] = result.compilation_stats
 
@@ -252,6 +257,7 @@ class PDFWorker:
                         deterministic,
                         strict_mode,
                         self.max_timeout,
+                        self.max_pages,
                         result_queue,
                     ),
                 )
@@ -289,6 +295,8 @@ class PDFWorker:
                     pdf_bytes = result["pdf_bytes"]
                     page_count = result["page_count"]
 
+                    # Safety net: validate page count post-compilation
+                    # Pre-compilation validation should catch this, but this acts as defense-in-depth
                     if page_count > self.max_pages:
                         job_service.update_job_status(
                             job_id,

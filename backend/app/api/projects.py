@@ -285,7 +285,13 @@ async def compile_project(project_id: str, current_user: User = Depends(get_curr
         logger.warning("Failed to load profile %s: %s", project.metadata.device_profile, exc)
 
     try:
-        result = compilation_service.compile_project(project, device_profile_payload)
+        # Pass max_pages from settings to fail fast before compilation
+        from ..config import settings
+        result = compilation_service.compile_project(
+            project,
+            device_profile_payload,
+            max_pages=settings.MAX_PDF_PAGES
+        )
     except CompilationServiceError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception as exc:

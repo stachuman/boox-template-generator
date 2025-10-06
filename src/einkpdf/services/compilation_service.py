@@ -34,19 +34,37 @@ class CompilationServiceError(Exception):
 class PlanEnumerator:
     """Enumerates plan sections into binding contexts."""
 
-    def enumerate_section(self, section: PlanSection, calendar_start: date,
-                         calendar_end: date) -> Iterator[BindingContext]:
-        """Enumerate a plan section into binding contexts."""
+    def enumerate_section(
+        self,
+        section: PlanSection,
+        calendar_start: date,
+        calendar_end: date,
+        parent_context: Optional[BindingContext] = None
+    ) -> Iterator[Tuple[BindingContext, List[PlanSection]]]:
+        """
+        Enumerate a plan section into binding contexts.
+
+        Args:
+            section: Section to enumerate
+            calendar_start: Fallback calendar start date
+            calendar_end: Fallback calendar end date
+            parent_context: Parent section's binding context (for nested sections)
+
+        Yields:
+            Tuple of (binding_context, nested_sections_list)
+        """
         iteration = 0  # Track iteration for counter variables
 
         if section.generate == GenerateMode.ONCE:
-            yield self._build_context(section, index=1, iteration=iteration)
+            context = self._build_context(section, index=1, iteration=iteration, parent_context=parent_context)
+            yield context, section.nested or []
 
         elif section.generate == GenerateMode.COUNT:
             if section.count is None:
                 raise CompilationServiceError(f"Count not specified for section {section.kind}")
             for i in range(1, section.count + 1):
-                yield self._build_context(section, index=i, total=section.count, iteration=iteration)
+                context = self._build_context(section, index=i, total=section.count, iteration=iteration, parent_context=parent_context)
+                yield context, section.nested or []
                 iteration += 1
 
         elif section.generate == GenerateMode.EACH_DAY:
@@ -59,7 +77,8 @@ class PlanEnumerator:
                 )
 
             for current_date in self._date_range(start_date, end_date):
-                yield self._build_context(section, date_obj=current_date, iteration=iteration)
+                context = self._build_context(section, date_obj=current_date, iteration=iteration, parent_context=parent_context)
+                yield context, section.nested or []
                 iteration += 1
 
         elif section.generate == GenerateMode.EACH_WEEK:
@@ -72,7 +91,8 @@ class PlanEnumerator:
                 )
 
             for iso_week, week_start in self._week_range(start_date, end_date):
-                yield self._build_context(section, date_obj=week_start, iso_week=iso_week, iteration=iteration)
+                context = self._build_context(section, date_obj=week_start, iso_week=iso_week, iteration=iteration, parent_context=parent_context)
+                yield context, section.nested or []
                 iteration += 1
 
         elif section.generate == GenerateMode.EACH_MONTH:
@@ -86,16 +106,28 @@ class PlanEnumerator:
 
             for year, month in self._month_range(start_date, end_date):
                 month_date = date(year, month, 1)
-                yield self._build_context(section, date_obj=month_date, iteration=iteration)
+                context = self._build_context(section, date_obj=month_date, iteration=iteration, parent_context=parent_context)
+                yield context, section.nested or []
                 iteration += 1
         else:
             raise CompilationServiceError(f"Unsupported generate mode: {section.generate}")
 
-    def _build_context(self, section: PlanSection, date_obj: Optional[date] = None,
-                      index: Optional[int] = None, total: Optional[int] = None,
-                      iso_week: Optional[str] = None, iteration: int = 0) -> BindingContext:
+    def _build_context(
+        self,
+        section: PlanSection,
+        date_obj: Optional[date] = None,
+        index: Optional[int] = None,
+        total: Optional[int] = None,
+        iso_week: Optional[str] = None,
+        iteration: int = 0,
+        parent_context: Optional[BindingContext] = None
+    ) -> BindingContext:
         """Build binding context for template substitution."""
-        context = BindingContext()
+        # Start with parent context if provided, otherwise fresh context
+        if parent_context:
+            context = copy.deepcopy(parent_context)
+        else:
+            context = BindingContext()
 
         # Date context
         if date_obj:
@@ -134,7 +166,9 @@ class PlanEnumerator:
             context.iso_week = iso_week
 
         # Custom context from section (static values)
-        context.custom = dict(section.context)
+        # Update existing custom dict (from parent) rather than replacing it
+        if section.context:
+            context.custom.update(section.context)
 
         # Add plan locale to context
         try:
@@ -487,19 +521,192 @@ class CompilationService:
     def __init__(self):
         self.enumerator = PlanEnumerator()
 
-    def compile_project(self, project: Project, device_profile: Optional[Dict[str, Any]] = None) -> CompilationResult:
+    def _validate_nested_plan(self, plan: Plan, max_pages: int = 1000) -> None:
+        """
+        Pre-compilation validation to fail fast on problematic plans.
+
+        Args:
+            plan: Plan to validate
+            max_pages: Maximum allowed pages (from settings, default 1000)
+
+        Checks:
+        1. Total page count doesn't exceed limit (configurable, default 1000)
+        2. All section kinds are unique across entire plan (including nested)
+        3. Resource estimation warnings
+
+        Raises:
+            CompilationServiceError: If plan would generate too many pages or has invalid structure
+        """
+        from ..core.project_schema import estimate_page_count
+
+        errors = []
+        warnings = []
+
+        # Check 1: Estimate total page count
+        total_estimated_pages = 0
+        for section in plan.sections:
+            try:
+                section_pages = estimate_page_count(section)
+                total_estimated_pages += section_pages
+
+                if section_pages > max_pages:
+                    errors.append(
+                        f"Section '{section.kind}' would generate {section_pages:,} pages. "
+                        f"Maximum allowed: {max_pages:,} per section. Consider splitting your plan."
+                    )
+            except ValueError as e:
+                errors.append(f"Cannot estimate page count for section '{section.kind}': {e}")
+
+        if total_estimated_pages > max_pages:
+            errors.append(
+                f"Plan would generate approximately {total_estimated_pages:,} total pages. "
+                f"Maximum allowed: {max_pages:,}. Reduce section counts or date ranges."
+            )
+        elif total_estimated_pages > (max_pages * 0.5):
+            warnings.append(
+                f"Plan will generate approximately {total_estimated_pages:,} pages. "
+                f"Compilation may take several minutes."
+            )
+
+        # Check 2: Collect all section kinds (including nested) and check for duplicates
+        def collect_all_kinds(sections: List[PlanSection], kinds: List[str]) -> None:
+            for section in sections:
+                kinds.append(section.kind)
+                if section.nested:
+                    collect_all_kinds(section.nested, kinds)
+
+        all_kinds: List[str] = []
+        collect_all_kinds(plan.sections, all_kinds)
+
+        duplicates = [k for k in set(all_kinds) if all_kinds.count(k) > 1]
+        if duplicates:
+            errors.append(
+                f"Duplicate section kinds found: {sorted(duplicates)}. "
+                f"Each section (including nested) must have a unique 'kind' identifier."
+            )
+
+        # Log warnings
+        for warning in warnings:
+            logger.warning(f"Plan validation warning: {warning}")
+
+        # Raise errors if any
+        if errors:
+            error_msg = "Plan validation failed:\n" + "\n".join(f"  - {error}" for error in errors)
+            raise CompilationServiceError(error_msg)
+
+    def _compile_section_recursive(
+        self,
+        section: PlanSection,
+        project: Project,
+        calendar_start: Optional[date],
+        calendar_end: Optional[date],
+        binding_resolver: BindingResolver,
+        destination_registry: DestinationRegistry,
+        compiled_widgets: List[Widget],
+        page_number: List[int],  # Mutable reference (list with single int)
+        compilation_stats: Dict[str, Any],
+        parent_context: Optional[BindingContext] = None,
+        depth: int = 0
+    ) -> int:
+        """
+        Recursively compile a section and its nested children.
+
+        Args:
+            section: Section to compile
+            project: Project with masters
+            calendar_start: Fallback calendar start
+            calendar_end: Fallback calendar end
+            binding_resolver: Resolver for bindings
+            destination_registry: Registry for named destinations
+            compiled_widgets: Accumulated widgets (mutated)
+            page_number: Current page number (mutated via list reference)
+            compilation_stats: Stats dictionary (mutated)
+            parent_context: Parent section's binding context
+            depth: Current nesting depth (for logging/debugging)
+
+        Returns:
+            Number of pages generated for this section (including nested)
+        """
+        logger.debug(f"{'  ' * depth}Processing section: {section.kind} (depth={depth})")
+
+        pages_generated = 0
+
+        # Find the master for this section
+        master = None
+        for m in project.masters:
+            if m.name == section.master:
+                master = m
+                break
+
+        if not master:
+            raise CompilationServiceError(f"Master '{section.master}' not found for section '{section.kind}'")
+
+        # Enumerate this section's iterations
+        for context, nested_sections in self.enumerator.enumerate_section(
+            section, calendar_start, calendar_end, parent_context
+        ):
+            # First, generate THIS section's page(s) using its master
+            for subpage in range(section.pages_per_item):
+                context.subpage = subpage + 1
+
+                # Apply context to master and create page widgets
+                page_widgets = self._instantiate_master(
+                    master, context, binding_resolver, page_number[0]
+                )
+
+                # Register any anchors as named destinations
+                self._register_anchors(page_widgets, destination_registry, page_number[0])
+
+                compiled_widgets.extend(page_widgets)
+                pages_generated += 1
+                page_number[0] += 1
+
+            # Then, if this iteration has nested sections, recurse into them
+            if nested_sections:
+                logger.debug(f"{'  ' * depth}Section '{section.kind}' has {len(nested_sections)} nested sections")
+                for child_section in nested_sections:
+                    child_pages = self._compile_section_recursive(
+                        child_section,
+                        project,
+                        calendar_start,
+                        calendar_end,
+                        binding_resolver,
+                        destination_registry,
+                        compiled_widgets,
+                        page_number,
+                        compilation_stats,
+                        parent_context=context,
+                        depth=depth + 1
+                    )
+                    pages_generated += child_pages
+
+        # Track stats for this section
+        if section.kind not in compilation_stats["pages_generated_per_section"]:
+            compilation_stats["pages_generated_per_section"][section.kind] = 0
+        compilation_stats["pages_generated_per_section"][section.kind] += pages_generated
+
+        logger.debug(f"{'  ' * depth}Section '{section.kind}' generated {pages_generated} pages")
+        return pages_generated
+
+    def compile_project(
+        self,
+        project: Project,
+        device_profile: Optional[Dict[str, Any]] = None,
+        max_pages: int = 1000
+    ) -> CompilationResult:
         """
         Compile project into final template using master/plan approach.
 
         Args:
             project: Project to compile with masters and plan
             device_profile: Device profile with validation constraints (optional)
+            max_pages: Maximum allowed pages (from settings, default 1000)
 
         Returns:
             CompilationResult with final template and stats
 
         Raises:
-            CompilationServiceError: If compilation fails
+            CompilationServiceError: If compilation fails or page limit exceeded
         """
         if not project.masters:
             raise CompilationServiceError("Project has no masters")
@@ -508,6 +715,10 @@ class CompilationService:
             raise CompilationServiceError("Project plan has no sections")
 
         logger.info(f"Compiling project '{project.metadata.name}' with {len(project.masters)} masters")
+
+        # Pre-compilation validation (fails fast if page limit exceeded)
+        self._validate_nested_plan(project.plan, max_pages=max_pages)
+
         # Set plan locale (default 'en') for enumerator/context
         try:
             self.enumerator.plan_locale = getattr(project.plan, 'locale', 'en') or 'en'
@@ -528,7 +739,7 @@ class CompilationService:
 
         # Generate all page instances following plan order
         compiled_widgets: List[Widget] = []
-        page_number = 1
+        page_number = [1]  # Use list for mutable reference in recursive calls
         compilation_stats = {
             "total_pages": 0,
             "total_widgets": 0,
@@ -536,6 +747,7 @@ class CompilationService:
             "pages_generated_per_section": {}
         }
 
+        # Process top-level sections in order (nested sections processed recursively)
         for section_kind in project.plan.order:
             # Find the section
             section = None
@@ -547,42 +759,26 @@ class CompilationService:
             if not section:
                 raise CompilationServiceError(f"Section '{section_kind}' not found in plan")
 
-            logger.debug(f"Processing section: {section.kind} using master {section.master}")
+            logger.debug(f"Processing top-level section: {section.kind}")
 
-            # Find the master
-            master = None
-            for m in project.masters:
-                if m.name == section.master:
-                    master = m
-                    break
-
-            if not master:
-                raise CompilationServiceError(f"Master '{section.master}' not found")
-
-            # Generate page instances for this section
-            pages_generated = 0
-
-            for context in self.enumerator.enumerate_section(section, calendar_start, calendar_end):
-                # Generate pages for this context (might be multiple pages per item)
-                for subpage in range(section.pages_per_item):
-                    context.subpage = subpage + 1
-
-                    # Apply context to master and create page widgets
-                    page_widgets = self._instantiate_master(
-                        master, context, binding_resolver, page_number
-                    )
-
-                    # Register any anchors as named destinations
-                    self._register_anchors(page_widgets, destination_registry, page_number)
-
-                    compiled_widgets.extend(page_widgets)
-                    pages_generated += 1
-                    page_number += 1
+            # Recursively compile this section and any nested children
+            self._compile_section_recursive(
+                section,
+                project,
+                calendar_start,
+                calendar_end,
+                binding_resolver,
+                destination_registry,
+                compiled_widgets,
+                page_number,
+                compilation_stats,
+                parent_context=None,
+                depth=0
+            )
 
             compilation_stats["sections_processed"] += 1
-            compilation_stats["pages_generated_per_section"][section.kind] = pages_generated
 
-        compilation_stats["total_pages"] = page_number - 1
+        compilation_stats["total_pages"] = page_number[0] - 1
         compilation_stats["total_widgets"] = len(compiled_widgets)
 
         # Generate navigation structure
