@@ -20,6 +20,7 @@ const LinkWidget: React.FC<LinkWidgetProps> = ({ widget }) => {
   const linkFontSize = linkStyling.size || 12;
   const linkFontFamily = resolveFontFamily(linkStyling.font);
   const linkColor = linkStyling.color || '#0066CC';
+  const backgroundColor = widget.background_color || 'transparent';
   const orientation = normalizeOrientation(widget.properties?.orientation);
   const vertical = isVerticalOrientation(orientation);
 
@@ -30,6 +31,7 @@ const LinkWidget: React.FC<LinkWidgetProps> = ({ widget }) => {
         fontSize: linkFontSize,
         fontFamily: linkFontFamily,
         color: linkColor,
+        backgroundColor: backgroundColor,
         textAlign: (widget.styling?.text_align as any) || 'left',
         justifyContent: mapJustify(widget.styling?.text_align),
         alignItems: vertical ? 'stretch' : 'center',
