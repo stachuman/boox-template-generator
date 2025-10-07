@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "einkpdf"
-version = "0.3.0"
+version = "0.3.1"
 description = "Interactive PDF template system optimized for Boox Onyx e-readers"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -39,6 +39,7 @@ dependencies = [
     # Image processing for e-ink optimization
     "Pillow==10.1.0",                # Image processing
     "numpy==1.24.4",                 # Image operations and dithering
+    "pdf2image==1.17.0",             # PDF to PNG conversion for template export
     
     # Web API (Phase 4)
     "fastapi==0.108.0",              # Web API framework

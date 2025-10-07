@@ -319,6 +319,25 @@ export class APIClient {
     return response.data;
   }
 
+  // Export master template as PNG for e-ink device
+  static async exportMasterAsPNG(
+    projectId: string,
+    masterName: string,
+    context?: Record<string, any>
+  ): Promise<Blob> {
+    const response = await apiClient.post(
+      `/projects/${projectId}/export/master-png`,
+      {
+        master_name: masterName,
+        context: context
+      },
+      {
+        responseType: 'blob'
+      }
+    );
+    return response.data;
+  }
+
   // Get project preview image
   static async getProjectPreview(projectId: string, page: number = 1, scale: number = 2.0): Promise<Blob> {
     const response = await apiClient.get(`/projects/${projectId}/preview`, {

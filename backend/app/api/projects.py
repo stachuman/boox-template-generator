@@ -21,6 +21,7 @@ from einkpdf.core.profiles import DeviceProfileError, load_device_profile
 from einkpdf.core.project_schema import Project, ProjectListItem
 from einkpdf.services.compilation_service import CompilationService, CompilationServiceError
 from einkpdf.services.project_service import ProjectService, ProjectServiceError
+from einkpdf.services.png_export_service import PNGExportService, PNGExportError
 
 from ..db.dependencies import get_current_user
 from ..db.models import User
@@ -38,10 +39,13 @@ from ..workspaces import (
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
+logger = logging.getLogger(__name__)
+
 workspace_manager: UserWorkspaceManager = get_workspace_manager()
 public_project_manager: PublicProjectManager = get_public_project_manager()
 compilation_service = CompilationService()
 pdf_service = PDFService()
+png_export_service = PNGExportService()
 
 
 class CreateProjectRequest(BaseModel):
@@ -552,3 +556,134 @@ async def clone_public_project_by_slug(
         pass
     return cloned_project
 
+
+class ExportMasterPNGRequest(BaseModel):
+    """Request model for exporting master as PNG."""
+    master_name: str = Field(..., description="Name of master to export")
+    context: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Optional context for variable preview"
+    )
+
+
+@router.post("/{project_id}/export/master-png")
+async def export_master_as_png(
+    project_id: str,
+    request: ExportMasterPNGRequest,
+    current_user: User = Depends(get_current_user)
+) -> Response:
+    """
+    Export a master template as PNG for e-ink device.
+
+    This generates a static PNG image at the device's native resolution,
+    suitable for use as a reusable template on e-ink devices like
+    reMarkable, Supernote, or Boox.
+
+    Flow:
+    1. Load project and master
+    2. Build single-page template from master
+    3. Render to PDF (using existing renderer)
+    4. Convert PDF to PNG at device resolution
+    5. Return PNG bytes
+    """
+    logger.info(f"User {current_user.id} exporting master '{request.master_name}' as PNG from project {project_id}")
+
+    # Get project
+    try:
+        service = workspace_manager.get_project_service(current_user.id)
+        project = service.get_project(project_id)
+    except WorkspaceError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Find master
+    master = next(
+        (m for m in project.masters if m.name == request.master_name),
+        None
+    )
+    if not master:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Master '{request.master_name}' not found"
+        )
+
+    # Load device profile
+    try:
+        device_profile = load_device_profile(project.metadata.device_profile)
+    except DeviceProfileError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid device profile: {e}"
+        )
+
+    # Build single-page template from master
+    from einkpdf.core.schema import Template, TemplateMetadata, Canvas
+
+    # Filter out navigation-related widgets (links) since PNG is static
+    # Link widgets reference destinations that don't exist in isolation
+    static_widgets = [
+        w for w in master.widgets
+        if w.type not in ('internal_link', 'tap_zone')
+    ]
+
+    logger.info(f"Filtered {len(master.widgets)} widgets to {len(static_widgets)} static widgets for PNG export")
+
+    # Create a simple template with the master's static widgets
+    template = Template(
+        schema_version="1.0",
+        metadata=TemplateMetadata(
+            name=f"{request.master_name}_template",
+            description=f"PNG template from {request.master_name}",
+            category="template",
+            version="1.0",
+            author=current_user.username or "User",
+            created=datetime.now().isoformat(),
+            profile=project.metadata.device_profile
+        ),
+        canvas=Canvas(**project.default_canvas),
+        widgets=static_widgets  # Use filtered static widgets only
+    )
+
+    # Render to PDF
+    try:
+        import yaml
+        template_yaml = yaml.safe_dump(
+            convert_enums_for_serialization(template.model_dump()),
+            sort_keys=False,
+            allow_unicode=True
+        )
+        pdf_bytes = pdf_service.generate_pdf(
+            yaml_content=template_yaml,
+            profile=project.metadata.device_profile
+        )
+    except Exception as e:
+        logger.error(f"PDF rendering failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to render PDF: {e}"
+        )
+
+    # Convert PDF to PNG
+    try:
+        png_bytes = png_export_service.export_template_to_png(
+            pdf_bytes=pdf_bytes,
+            device_profile=device_profile
+        )
+    except PNGExportError as e:
+        logger.error(f"PNG export failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to export PNG: {e}"
+        )
+
+    # Return PNG file
+    filename = f"{request.master_name}_template.png"
+    return Response(
+        content=png_bytes,
+        media_type="image/png",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )

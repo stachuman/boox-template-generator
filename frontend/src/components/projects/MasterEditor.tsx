@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Save, Code, Layout, Grid } from 'lucide-react';
+import { ArrowLeft, Save, Code, Layout, Grid, Download, Loader2 } from 'lucide-react';
 import { useEditorStore } from '@/stores/editorStore';
 import { Project, Master, Template, AddMasterRequest, UpdateMasterRequest } from '@/types';
 import { APIClient } from '@/services/api';
@@ -21,6 +21,7 @@ const MasterEditor: React.FC = () => {
   const [isNewMaster, setIsNewMaster] = useState(false);
   const [viewMode, setViewMode] = useState<'visual' | 'yaml'>('visual');
   const [showGrid, setShowGrid] = useState(false);
+  const [exportingPNG, setExportingPNG] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -184,6 +185,34 @@ const MasterEditor: React.FC = () => {
     }
   };
 
+  const handleExportPNG = async () => {
+    if (!project || !currentMaster) return;
+
+    try {
+      setExportingPNG(true);
+      setError(null);
+
+      const pngBlob = await APIClient.exportMasterAsPNG(
+        project.id,
+        currentMaster.name
+      );
+
+      // Create download link
+      const url = URL.createObjectURL(pngBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${currentMaster.name}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err.message || 'Failed to export PNG');
+    } finally {
+      setExportingPNG(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -284,14 +313,27 @@ const MasterEditor: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Master Name Input */}
-          <input
-            type="text"
-            value={masterNameValue}
-            onChange={(e) => setMasterNameValue(e.target.value)}
-            placeholder="Master name..."
-            className="px-3 py-2 border border-eink-light-gray rounded-lg focus:outline-none focus:ring-2 focus:ring-eink-black focus:border-transparent text-sm"
-          />
+          {/* Export PNG Button - only for existing masters */}
+          {!isNewMaster && currentMaster && (
+            <button
+              onClick={handleExportPNG}
+              disabled={exportingPNG}
+              className="flex items-center gap-2 px-4 py-2 border border-eink-light-gray text-eink-dark-gray rounded-lg hover:bg-eink-pale-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Export master as PNG template for e-ink devices"
+            >
+              {exportingPNG ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="w-5 h-5" />
+                  Export PNG
+                </>
+              )}
+            </button>
+          )}
 
           {/* Save Button */}
           <button
@@ -302,6 +344,16 @@ const MasterEditor: React.FC = () => {
             <Save className="w-5 h-5" />
             {saving ? 'Saving...' : (isNewMaster ? 'Create Master' : 'Save Changes')}
           </button>
+
+          {/* Master Name Input */}
+          <input
+            type="text"
+            value={masterNameValue}
+            onChange={(e) => setMasterNameValue(e.target.value)}
+            placeholder="Master name..."
+            className="px-3 py-2 border border-eink-light-gray rounded-lg focus:outline-none focus:ring-2 focus:ring-eink-black focus:border-transparent text-sm"
+          />
+
         </div>
       </div>
 

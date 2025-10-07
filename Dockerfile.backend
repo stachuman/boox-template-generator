@@ -5,11 +5,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system dependencies (added curl for health checks, sqlite3 for debugging)
+# Install system dependencies (added curl for health checks, sqlite3 for debugging, poppler-utils for PDF->PNG)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     sqlite3 \
+    poppler-utils \
   && rm -rf /var/lib/apt/lists/*
 
 # Copy project files
