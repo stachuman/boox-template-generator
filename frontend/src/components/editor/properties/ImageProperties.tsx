@@ -64,11 +64,20 @@ const ImageProperties: React.FC<ImagePropertiesProps> = ({ widget, onUpdate }) =
               type="text"
               value={properties.image_src || ''}
               onChange={(e) => {
-                updateProperty('image_src', e.target.value);
-                if (e.target.value) {
+                //console.log('ImageProperties onChange fired:', e.target.value);
+                const newValue = e.target.value;
+                const newProps: Record<string, any> = { image_src: newValue };
+                if (newValue) {
                   // Clear image_data when entering URL
-                  updateProperty('image_data', undefined);
+                  newProps.image_data = null;
                 }
+                //console.log('Calling updateProperty with:', newProps);
+                onUpdate({
+                  properties: {
+                    ...properties,
+                    ...newProps
+                  }
+                });
               }}
               placeholder="https://example.com/image.png"
               className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"

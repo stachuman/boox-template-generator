@@ -22,6 +22,7 @@ const MasterEditor: React.FC = () => {
   const [viewMode, setViewMode] = useState<'visual' | 'yaml'>('visual');
   const [showGrid, setShowGrid] = useState(false);
   const [exportingPNG, setExportingPNG] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -135,7 +136,64 @@ const MasterEditor: React.FC = () => {
     setYamlContent(yamlContent);
   };
 
+  const saveProject = async () => {
+    if (!masterNameValue.trim()) {
+      setError('Master name is required');
+      return;
+    }
+    try {
+      setSaving(true);
+      setError(null);
+      setSaveSuccess(false);
+      const templateYaml = yamlContent;
 
+      if (isNewMaster) {
+        // Create new master
+        const request: AddMasterRequest = {
+          name: masterNameValue.trim(),
+          template_yaml: templateYaml,
+          description: ''
+        };
+
+        const updatedProject = await APIClient.addMaster(project.id, request);
+        setProject(updatedProject);
+
+        // After creating, switch to edit mode for this master
+        setIsNewMaster(false);
+        const newMaster = updatedProject.masters.find(m => m.name === masterNameValue.trim());
+        if (newMaster) {
+          setCurrentMaster(newMaster);
+        }
+      } else if (currentMaster) {
+        // Update existing master
+        const request: UpdateMasterRequest = {
+          template_yaml: templateYaml,
+          new_name: masterNameValue.trim() !== currentMaster.name ? masterNameValue.trim() : undefined,
+          description: ''
+        };
+
+        const updatedProject = await APIClient.updateMaster(project.id, currentMaster.name, request);
+        setProject(updatedProject);
+
+        // Update current master if name changed
+        if (request.new_name) {
+          const renamedMaster = updatedProject.masters.find(m => m.name === request.new_name);
+          if (renamedMaster) {
+            setCurrentMaster(renamedMaster);
+          }
+        }
+      }
+
+      // Show success feedback
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to save master');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const handleSave = async () => {
     if (!project || !currentTemplate) return;
@@ -145,9 +203,15 @@ const MasterEditor: React.FC = () => {
       return;
     }
 
-    try {
+    //try {
+    saveProject();
+    // Navigate back to project with masters tab active
+    // navigate(`/projects/${project.id}?tab=masters`);
+
+      /* 
       setSaving(true);
       setError(null);
+
 
       const templateYaml = yamlContent;
 
@@ -178,17 +242,21 @@ const MasterEditor: React.FC = () => {
         // Navigate back to project with masters tab active
         navigate(`/projects/${project.id}?tab=masters`);
       }
+        
     } catch (err: any) {
       setError(err.message || 'Failed to save master');
     } finally {
       setSaving(false);
-    }
+    } */
   };
 
   const handleExportPNG = async () => {
     if (!project || !currentMaster) return;
 
     try {
+      // start by saving
+      saveProject();
+
       setExportingPNG(true);
       setError(null);
 
@@ -339,10 +407,25 @@ const MasterEditor: React.FC = () => {
           <button
             onClick={handleSave}
             disabled={saving || !masterNameValue.trim()}
-            className="flex items-center gap-2 px-4 py-2 bg-eink-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+              saveSuccess
+                ? 'bg-green-600 text-white'
+                : 'bg-eink-black text-white hover:bg-gray-800'
+            }`}
           >
-            <Save className="w-5 h-5" />
-            {saving ? 'Saving...' : (isNewMaster ? 'Create Master' : 'Save Changes')}
+            {saveSuccess ? (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Saved!
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5" />
+                {saving ? 'Saving...' : (isNewMaster ? 'Create Master' : 'Save Changes')}
+              </>
+            )}
           </button>
 
           {/* Master Name Input */}

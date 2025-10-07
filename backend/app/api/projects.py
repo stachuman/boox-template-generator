@@ -619,14 +619,37 @@ async def export_master_as_png(
         )
 
     # Build single-page template from master
-    from einkpdf.core.schema import Template, TemplateMetadata, Canvas
+    from einkpdf.core.schema import Template, TemplateMetadata, Canvas, Widget
+    import copy
 
-    # Filter out navigation-related widgets (links) since PNG is static
-    # Link widgets reference destinations that don't exist in isolation
-    static_widgets = [
-        w for w in master.widgets
-        if w.type not in ('internal_link', 'tap_zone')
-    ]
+    # For PNG export, we need to strip ALL navigation-related properties
+    # because PNG is static and can't have interactive links
+    # This includes:
+    # 1. Removing internal_link and tap_zone widgets entirely
+    # 2. Stripping link-related properties from other widgets (calendar, table, etc.)
+
+    static_widgets = []
+    for widget in master.widgets:
+        # Skip link-related widgets entirely (including link_list which generates destinations)
+        if widget.type in ('internal_link', 'tap_zone', 'link_list'):
+            continue
+
+        # Deep copy widget to avoid modifying original
+        widget_dict = widget.model_dump()
+
+        # Strip navigation properties that might exist in any widget
+        if widget_dict.get('properties'):
+            props = widget_dict['properties']
+            # Remove common link-related properties
+            props.pop('to_dest', None)
+            props.pop('page_link', None)
+            props.pop('named_destinations', None) 
+            props.pop('link_strategy',"no_links") #calendar
+            props.pop('link_template', None)
+            props.pop('cell_links', None)
+
+        # Reconstruct widget from cleaned dict
+        static_widgets.append(Widget(**widget_dict))
 
     logger.info(f"Filtered {len(master.widgets)} widgets to {len(static_widgets)} static widgets for PNG export")
 
