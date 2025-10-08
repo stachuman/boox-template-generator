@@ -19,6 +19,7 @@ from ..core.project_schema import (
     CompilationResult, DestinationRegistry, LinkResolutionMode
 )
 from ..core.schema import Template, Widget, NamedDestination, OutlineItem, InternalLink
+from ..core.profiles import load_device_profile, get_default_canvas_config, DeviceProfileError
 from ..i18n import get_month_names, get_weekday_names, format_date_long
 from ..core.tokens import TokenProcessor, CompilationTokenContext, RenderingTokenContext
 
@@ -794,7 +795,7 @@ class CompilationService:
             final_template = Template(
                 schema_version="1.0",
                 metadata=self._build_template_metadata(project),
-                canvas=project.default_canvas or self._default_canvas(),
+                canvas=project.default_canvas or self._default_canvas(project.metadata.device_profile),
                 widgets=compiled_widgets,
                 navigation={
                     "named_destinations": [dest.model_dump() for dest in named_destinations],
@@ -1475,15 +1476,29 @@ class CompilationService:
             "profile": project.metadata.device_profile
         }
 
-    def _default_canvas(self) -> Dict[str, Any]:
-        """Default canvas configuration."""
-        return {
-            "dimensions": {"width": 595.2, "height": 841.8, "margins": [72, 72, 72, 72]},
-            "coordinate_system": "top_left",
-            "background": "#FFFFFF",
-            "grid_size": 10,
-            "snap_enabled": True
-        }
+    def _default_canvas(self, device_profile_name: str) -> Dict[str, Any]:
+        """
+        Get default canvas configuration from device profile.
+
+        This is used when project.default_canvas is None (legacy projects).
+        Uses the centralized configuration from core.profiles.get_default_canvas_config().
+
+        Args:
+            device_profile_name: Device profile to use for dimensions
+
+        Returns:
+            Canvas configuration dict
+
+        Raises:
+            CompilationServiceError: If profile cannot be loaded
+        """
+        try:
+            profile = load_device_profile(device_profile_name)
+            return get_default_canvas_config(profile)
+        except DeviceProfileError as e:
+            raise CompilationServiceError(
+                f"Cannot get canvas configuration for profile '{device_profile_name}': {e}"
+            )
 
     def _validate_compiled_template(self, widgets: List[Widget], registry: DestinationRegistry,
                                    links: List[InternalLink]) -> None:

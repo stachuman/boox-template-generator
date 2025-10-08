@@ -169,6 +169,58 @@ async def update_project(
     return updated or project
 
 
+@router.post("/{project_id}/validate-canvas", response_model=Project)
+async def validate_canvas_dimensions(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+) -> Project:
+    """
+    Validate and auto-fix project canvas dimensions based on device profile.
+
+    Checks if the project's canvas dimensions match what the device profile expects.
+    If not, automatically fixes them. This handles:
+    - Projects created before orientation-aware fix
+    - Projects where device profile was changed
+    - Projects with manually edited canvas
+
+    Returns the updated project (or original if no fix needed).
+    """
+    service = _get_user_project_service(current_user)
+    _get_project_or_404(service, project_id)
+    try:
+        result = service.validate_and_fix_canvas(project_id)
+        # If canvas was already correct, result is None - get project
+        if result is None:
+            result = service.get_project(project_id)
+    except ProjectServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    if not result:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Project {project_id} not found")
+    return result
+
+
+@router.post("/{project_id}/fix-canvas", response_model=Project)
+async def fix_canvas_dimensions(
+    project_id: str,
+    current_user: User = Depends(get_current_user),
+) -> Project:
+    """
+    Recalculate and fix project canvas dimensions based on device profile.
+
+    DEPRECATED: Use /validate-canvas instead.
+    This endpoint is kept for backward compatibility.
+    """
+    service = _get_user_project_service(current_user)
+    _get_project_or_404(service, project_id)
+    try:
+        updated = service.recalculate_canvas_dimensions(project_id)
+    except ProjectServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Project {project_id} not found")
+    return updated
+
+
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(project_id: str, current_user: User = Depends(get_current_user)) -> Response:
     service = _get_user_project_service(current_user)

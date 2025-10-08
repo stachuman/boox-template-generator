@@ -8,9 +8,8 @@ Follows the coding standards in CLAUDE.md - no dummy implementations.
 
 import os
 import yaml
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from pathlib import Path
-import os
 
 from .schema import DeviceProfile, DeviceConstraints
 import logging
@@ -339,6 +338,128 @@ def load_device_profile(profile_name: str) -> DeviceProfile:
         raise DeviceProfileError(
             f"Invalid profile structure in {profile_path}: {e}"
         )
+
+
+def calculate_canvas_dimensions(profile: DeviceProfile) -> Tuple[float, float]:
+    """
+    Calculate canvas dimensions in points from device profile.
+
+    Respects the orientation setting:
+    - If orientation is "portrait" but screen is landscape, dimensions are swapped
+    - If orientation is "landscape" but screen is portrait, dimensions are swapped
+
+    This ensures the PDF canvas matches the intended device orientation,
+    preventing aspect ratio mismatches during PNG export.
+
+    Args:
+        profile: Device profile with display and pdf_settings
+
+    Returns:
+        Tuple of (width_pt, height_pt) in points
+
+    Raises:
+        DeviceProfileError: If profile has invalid display settings
+
+    Formula: points = (pixels / ppi) * 72
+    """
+    try:
+        screen_width_px, screen_height_px = profile.display["screen_size"]
+        ppi = profile.display["ppi"]
+        orientation = profile.pdf_settings["orientation"]
+    except (KeyError, ValueError, TypeError) as e:
+        raise DeviceProfileError(
+            f"Device profile '{profile.name}' has invalid display settings: {e}"
+        )
+
+    # Convert pixel dimensions to points
+    # Points = (pixels / ppi) * 72
+    width_pt = (screen_width_px / ppi) * 72
+    height_pt = (screen_height_px / ppi) * 72
+
+    # Respect orientation setting - swap dimensions if needed
+    screen_is_landscape = width_pt > height_pt
+    wants_portrait = orientation == "portrait"
+
+    if screen_is_landscape and wants_portrait:
+        # Screen is landscape but user wants portrait - swap dimensions
+        width_pt, height_pt = height_pt, width_pt
+    elif not screen_is_landscape and not wants_portrait:
+        # Screen is portrait but user wants landscape - swap dimensions
+        width_pt, height_pt = height_pt, width_pt
+
+    return (round(width_pt, 1), round(height_pt, 1))
+
+
+def get_png_target_dimensions(profile: DeviceProfile) -> Tuple[int, int]:
+    """
+    Get PNG export target dimensions in pixels.
+
+    Respects the orientation setting to match the PDF canvas orientation.
+    If orientation differs from screen aspect ratio, dimensions are swapped.
+
+    Args:
+        profile: Device profile with display and pdf_settings
+
+    Returns:
+        Tuple of (width_px, height_px) in pixels for PNG export
+
+    Raises:
+        DeviceProfileError: If profile has invalid display settings
+    """
+    try:
+        screen_width_px, screen_height_px = profile.display["screen_size"]
+        orientation = profile.pdf_settings["orientation"]
+    except (KeyError, ValueError, TypeError) as e:
+        raise DeviceProfileError(
+            f"Device profile '{profile.name}' has invalid display settings: {e}"
+        )
+
+    # Respect orientation setting - swap dimensions if needed
+    screen_is_landscape = screen_width_px > screen_height_px
+    wants_portrait = orientation == "portrait"
+
+    target_width, target_height = screen_width_px, screen_height_px
+    if screen_is_landscape and wants_portrait:
+        # Screen is landscape but orientation is portrait - swap for PNG target
+        target_width, target_height = screen_height_px, screen_width_px
+    elif not screen_is_landscape and not wants_portrait:
+        # Screen is portrait but orientation is landscape - swap for PNG target
+        target_width, target_height = screen_height_px, screen_width_px
+
+    return (target_width, target_height)
+
+
+def get_default_canvas_config(profile: DeviceProfile) -> Dict[str, Any]:
+    """
+    Get complete default canvas configuration for a device profile.
+
+    This is the single source of truth for canvas configuration.
+    Returns a complete canvas dict ready to use in templates/projects.
+
+    Args:
+        profile: Device profile
+
+    Returns:
+        Complete canvas configuration dict with dimensions, coordinate_system, etc.
+
+    Raises:
+        DeviceProfileError: If profile has invalid settings
+    """
+    width_pt, height_pt = calculate_canvas_dimensions(profile)
+    safe_margins = profile.pdf_settings.get("safe_margins", [36, 36, 36, 36])
+
+    return {
+        "dimensions": {
+            "width": width_pt,
+            "height": height_pt,
+            "margins": safe_margins
+        },
+        "coordinate_system": "top_left",
+        "background": "#FFFFFF",
+        "grid_size": 10,
+        "snap_enabled": True
+    }
+
 
 
 def create_constraint_enforcer(profile_name: str, strict_mode: bool = False) -> ConstraintEnforcer:

@@ -240,6 +240,16 @@ export class APIClient {
     return response.data;
   }
 
+  static async validateCanvasDimensions(projectId: string): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.post(`/projects/${projectId}/validate-canvas`);
+    return response.data;
+  }
+
+  static async fixCanvasDimensions(projectId: string): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.post(`/projects/${projectId}/fix-canvas`);
+    return response.data;
+  }
+
   static async deleteProject(projectId: string): Promise<void> {
     await apiClient.delete(`/projects/${projectId}`);
   }

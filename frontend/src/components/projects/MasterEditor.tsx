@@ -36,7 +36,10 @@ const MasterEditor: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const projectData = await APIClient.getProject(projectId);
+
+      // Auto-validate and fix canvas dimensions if needed
+      // This ensures canvas always matches the device profile
+      let projectData = await APIClient.validateCanvasDimensions(projectId);
       setProject(projectData);
 
       if (masterName && masterName !== 'new') {

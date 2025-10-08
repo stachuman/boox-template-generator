@@ -9,26 +9,68 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { Widget, DeviceProfile, Template, EditorState } from '@/types';
 
-// Utility function to convert page size to dimensions in points
-const getPageDimensions = (pageSize: string, orientation: string = 'portrait'): { width: number; height: number } => {
-  // Standard page sizes in points (72 points = 1 inch)
-  const sizes: Record<string, { width: number; height: number }> = {
-    'A4': { width: 595.2, height: 841.8 },
-    'A3': { width: 841.8, height: 1190.6 },
-    'A5': { width: 420.9, height: 595.2 },
-    'Letter': { width: 612, height: 792 },
-    'Legal': { width: 612, height: 1008 },
-    'Tabloid': { width: 792, height: 1224 }
+// Utility function to derive canvas size from a device profile.
+// Matches backend logic by converting screen pixels to points (px/ppi → pt)
+// and respecting orientation overrides.
+const getPageDimensions = (profile: DeviceProfile): { width: number; height: number } => {
+  const standardSizes: Record<string, { width: number; height: number }> = {
+    A4: { width: 595.2, height: 841.8 },
+    A3: { width: 841.8, height: 1190.6 },
+    A5: { width: 420.9, height: 595.2 },
+    Letter: { width: 612, height: 792 },
+    Legal: { width: 612, height: 1008 },
+    Tabloid: { width: 792, height: 1224 },
   };
-  
-  const size = sizes[pageSize] || sizes['A4']; // Default to A4
-  
-  // Swap width and height for landscape orientation
-  if (orientation === 'landscape') {
-    return { width: size.height, height: size.width };
+
+  const { pdf_settings: pdfSettings, display } = profile;
+  const orientation = pdfSettings?.orientation ?? 'portrait';
+  const pageSize = pdfSettings?.page_size;
+
+  const rotate = <T extends { width: number; height: number }>(size: T): T => {
+    if (orientation === 'landscape') {
+      return { width: size.height, height: size.width } as T;
+    }
+    return size;
+  };
+
+  if (pageSize && standardSizes[pageSize]) {
+    return rotate(standardSizes[pageSize]);
   }
-  
-  return size;
+
+  if (!display?.screen_size || !display?.ppi) {
+    console.warn(
+      'Device profile missing display metadata; falling back to A4 dimensions.',
+      profile.name,
+    );
+    return rotate(standardSizes.A4);
+  }
+
+  const [screenWidthPx, screenHeightPx] = display.screen_size;
+  const ppi = display.ppi;
+
+  if (!screenWidthPx || !screenHeightPx || !ppi) {
+    return rotate(standardSizes.A4);
+  }
+
+  const pxToPoints = (value: number) => (value / ppi) * 72;
+  let widthPt = pxToPoints(screenWidthPx);
+  let heightPt = pxToPoints(screenHeightPx);
+
+  const screenIsLandscape = widthPt > heightPt;
+  const wantsPortrait = orientation === 'portrait';
+
+  if (screenIsLandscape && wantsPortrait) {
+    [widthPt, heightPt] = [heightPt, widthPt];
+  } else if (!screenIsLandscape && !wantsPortrait) {
+    [widthPt, heightPt] = [heightPt, widthPt];
+  }
+
+  const roundToTenth = (value: number) => Math.round(value * 10) / 10;
+
+  return {
+    width: roundToTenth(widthPt),
+    height: roundToTenth(heightPt),
+  };
 };
 
 interface EditorStore extends EditorState {
@@ -163,10 +205,7 @@ export const useEditorStore = create<EditorStore>()(
         const currentTemplate = get().currentTemplate;
         if (currentTemplate && profile) {
           // Get new canvas dimensions based on profile's PDF settings
-          const newDimensions = getPageDimensions(
-            profile.pdf_settings.page_size,
-            profile.pdf_settings.orientation
-          );
+          const newDimensions = getPageDimensions(profile);
           
           // Convert safe margins from profile (if available)
           const margins = profile.pdf_settings.safe_margins || [72, 72, 72, 72];

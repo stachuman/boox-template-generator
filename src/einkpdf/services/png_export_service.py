@@ -8,10 +8,13 @@ Follows CLAUDE.md coding standards - no dummy implementations.
 from PIL import Image
 import pdf2image
 import io
+import logging
 from typing import Optional
 
 from ..core.schema import Template
-from ..core.profiles import DeviceProfile
+from ..core.profiles import DeviceProfile, get_png_target_dimensions
+
+logger = logging.getLogger(__name__)
 
 
 class PNGExportError(Exception):
@@ -34,6 +37,9 @@ class PNGExportService:
         suitable for use as a reusable template on e-ink devices like
         reMarkable, Supernote, or Boox.
 
+        Uses centralized orientation-aware dimension calculation from
+        core.profiles.get_png_target_dimensions().
+
         Args:
             pdf_bytes: PDF file bytes (single page)
             device_profile: Target device profile for dimensions/PPI
@@ -47,9 +53,12 @@ class PNGExportService:
         if not pdf_bytes:
             raise PNGExportError("PDF bytes cannot be empty")
 
-        # Get device specifications from profile dict
-        screen_width, screen_height = device_profile.display["screen_size"]
-        ppi = device_profile.display["ppi"]
+        # Get device PPI and target dimensions (orientation-aware)
+        try:
+            ppi = device_profile.display["ppi"]
+            target_width, target_height = get_png_target_dimensions(device_profile)
+        except Exception as e:
+            raise PNGExportError(f"Invalid device profile settings: {e}")
 
         # Convert PDF to PNG using pdf2image (poppler)
         try:
@@ -71,8 +80,13 @@ class PNGExportService:
 
         img = images[0]
 
-        # Ensure exact device dimensions
-        img = self._resize_to_device(img, screen_width, screen_height)
+        # Log dimensions for debugging
+        logger.info(f"PNG Export: PDF rendered at {ppi} PPI → {img.size[0]}×{img.size[1]} px")
+        logger.info(f"PNG Export: Target dimensions → {target_width}×{target_height} px")
+
+        # Ensure exact target dimensions (respecting orientation)
+        img = self._resize_to_device(img, target_width, target_height)
+        logger.info(f"PNG Export: Final dimensions → {img.size[0]}×{img.size[1]} px")
 
         # Convert to optimized PNG bytes
         img_bytes = io.BytesIO()
@@ -115,8 +129,12 @@ class PNGExportService:
         target_ratio = target_width / target_height
         current_ratio = current_width / current_height
 
+        logger.debug(f"Resize: current={current_width}×{current_height} (ratio={current_ratio:.4f}), "
+                    f"target={target_width}×{target_height} (ratio={target_ratio:.4f})")
+
         if abs(current_ratio - target_ratio) < 0.01:
             # Aspect ratio matches, just resize
+            logger.debug(f"Resize: Aspect ratios match, direct resize")
             return img.resize(
                 (target_width, target_height),
                 Image.Resampling.LANCZOS
@@ -124,6 +142,7 @@ class PNGExportService:
 
         # Aspect ratio mismatch - resize and center on white canvas
         # This handles cases where PDF page size doesn't match device exactly
+        logger.warning(f"Resize: Aspect ratio mismatch (diff={abs(current_ratio - target_ratio):.4f}), adding padding")
 
         # Scale to fit within target dimensions
         scale = min(
@@ -132,6 +151,8 @@ class PNGExportService:
         )
         new_width = int(current_width * scale)
         new_height = int(current_height * scale)
+
+        logger.debug(f"Resize: Scaling by {scale:.4f} → {new_width}×{new_height}")
 
         img_resized = img.resize(
             (new_width, new_height),
@@ -144,6 +165,7 @@ class PNGExportService:
         # Center the resized image
         offset_x = (target_width - new_width) // 2
         offset_y = (target_height - new_height) // 2
+        logger.debug(f"Resize: Centering with offset ({offset_x}, {offset_y})")
         canvas.paste(img_resized, (offset_x, offset_y))
 
         return canvas

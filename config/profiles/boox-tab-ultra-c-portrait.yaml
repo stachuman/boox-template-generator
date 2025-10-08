@@ -1,13 +1,13 @@
 profile:
-  name: "boox-tab-ultra-c"
+  name: "boox-tab-ultra-c-portrait"
   display:
-    screen_size: [2200, 1650]  # 13.3" at 300 PPI  
-    ppi: 300
+    screen_size: [2200, 1650]  # 13.3" Kaleido 3 color display (landscape: width x height)
+    ppi: 207
     aspect_ratio: "4:3"
     physical_size: "13.3 inch"
     color: true
   pdf_settings:
-    page_size: "A4"
+    page_size: "Custom"  # 2200x1650 doesn't match standard sizes
     orientation: "portrait"
     safe_margins: [48, 48, 48, 48]  # 0.67" safe area for larger screen
   constraints:

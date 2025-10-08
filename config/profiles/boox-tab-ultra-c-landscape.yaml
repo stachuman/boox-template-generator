@@ -1,0 +1,18 @@
+profile:
+  name: "boox-tab-ultra-c-landscape"
+  display:
+    screen_size: [2200, 1650]  # 13.3" Kaleido 3 color display (landscape: width x height)
+    ppi: 207
+    aspect_ratio: "4:3"
+    physical_size: "13.3 inch"
+    color: true
+  pdf_settings:
+    page_size: "Custom"  # 2200x1650 doesn't match standard sizes
+    orientation: "landscape"
+    safe_margins: [48, 48, 48, 48]  # 0.67" safe area for larger screen
+  constraints:
+    min_font_pt: 9.0   # Can go smaller due to higher PPI
+    min_stroke_pt: 0.5  # Thinner lines possible
+    min_touch_target_pt: 30.0
+    grayscale_levels: 16
+    max_gray_fill_area: 0.2

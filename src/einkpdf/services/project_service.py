@@ -27,12 +27,38 @@ from ..core.project_schema import (
 )
 from ..core.schema import Template, Widget
 from ..core.utils import convert_enums_for_serialization
+from ..core.profiles import (
+    load_device_profile, get_default_canvas_config, DeviceProfileError
+)
 from ..validation.yaml_validator import parse_yaml_template, TemplateParseError, SchemaValidationError
 
 
 class ProjectServiceError(Exception):
     """Base exception for project service errors."""
     pass
+
+
+def _get_canvas_config_for_profile(device_profile_name: str) -> Dict[str, Any]:
+    """
+    Get complete canvas configuration for a device profile.
+
+    This is a thin wrapper around core.profiles.get_default_canvas_config()
+    that converts DeviceProfileError to ProjectServiceError.
+
+    Args:
+        device_profile_name: Name of the device profile to use
+
+    Returns:
+        Complete canvas configuration dict
+
+    Raises:
+        ProjectServiceError: If profile cannot be loaded or has invalid data
+    """
+    try:
+        profile = load_device_profile(device_profile_name)
+        return get_default_canvas_config(profile)
+    except DeviceProfileError as e:
+        raise ProjectServiceError(f"Cannot load device profile '{device_profile_name}': {e}")
 
 
 class ProjectService:
@@ -219,19 +245,16 @@ class ProjectService:
             order=[]
         )
 
+        # Get canvas configuration from device profile
+        default_canvas = _get_canvas_config_for_profile(device_profile)
+
         project = Project(
             id=project_id,
             metadata=metadata,
             masters=[],
             plan=default_plan,
             link_resolution=LinkResolution(),
-            default_canvas={
-                "dimensions": {"width": 595.2, "height": 841.8, "margins": [72, 72, 72, 72]},
-                "coordinate_system": "top_left",
-                "background": "#FFFFFF",
-                "grid_size": 10,
-                "snap_enabled": True
-            }
+            default_canvas=default_canvas
         )
 
         # Save project file
@@ -354,6 +377,82 @@ class ProjectService:
         self._refresh_index_entry(project)
 
         return project
+
+    def validate_and_fix_canvas(self, project_id: str) -> Optional[Project]:
+        """
+        Validate that project canvas matches device profile, and fix if needed.
+
+        This ensures canvas dimensions are always correct for the project's
+        current device profile. Handles cases where:
+        - Profile was changed after project creation
+        - Project was created before orientation-aware fix
+        - Canvas was manually edited
+
+        Args:
+            project_id: Project ID
+
+        Returns:
+            Updated project if canvas was fixed, None if already correct or project not found
+
+        Raises:
+            ProjectServiceError: If validation/fix fails
+        """
+        project = self.get_project(project_id)
+        if not project:
+            return None
+
+        if not project.default_canvas:
+            raise ProjectServiceError(
+                f"Project {project_id} has no default_canvas configuration"
+            )
+
+        # Get expected canvas from current device profile
+        expected_canvas = _get_canvas_config_for_profile(project.metadata.device_profile)
+        expected_dims = expected_canvas["dimensions"]
+
+        # Check if current canvas matches expected
+        current_dims = project.default_canvas["dimensions"]
+
+        # Compare with small tolerance for floating point
+        width_match = abs(current_dims["width"] - expected_dims["width"]) < 0.1
+        height_match = abs(current_dims["height"] - expected_dims["height"]) < 0.1
+
+        if width_match and height_match:
+            # Canvas is correct, no fix needed
+            return None
+
+        # Canvas doesn't match - needs fixing
+        project.default_canvas = expected_canvas
+        project.metadata.updated_at = datetime.now(timezone.utc).isoformat()
+
+        # Save project
+        self._save_project(project)
+        self._refresh_index_entry(project)
+
+        return project
+
+    def recalculate_canvas_dimensions(self, project_id: str) -> Optional[Project]:
+        """
+        Recalculate and update project's default_canvas based on current device profile.
+
+        This is a compatibility wrapper around validate_and_fix_canvas().
+        Use validate_and_fix_canvas() for new code.
+
+        Args:
+            project_id: Project ID
+
+        Returns:
+            Updated project if found, original project if already correct
+
+        Raises:
+            ProjectServiceError: If update fails or profile invalid
+        """
+        result = self.validate_and_fix_canvas(project_id)
+        # If canvas was already correct, validate_and_fix_canvas returns None
+        # For compatibility, return the project in that case
+        if result is None:
+            return self.get_project(project_id)
+        return result
 
     def delete_project(self, project_id: str) -> bool:
         """
