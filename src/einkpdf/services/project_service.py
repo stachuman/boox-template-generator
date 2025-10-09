@@ -58,7 +58,11 @@ def _get_canvas_config_for_profile(device_profile_name: str) -> Dict[str, Any]:
         profile = load_device_profile(device_profile_name)
         return get_default_canvas_config(profile)
     except DeviceProfileError as e:
-        raise ProjectServiceError(f"Cannot load device profile '{device_profile_name}': {e}")
+        raise ProjectServiceError(
+            f"Device profile '{device_profile_name}' is not available. "
+            f"Please select a valid device profile for this project. "
+            f"Error: {e}"
+        )
 
 
 class ProjectService:

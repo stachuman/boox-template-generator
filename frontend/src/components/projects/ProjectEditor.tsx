@@ -314,6 +314,18 @@ const ProjectEditor: React.FC = () => {
       const projectData = await APIClient.getProject(projectId);
       setProject(projectData);
       updateProjectList(projectData.id, { metadata: projectData.metadata, masters: projectData.masters, plan: projectData.plan });
+
+      // Check if device profile exists - warn user if not
+      // This happens when profiles are renamed/removed (e.g., boox-tab-ultra-c split into -portrait/-landscape)
+      if (profiles.length > 0) {
+        const profileExists = profiles.some(p => p.name === projectData.metadata.device_profile);
+        if (!profileExists) {
+          setError(
+            `Device profile '${projectData.metadata.device_profile}' is not available. ` +
+            `Please select a valid device profile from the Preview tab.`
+          );
+        }
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load project');
     } finally {

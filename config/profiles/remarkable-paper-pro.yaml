@@ -1,0 +1,18 @@
+profile:
+  name: "remarkable-paper-pro"
+  display:
+    screen_size: [1620, 2160]  # 11.8" E Ink Gallery 3 color display
+    ppi: 229
+    aspect_ratio: "3:4"
+    physical_size: "11.8 inch"
+    color: true
+  pdf_settings:
+    page_size: "Custom"
+    orientation: "portrait"
+    safe_margins: [36, 36, 36, 36]
+  constraints:
+    min_font_pt: 9.0
+    min_stroke_pt: 0.75
+    min_touch_target_pt: 30.0
+    grayscale_levels: 16
+    max_gray_fill_area: 0.2

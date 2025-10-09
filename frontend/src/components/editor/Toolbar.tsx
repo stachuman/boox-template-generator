@@ -72,7 +72,18 @@ const Toolbar: React.FC<ToolbarProps> = ({
   hidePreviewButton = false,
 }) => {
   const [showMetadataEditor, setShowMetadataEditor] = useState(false);
-  const { zoom, setZoom, wheelMode, setWheelMode, canvasContainerSize } = useEditorStore() as any;
+  const { zoom, setZoom, wheelMode, setWheelMode, canvasContainerSize, canvasScrollContainer } = useEditorStore() as any;
+
+  const centerCanvas = () => {
+    if (!canvasScrollContainer) return;
+    requestAnimationFrame(() => {
+      const scrollLeft = (canvasScrollContainer.scrollWidth - canvasScrollContainer.clientWidth) / 2;
+      const scrollTop = (canvasScrollContainer.scrollHeight - canvasScrollContainer.clientHeight) / 2;
+      canvasScrollContainer.scrollLeft = scrollLeft;
+      canvasScrollContainer.scrollTop = scrollTop;
+    });
+  };
+
   const zoomOut = () => setZoom((zoom || 1) - 0.1);
   const zoomIn = () => setZoom((zoom || 1) + 0.1);
   const resetZoom = () => setZoom(1);
@@ -80,7 +91,10 @@ const Toolbar: React.FC<ToolbarProps> = ({
     if (!currentTemplate || !canvasContainerSize) return;
     const cw = currentTemplate.canvas.dimensions.width;
     const vw = canvasContainerSize.width;
-    if (cw > 0 && vw > 0) setZoom(Math.max(0.1, Math.min(3, vw / cw)));
+    if (cw > 0 && vw > 0) {
+      setZoom(Math.max(0.1, Math.min(3, vw / cw)));
+      centerCanvas();
+    }
   };
   const fitPage = () => {
     if (!currentTemplate || !canvasContainerSize) return;
@@ -88,7 +102,10 @@ const Toolbar: React.FC<ToolbarProps> = ({
     const ch = currentTemplate.canvas.dimensions.height;
     const vw = canvasContainerSize.width;
     const vh = canvasContainerSize.height;
-    if (cw > 0 && ch > 0 && vw > 0 && vh > 0) setZoom(Math.max(0.1, Math.min(3, Math.min(vw / cw, vh / ch))));
+    if (cw > 0 && ch > 0 && vw > 0 && vh > 0) {
+      setZoom(Math.max(0.1, Math.min(3, Math.min(vw / cw, vh / ch))));
+      centerCanvas();
+    }
   };
   return (
     <div className="toolbar flex items-center justify-between">

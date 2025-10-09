@@ -39,7 +39,27 @@ const MasterEditor: React.FC = () => {
 
       // Auto-validate and fix canvas dimensions if needed
       // This ensures canvas always matches the device profile
-      let projectData = await APIClient.validateCanvasDimensions(projectId);
+      // If validation fails (e.g., profile doesn't exist), load project anyway
+      // but display error to user
+      let projectData;
+      try {
+        projectData = await APIClient.validateCanvasDimensions(projectId);
+      } catch (validationErr: any) {
+        // If canvas validation fails, try to load project without validation
+        // User will see the error and be prompted to select a valid profile
+        console.warn('Canvas validation failed:', validationErr);
+        projectData = await APIClient.getProject(projectId);
+
+        // Set error to guide user
+        if (validationErr.message && validationErr.message.includes('Device profile')) {
+          setError(
+            `${validationErr.message}\n\n` +
+            'Please update the device profile in the project editor before editing masters.'
+          );
+        } else {
+          setError(validationErr.message || 'Failed to validate canvas dimensions');
+        }
+      }
       setProject(projectData);
 
       if (masterName && masterName !== 'new') {
@@ -484,12 +504,26 @@ export default MasterEditor;
 
 // Inline zoom controls reusing editor store
 const ZoomControls: React.FC = () => {
-  const { zoom, setZoom, wheelMode, setWheelMode, currentTemplate, canvasContainerSize } = useEditorStore() as any;
+  const { zoom, setZoom, wheelMode, setWheelMode, currentTemplate, canvasContainerSize, canvasScrollContainer } = useEditorStore() as any;
+
+  const centerCanvas = () => {
+    if (!canvasScrollContainer) return;
+    requestAnimationFrame(() => {
+      const scrollLeft = (canvasScrollContainer.scrollWidth - canvasScrollContainer.clientWidth) / 2;
+      const scrollTop = (canvasScrollContainer.scrollHeight - canvasScrollContainer.clientHeight) / 2;
+      canvasScrollContainer.scrollLeft = scrollLeft;
+      canvasScrollContainer.scrollTop = scrollTop;
+    });
+  };
+
   const fitWidth = () => {
     if (!currentTemplate || !canvasContainerSize) return;
     const cw = currentTemplate.canvas.dimensions.width;
     const vw = canvasContainerSize.width;
-    if (cw > 0 && vw > 0) setZoom(Math.max(0.1, Math.min(3, vw / cw)));
+    if (cw > 0 && vw > 0) {
+      setZoom(Math.max(0.1, Math.min(3, vw / cw)));
+      centerCanvas();
+    }
   };
   const fitPage = () => {
     if (!currentTemplate || !canvasContainerSize) return;
@@ -497,7 +531,10 @@ const ZoomControls: React.FC = () => {
     const ch = currentTemplate.canvas.dimensions.height;
     const vw = canvasContainerSize.width;
     const vh = canvasContainerSize.height;
-    if (cw > 0 && ch > 0 && vw > 0 && vh > 0) setZoom(Math.max(0.1, Math.min(3, Math.min(vw / cw, vh / ch))));
+    if (cw > 0 && ch > 0 && vw > 0 && vh > 0) {
+      setZoom(Math.max(0.1, Math.min(3, Math.min(vw / cw, vh / ch))));
+      centerCanvas();
+    }
   };
   return (
     <div className="flex items-center space-x-1">

@@ -1,0 +1,18 @@
+profile:
+  name: "kindle-paperwhite"
+  display:
+    screen_size: [1236, 1648]  # 6.8" E Ink Carta 1200
+    ppi: 300
+    aspect_ratio: "3:4"
+    physical_size: "6.8 inch"
+    color: false
+  pdf_settings:
+    page_size: "Custom"
+    orientation: "portrait"
+    safe_margins: [24, 24, 24, 24]  # Smaller margins for small screen
+  constraints:
+    min_font_pt: 8.0   # Smaller screen, smaller fonts acceptable
+    min_stroke_pt: 0.5
+    min_touch_target_pt: 28.0  # Slightly smaller touch targets ok
+    grayscale_levels: 16
+    max_gray_fill_area: 0.2

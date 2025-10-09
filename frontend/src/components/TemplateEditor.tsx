@@ -42,7 +42,8 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({
   onToggleGrid: externalOnToggleGrid
 }) => {
   const { templateId } = useParams<{ templateId: string }>();
-  
+  const canvasScrollRef = React.useRef<HTMLDivElement>(null);
+
   const {
     currentTemplate,
     activeProfile,
@@ -56,6 +57,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({
     alignSelected,
     distributeSelected,
     equalizeSizeSelected,
+    setCanvasScrollContainer,
   } = useEditorStore();
 
   // Use external grid state if provided, otherwise use internal
@@ -68,6 +70,12 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({
       setShowGrid(externalShowGrid);
     }
   }, [externalShowGrid, setShowGrid]);
+
+  // Set canvas scroll container ref
+  useEffect(() => {
+    setCanvasScrollContainer(canvasScrollRef.current);
+    return () => setCanvasScrollContainer(null);
+  }, [setCanvasScrollContainer]);
 
   const [profiles, setProfiles] = useState<DeviceProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -310,7 +318,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({
       {/* Main Editor Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Widget Palette */}
-        <div className="w-64 border-r border-eink-pale-gray bg-eink-white">
+        <div className="w-56 border-r border-eink-pale-gray bg-eink-white">
           <WidgetPalette />
         </div>
 
@@ -319,13 +327,16 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({
 
         {/* Center - Canvas Area */}
         <div className="flex-1 flex flex-col">
-          <div className="flex-1 overflow-auto bg-eink-off-white p-4">
+          <div
+            ref={canvasScrollRef}
+            className="flex-1 overflow-auto bg-eink-off-white p-4"
+          >
             <Canvas />
           </div>
         </div>
 
         {/* Right Sidebar - Properties or Preview */}
-        <div className="w-80 border-l border-eink-pale-gray bg-eink-white">
+        <div className="w-64 border-l border-eink-pale-gray bg-eink-white">
           {showPreview ? (
             <PreviewPanel />
           ) : (

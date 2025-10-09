@@ -419,6 +419,8 @@ export interface EditorState {
   showWidgetPalette: boolean;
   showPagesPanel: boolean;
   showRightPanel: boolean;
+  // Canvas scroll container ref
+  canvasScrollContainer: HTMLDivElement | null;
 }
 
 export interface DragItem {

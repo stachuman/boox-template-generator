@@ -9,53 +9,47 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { Widget, DeviceProfile, Template, EditorState } from '@/types';
 
-// Utility function to derive canvas size from a device profile.
-// Matches backend logic by converting screen pixels to points (px/ppi → pt)
-// and respecting orientation overrides.
+// Calculate canvas dimensions from device profile.
+// Matches backend logic: converts screen pixels to points and respects orientation.
+// Following CLAUDE.md: No fallbacks - throws error if profile is invalid.
 const getPageDimensions = (profile: DeviceProfile): { width: number; height: number } => {
-  const standardSizes: Record<string, { width: number; height: number }> = {
-    A4: { width: 595.2, height: 841.8 },
-    A3: { width: 841.8, height: 1190.6 },
-    A5: { width: 420.9, height: 595.2 },
-    Letter: { width: 612, height: 792 },
-    Legal: { width: 612, height: 1008 },
-    Tabloid: { width: 792, height: 1224 },
-  };
+  if (!profile) {
+    throw new Error('Device profile is required. Please select a valid device profile.');
+  }
 
   const { pdf_settings: pdfSettings, display } = profile;
-  const orientation = pdfSettings?.orientation ?? 'portrait';
-  const pageSize = pdfSettings?.page_size;
 
-  const rotate = <T extends { width: number; height: number }>(size: T): T => {
-    if (orientation === 'landscape') {
-      return { width: size.height, height: size.width } as T;
-    }
-    return size;
-  };
-
-  if (pageSize && standardSizes[pageSize]) {
-    return rotate(standardSizes[pageSize]);
+  if (!pdfSettings?.orientation) {
+    throw new Error(
+      `Device profile '${profile.name}' is missing pdf_settings.orientation. ` +
+      'Please select a valid device profile.'
+    );
   }
 
   if (!display?.screen_size || !display?.ppi) {
-    console.warn(
-      'Device profile missing display metadata; falling back to A4 dimensions.',
-      profile.name,
+    throw new Error(
+      `Device profile '${profile.name}' is missing display.screen_size or display.ppi. ` +
+      'Please select a valid device profile.'
     );
-    return rotate(standardSizes.A4);
   }
 
   const [screenWidthPx, screenHeightPx] = display.screen_size;
   const ppi = display.ppi;
+  const orientation = pdfSettings.orientation;
 
-  if (!screenWidthPx || !screenHeightPx || !ppi) {
-    return rotate(standardSizes.A4);
+  if (!screenWidthPx || !screenHeightPx || !ppi || screenWidthPx <= 0 || screenHeightPx <= 0 || ppi <= 0) {
+    throw new Error(
+      `Device profile '${profile.name}' has invalid display settings. ` +
+      'Please select a valid device profile.'
+    );
   }
 
+  // Convert pixels to points: (pixels / ppi) * 72
   const pxToPoints = (value: number) => (value / ppi) * 72;
   let widthPt = pxToPoints(screenWidthPx);
   let heightPt = pxToPoints(screenHeightPx);
 
+  // Respect orientation setting - swap dimensions if needed
   const screenIsLandscape = widthPt > heightPt;
   const wantsPortrait = orientation === 'portrait';
 
@@ -89,6 +83,7 @@ interface EditorStore extends EditorState {
   setWheelMode: (mode: 'scroll' | 'zoom') => void;
   canvasContainerSize: { width: number; height: number } | null;
   setCanvasContainerSize: (size: { width: number; height: number }) => void;
+  setCanvasScrollContainer: (container: HTMLDivElement | null) => void;
   // Panel visibility
   setShowWidgetPalette: (show: boolean) => void;
   setShowPagesPanel: (show: boolean) => void;
@@ -137,6 +132,9 @@ interface EditorStore extends EditorState {
   findMasterIdByWidget: (widgetId: string) => string | null;
 }
 
+// Create a minimal template without canvas dimensions.
+// Canvas dimensions MUST be set by selecting a valid device profile.
+// Following CLAUDE.md: No default fallbacks to A4 or other standard sizes.
 const createDefaultTemplate = (): Template => ({
   schema_version: "1.0",
   metadata: {
@@ -146,13 +144,13 @@ const createDefaultTemplate = (): Template => ({
     version: "1.0",
     author: "",
     created: new Date().toISOString(),
-    profile: ""
+    profile: "" // REQUIRED: User must select a device profile
   },
   canvas: {
     dimensions: {
-      width: 595.2,  // A4 width
-      height: 841.8, // A4 height
-      margins: [72, 72, 72, 72] // 1 inch margins
+      width: 0,  // INVALID: Must be set by selecting a device profile
+      height: 0, // INVALID: Must be set by selecting a device profile
+      margins: [36, 36, 36, 36]
     },
     coordinate_system: "top_left",
     background: "#FFFFFF",
@@ -183,6 +181,7 @@ export const useEditorStore = create<EditorStore>()(
       zoom: 1,
       wheelMode: 'scroll',
       canvasContainerSize: null,
+      canvasScrollContainer: null,
       // Panel visibility
       showWidgetPalette: true,
       showPagesPanel: true,
@@ -200,33 +199,39 @@ export const useEditorStore = create<EditorStore>()(
       clearSelection: () => set({ selectedWidget: null, selectedIds: [] }),
       setActiveProfile: (profile) => {
         set({ activeProfile: profile });
-        
+
         // Update template profile and canvas dimensions if a template is loaded
         const currentTemplate = get().currentTemplate;
         if (currentTemplate && profile) {
-          // Get new canvas dimensions based on profile's PDF settings
-          const newDimensions = getPageDimensions(profile);
-          
-          // Convert safe margins from profile (if available)
-          const margins = profile.pdf_settings.safe_margins || [72, 72, 72, 72];
-          
-          set({
-            currentTemplate: {
-              ...currentTemplate,
-              metadata: {
-                ...currentTemplate.metadata,
-                profile: profile.name
-              },
-              canvas: {
-                ...currentTemplate.canvas,
-                dimensions: {
-                  width: newDimensions.width,
-                  height: newDimensions.height,
-                  margins: margins
+          try {
+            // Get new canvas dimensions based on profile's PDF settings
+            const newDimensions = getPageDimensions(profile);
+
+            // Use profile's safe margins, or default to 36pt (0.5 inch) if not specified
+            // Note: Backend uses same default in profiles.py
+            const margins = profile.pdf_settings?.safe_margins ?? [36, 36, 36, 36];
+
+            set({
+              currentTemplate: {
+                ...currentTemplate,
+                metadata: {
+                  ...currentTemplate.metadata,
+                  profile: profile.name
+                },
+                canvas: {
+                  ...currentTemplate.canvas,
+                  dimensions: {
+                    width: newDimensions.width,
+                    height: newDimensions.height,
+                    margins: margins
+                  }
                 }
               }
-            }
-          });
+            });
+          } catch (error) {
+            console.error('Failed to update canvas from profile:', error);
+            throw error;
+          }
         }
       },
       setCurrentTemplate: (template) => set({ currentTemplate: template }),
@@ -239,6 +244,7 @@ export const useEditorStore = create<EditorStore>()(
       setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(3, zoom)) }),
       setWheelMode: (mode) => set({ wheelMode: mode }),
       setCanvasContainerSize: (size) => set({ canvasContainerSize: size }),
+      setCanvasScrollContainer: (container) => set({ canvasScrollContainer: container }),
 
       // Multi-page operations
       setCurrentPage: (page) => {
