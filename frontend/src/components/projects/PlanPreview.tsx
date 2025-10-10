@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Eye, EyeOff, FileText, Calendar, Clock, AlertTriangle, CheckCircle, ChevronDown } from 'lucide-react';
-import { Plan, PlanSection, Master, GenerateMode } from '@/types';
+import { Plan, PlanSection, ProjectMaster, GenerateMode } from '@/types';
 import { planValidationService, ValidationResult } from '@/services/planValidation';
 
 interface PlanPreviewProps {
   plan: Plan;
-  masters: Master[];
+  masters: ProjectMaster[];
   onCompile?: () => Promise<void>;
   isCompiling?: boolean;
 }

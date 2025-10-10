@@ -161,7 +161,7 @@ export const getFontCSS = (fontDisplayName?: string): {
     };
   }
 
-  const { family, variant } = parseFontName(fontDisplayName);
+  const { variant } = parseFontName(fontDisplayName);
 
   return {
     fontFamily: resolveFontFamily(fontDisplayName),

@@ -911,7 +911,7 @@ class CalendarRenderer(BaseWidgetRenderer):
                 font_name=text_options.font_name,
                 font_size=text_options.font_size,
                 color=text_options.color,
-                text_align='center',
+                text_align=text_align,
                 orientation=text_options.orientation
             )
             self.text_engine.render_text(pdf_canvas, header_box, header_text, header_options)
@@ -922,7 +922,7 @@ class CalendarRenderer(BaseWidgetRenderer):
                 font_name=text_options.font_name,
                 font_size=font_size * 0.6,
                 color=text_options.color,
-                text_align='center',
+                text_align=text_align,
                 orientation=text_options.orientation
             )
             label_minutes = []
@@ -981,7 +981,7 @@ class CalendarRenderer(BaseWidgetRenderer):
                     font_name=text_options.font_name,
                     font_size=font_size * 0.8,
                     color=text_options.color,
-                    text_align='left',
+                    text_align=text_align,
                     orientation=text_options.orientation
                 )
                 weekday_text = f"{weekday_labels[idx]} {day_date.day}"
@@ -1007,6 +1007,8 @@ class CalendarRenderer(BaseWidgetRenderer):
                 text_align=text_align,
                 orientation=text_options.orientation
             )
+
+            """
             day_box = {
                 'x': cell_x + cell_padding,
                 'y': cell_y + cell_height - font_size - cell_padding,
@@ -1014,6 +1016,7 @@ class CalendarRenderer(BaseWidgetRenderer):
                 'height': font_size
             }
             self.text_engine.render_text(pdf_canvas, day_box, str(day_date.day), day_text_options)
+            """
 
             if target_highlight and day_date == target_highlight:
                 pdf_canvas.setStrokeColor(HexColor(day_color if day_color.startswith('#') else '#000000'))

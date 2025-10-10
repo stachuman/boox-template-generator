@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Download, RefreshCw, Edit2, Check, X } from 'lucide-react';
-import { Project, Master, Plan, CompilationResult, DeviceProfile } from '@/types';
+import { Project, Plan, DeviceProfile } from '@/types';
 import { useProjectStore } from '@/stores/projectStore';
 import { APIClient, downloadBlob } from '@/services/api';
 import PlanEditor from './PlanEditor';
@@ -19,12 +19,10 @@ const ProjectEditor: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'masters' | 'plan' | 'preview' | 'sharing'>('masters');
-  const [compiledTemplate, setCompiledTemplate] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewPage, setPreviewPage] = useState<number>(1);
-  const [previewScale, setPreviewScale] = useState<number>(0.7);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [compileWarnings, setCompileWarnings] = useState<string[]>([]);
+  const [totalPages] = useState<number>(1);
+  const [compileWarnings] = useState<string[]>([]);
   const [profiles, setProfiles] = useState<DeviceProfile[]>([]);
   const [profilesLoading, setProfilesLoading] = useState<boolean>(false);
   const [savingProfile, setSavingProfile] = useState<boolean>(false);
@@ -473,7 +471,6 @@ const ProjectEditor: React.FC = () => {
       const updated = await APIClient.updateProject(project.id, { device_profile: newProfile });
       setProject(updated);
       updateProjectList(updated.id, { metadata: updated.metadata, plan: updated.plan, masters: updated.masters });
-      setCompiledTemplate(null);
     } catch (err: any) {
       setError(err.message || 'Failed to update device profile');
     } finally {

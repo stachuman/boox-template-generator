@@ -42,7 +42,6 @@ const LineProperties: React.FC<LinePropertiesProps> = ({ widget, onUpdate }) => 
 
   const isLinesWidget = widget.type === 'lines';
   const isDividerWidget = widget.type === 'divider';
-  const isVerticalLineWidget = widget.type === 'vertical_line';
 
   return (
     <div className="space-y-6">

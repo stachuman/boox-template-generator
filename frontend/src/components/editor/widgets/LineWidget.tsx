@@ -78,7 +78,6 @@ const LineWidget: React.FC<LineWidgetProps> = ({ widget }) => {
 
       for (let col = 0; col < columns; col++) {
         const xStart = marginLeft + (col * (columnWidth + columnGap));
-        const xEnd = xStart + columnWidth;
 
         // Draw horizontal lines for this column
         for (let i = 0; i < lineCount; i++) {

@@ -140,8 +140,8 @@ export const BindingHelper: React.FC<BindingHelperProps> = ({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          onFocus={() => value && setShowSuggestions(suggestions.length > 0)}
-          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} // Delay to allow clicks
+          onFocus={() => { if (value) setShowSuggestions(suggestions.length > 0); }}
+          onBlur={() => { setTimeout(() => setShowSuggestions(false), 200); }} // Delay to allow clicks
           placeholder={placeholder}
         />
 

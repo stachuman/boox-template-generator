@@ -32,7 +32,6 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
   // Localization support
   const locale = (calendarProps.locale as SupportedLocale) || 'en';
   const monthNames = getMonthNames(locale, false);
-  const monthNamesShort = getMonthNames(locale, true);
   const weekdayNames = getWeekdayNames(locale, 'short', weekStartDay);
 
   // Pre-calculate dimensions for height validation
@@ -230,7 +229,6 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
 
     // Calculate dimensions
     const showTimeGrid = !!calendarProps.show_time_grid;
-    const showTimeGutter = !!calendarProps.show_time_gutter;
     const timeStart = Math.max(0, Math.min(23, calendarProps.time_start_hour || 8));
     const timeEnd = Math.max(timeStart + 1, Math.min(24, calendarProps.time_end_hour || 20));
     const slotMinutes = Math.max(5, Math.min(120, calendarProps.time_slot_minutes || 60));
@@ -247,12 +245,6 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
 
     const cellHeight = availableHeight / 7; // 7 rows for days
     const cellWidth = gridWidth;
-
-    if (showTimeGrid) {
-      const totalMinutes = (timeEnd - timeStart) * 60;
-      const timeSlots = Math.max(1, Math.floor(totalMinutes / slotMinutes));
-      // cellWidth will be divided by time slots when rendering grid
-    }
 
     const weekdays = weekdayNames;
 
@@ -441,14 +433,6 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
         }
 
         const isClickable = calendarProps.link_strategy !== 'no_links';
-
-        // Calculate which page this date should link to
-        let targetPage: number | null = null;
-        if (isClickable && isCurrentMonth && calendarProps.link_strategy === 'sequential_pages') {
-          const firstPageNumber = calendarProps.first_page_number || 2;
-          const pagesPerDate = calendarProps.pages_per_date || 1;
-          targetPage = firstPageNumber + (dayNumber - 1) * pagesPerDate;
-        }
 
         const row = Math.floor(i / 7);
         const col = i % 7;

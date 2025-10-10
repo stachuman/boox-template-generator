@@ -16,7 +16,6 @@ const AdminDashboard: React.FC = () => {
   const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [userProjects, setUserProjects] = useState<UserProjectsResponse | null>(null);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null);
@@ -52,7 +51,6 @@ const AdminDashboard: React.FC = () => {
   const loadUserProjects = async (userId: string) => {
     try {
       setLoadingProjects(true);
-      setSelectedUserId(userId);
       setError(null);
       const data = await AdminAPI.getUserProjects(userId);
       setUserProjects(data);
@@ -276,7 +274,6 @@ const AdminDashboard: React.FC = () => {
                   <button
                     onClick={() => {
                       setUserProjects(null);
-                      setSelectedUserId(null);
                     }}
                     className="text-sm text-eink-blue hover:underline"
                   >

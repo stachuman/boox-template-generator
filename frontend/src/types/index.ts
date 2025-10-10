@@ -67,7 +67,7 @@ export interface WidgetProperties {
   top_padding?: number;        // extra space before first line (pt)
   bottom_padding?: number;     // reserved summary area (pt)
   grid_spacing?: number;       // pt spacing for grid verticals
-  columns?: number;            // number of equal columns (guides) when not grid
+  column_guides?: number;      // number of equal columns (guides) when not grid
   vertical_guides?: number[];  // custom vertical guides as ratios [0..1]
   line_cap?: 'butt' | 'round';
 
@@ -261,7 +261,7 @@ export interface LinkResolution {
 }
 
 // Master/Plan Architecture Types
-export interface Master {
+export interface ProjectMaster {
   name: string;
   description: string;
   widgets: Widget[];
@@ -272,6 +272,7 @@ export interface Master {
 export enum GenerateMode {
   ONCE = 'once',
   EACH_DAY = 'each_day',
+  EACH_WEEK = 'each_week',
   EACH_MONTH = 'each_month',
   COUNT = 'count'
 }
@@ -314,11 +315,12 @@ export interface BindingContext {
 export interface Project {
   id: string;
   metadata: ProjectMetadata;
-  masters: Master[];
+  masters: ProjectMaster[];
   plan: Plan;
   link_resolution: LinkResolution;
   default_canvas: Record<string, any>;
   pages: NamedPage[];
+  compilation_rules?: CompilationRule[]; // Deprecated - use Plan/Master architecture instead
 }
 
 export interface ProjectListItem {
@@ -422,6 +424,8 @@ export interface EditorState {
   showRightPanel: boolean;
   // Canvas scroll container ref
   canvasScrollContainer: HTMLDivElement | null;
+  // Clipboard for copy/paste
+  clipboard: Widget[];
 }
 
 export interface DragItem {

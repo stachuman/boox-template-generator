@@ -8,7 +8,6 @@
 import React from 'react';
 import { Widget } from '@/types';
 import SelectInput from './shared/SelectInput';
-import CheckboxInput from './shared/CheckboxInput';
 import { normalizeOrientation } from '../widgets/textUtils';
 
 interface TextPropertiesProps {

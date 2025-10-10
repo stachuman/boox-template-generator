@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Save, Code, Layout, Grid, Download, Loader2 } from 'lucide-react';
+import {
+  ArrowLeft, Save, Code, Layout, Grid, Download, Loader2,
+  AlignLeft, AlignCenter, AlignRight,
+  AlignStartVertical, AlignCenterVertical, AlignEndVertical,
+  AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter,
+  ArrowLeftRight, ArrowUpDown
+} from 'lucide-react';
 import { useEditorStore } from '@/stores/editorStore';
-import { Project, Master, Template, AddMasterRequest, UpdateMasterRequest } from '@/types';
+import { Project, ProjectMaster, Template, Canvas, AddMasterRequest, UpdateMasterRequest } from '@/types';
 import { APIClient } from '@/services/api';
 import TemplateEditor from '@/components/TemplateEditor';
 
@@ -11,7 +17,7 @@ const MasterEditor: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [project, setProject] = useState<Project | null>(null);
-  const [currentMaster, setCurrentMaster] = useState<Master | null>(null);
+  const [currentMaster, setCurrentMaster] = useState<ProjectMaster | null>(null);
   const [masterNameValue, setMasterNameValue] = useState('');
   const [currentTemplate, setCurrentTemplate] = useState<Template | null>(null);
   const [yamlContent, setYamlContent] = useState('');
@@ -23,6 +29,9 @@ const MasterEditor: React.FC = () => {
   const [showGrid, setShowGrid] = useState(false);
   const [exportingPNG, setExportingPNG] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Get editor state for alignment tools
+  const { selectedIds, alignSelected, distributeSelected, equalizeSizeSelected } = useEditorStore();
 
   useEffect(() => {
     if (projectId) {
@@ -95,7 +104,7 @@ const MasterEditor: React.FC = () => {
     }
   };
 
-  const convertMasterToTemplate = (master: Master, project: Project): Template => {
+  const convertMasterToTemplate = (master: ProjectMaster, project: Project): Template => {
     console.log('Converting master to template:', master.name, 'widgets:', master.widgets?.length || 0);
     return {
       schema_version: "1.0",
@@ -108,7 +117,7 @@ const MasterEditor: React.FC = () => {
         created: master.created_at,
         profile: project.metadata.device_profile
       },
-      canvas: project.default_canvas || {
+      canvas: (project.default_canvas?.dimensions ? project.default_canvas : {
         dimensions: {
           width: 612,
           height: 792,
@@ -116,7 +125,7 @@ const MasterEditor: React.FC = () => {
         },
         coordinate_system: "top_left",
         background: "#ffffff"
-      },
+      }) as Canvas,
       widgets: master.widgets || [],
       navigation: {},
       export: {
@@ -137,7 +146,7 @@ const MasterEditor: React.FC = () => {
         created: new Date().toISOString(),
         profile: project.metadata.device_profile
       },
-      canvas: project.default_canvas || {
+      canvas: (project.default_canvas?.dimensions ? project.default_canvas : {
         dimensions: {
           width: 612,
           height: 792,
@@ -145,7 +154,7 @@ const MasterEditor: React.FC = () => {
         },
         coordinate_system: "top_left",
         background: "#ffffff"
-      },
+      }) as Canvas,
       widgets: [],
       navigation: {},
       export: {
@@ -162,6 +171,10 @@ const MasterEditor: React.FC = () => {
   const saveProject = async () => {
     if (!masterNameValue.trim()) {
       setError('Master name is required');
+      return;
+    }
+    if (!project) {
+      setError('Project not loaded');
       return;
     }
     try {
@@ -304,14 +317,6 @@ const MasterEditor: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -399,6 +404,101 @@ const MasterEditor: React.FC = () => {
               <div className="flex items-center space-x-1 ml-1">
                 <ZoomControls />
               </div>
+
+              {/* Alignment Tools - Show when 2+ widgets selected */}
+              {selectedIds && selectedIds.length >= 2 && (
+                <>
+                  <div className="w-px h-6 bg-eink-pale-gray" />
+                  <div className="flex items-center space-x-1">
+                    {/* Align Horizontal */}
+                    <button
+                      onClick={() => alignSelected('left')}
+                      className="p-2 rounded hover:bg-eink-pale-gray"
+                      title="Align Left"
+                    >
+                      <AlignLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => alignSelected('center')}
+                      className="p-2 rounded hover:bg-eink-pale-gray"
+                      title="Align Center (Horizontal)"
+                    >
+                      <AlignCenter className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => alignSelected('right')}
+                      className="p-2 rounded hover:bg-eink-pale-gray"
+                      title="Align Right"
+                    >
+                      <AlignRight className="w-4 h-4" />
+                    </button>
+
+                    <div className="w-px h-4 bg-eink-pale-gray mx-1" />
+
+                    {/* Align Vertical */}
+                    <button
+                      onClick={() => alignSelected('top')}
+                      className="p-2 rounded hover:bg-eink-pale-gray"
+                      title="Align Top"
+                    >
+                      <AlignStartVertical className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => alignSelected('middle')}
+                      className="p-2 rounded hover:bg-eink-pale-gray"
+                      title="Align Middle (Vertical)"
+                    >
+                      <AlignCenterVertical className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => alignSelected('bottom')}
+                      className="p-2 rounded hover:bg-eink-pale-gray"
+                      title="Align Bottom"
+                    >
+                      <AlignEndVertical className="w-4 h-4" />
+                    </button>
+
+                    {/* Distribute - Show when 3+ widgets selected */}
+                    {selectedIds.length >= 3 && (
+                      <>
+                        <div className="w-px h-4 bg-eink-pale-gray mx-1" />
+                        <button
+                          onClick={() => distributeSelected('horizontal')}
+                          className="p-2 rounded hover:bg-eink-pale-gray"
+                          title="Distribute Horizontally"
+                        >
+                          <AlignHorizontalDistributeCenter className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => distributeSelected('vertical')}
+                          className="p-2 rounded hover:bg-eink-pale-gray"
+                          title="Distribute Vertically"
+                        >
+                          <AlignVerticalDistributeCenter className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+
+                    <div className="w-px h-4 bg-eink-pale-gray mx-1" />
+
+                    {/* Equalize Size */}
+                    <button
+                      onClick={() => equalizeSizeSelected('width')}
+                      className="p-2 rounded hover:bg-eink-pale-gray"
+                      title="Equalize Width"
+                    >
+                      <ArrowLeftRight className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => equalizeSizeSelected('height')}
+                      className="p-2 rounded hover:bg-eink-pale-gray"
+                      title="Equalize Height"
+                    >
+                      <ArrowUpDown className="w-4 h-4" />
+                    </button>
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>

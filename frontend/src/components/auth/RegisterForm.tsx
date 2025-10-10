@@ -3,7 +3,7 @@ import { useAuth } from '@/auth/useAuth';
 import type { RegisterFormData } from '@/auth/types';
 
 const RegisterForm = () => {
-  const { register: registerUser, error, clearError, isLoading } = useAuth();
+  const { register: registerUser, error, isLoading } = useAuth();
   const {
     register,
     handleSubmit,

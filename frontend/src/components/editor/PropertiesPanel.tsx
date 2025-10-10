@@ -29,31 +29,6 @@ const PropertiesPanel: React.FC = () => {
     setSelectedWidget
   } = useEditorStore() as any;
 
-  // Font options loaded from backend assets
-  const [fontOptions, setFontOptions] = React.useState<string[]>([
-    'Helvetica', 'Times-Roman', 'Courier'
-  ]);
-
-  React.useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const response = await fetch('/api/assets/fonts');
-        if (!response.ok) {
-          console.warn('Failed to load font list from backend, using fallback fonts');
-          return;
-        }
-        const fonts = await response.json();
-        if (mounted && Array.isArray(fonts)) {
-          setFontOptions(fonts);
-        }
-      } catch (error) {
-        console.warn('Error loading fonts:', error);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
-
   if (!selectedWidget) {
     return (
       <div className="h-full flex items-center justify-center text-eink-gray">
@@ -173,7 +148,6 @@ const PropertiesPanel: React.FC = () => {
       widget={selectedWidget}
       onUpdate={handleUpdate}
       onRemove={handleRemove}
-      fontOptions={fontOptions}
     >
       {renderWidgetSpecificProperties()}
     </BasePropertyPanel>

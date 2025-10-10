@@ -6,7 +6,6 @@
  */
 
 import React from 'react';
-import { useForm } from 'react-hook-form';
 import { Settings, Type, Square, Minus, AlignJustify, Anchor, Trash2, Table } from 'lucide-react';
 import { Widget } from '@/types';
 import ColorPicker from './shared/ColorPicker';
@@ -40,7 +39,6 @@ const BasePropertyPanel: React.FC<BasePropertyPanelProps> = ({
   onRemove,
   children
 }) => {
-  const { register, handleSubmit } = useForm<Widget>();
   const Icon = getWidgetIcon(widget.type);
 
   const updatePosition = (field: keyof Widget['position'], value: number) => {

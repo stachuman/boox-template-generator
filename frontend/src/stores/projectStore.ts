@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { Project, ProjectListItem, NamedPage, CompilationRule } from '@/types';
+import { Project, ProjectListItem, CompilationRule } from '@/types';
 
 interface ProjectStore {
   // Current state
@@ -28,11 +28,6 @@ interface ProjectStore {
   updateProject: (projectId: string, updates: Partial<Project>) => void;
   removeProject: (projectId: string) => void;
 
-  // Named page operations
-  addNamedPage: (page: NamedPage) => void;
-  updateNamedPage: (pageName: string, updates: Partial<NamedPage>) => void;
-  removeNamedPage: (pageName: string) => void;
-
   // Compilation rules operations
   setCompilationRules: (rules: CompilationRule[]) => void;
   addCompilationRule: (rule: CompilationRule) => void;
@@ -42,7 +37,6 @@ interface ProjectStore {
 
   // Utility functions
   getProjectById: (projectId: string) => ProjectListItem | undefined;
-  getPageByName: (pageName: string) => NamedPage | undefined;
   clearStore: () => void;
 }
 
@@ -127,68 +121,6 @@ export const useProjectStore = create<ProjectStore>()(
         }));
       },
 
-      // Named page operations
-      addNamedPage: (page) => {
-        set((state) => {
-          if (!state.currentProject) return state;
-
-          const updatedProject = {
-            ...state.currentProject,
-            pages: [...state.currentProject.pages, page],
-            metadata: {
-              ...state.currentProject.metadata,
-              updated_at: new Date().toISOString()
-            }
-          };
-
-          return { currentProject: updatedProject };
-        });
-      },
-
-      updateNamedPage: (pageName, updates) => {
-        set((state) => {
-          if (!state.currentProject) return state;
-
-          const updatedPages = state.currentProject.pages.map(page => {
-            if (page.name !== pageName) return page;
-
-            return {
-              ...page,
-              ...updates,
-              updated_at: new Date().toISOString()
-            };
-          });
-
-          const updatedProject = {
-            ...state.currentProject,
-            pages: updatedPages,
-            metadata: {
-              ...state.currentProject.metadata,
-              updated_at: new Date().toISOString()
-            }
-          };
-
-          return { currentProject: updatedProject };
-        });
-      },
-
-      removeNamedPage: (pageName) => {
-        set((state) => {
-          if (!state.currentProject) return state;
-
-          const updatedProject = {
-            ...state.currentProject,
-            pages: state.currentProject.pages.filter(page => page.name !== pageName),
-            metadata: {
-              ...state.currentProject.metadata,
-              updated_at: new Date().toISOString()
-            }
-          };
-
-          return { currentProject: updatedProject };
-        });
-      },
-
       // Compilation rules operations
       setCompilationRules: (rules) => {
         set((state) => {
@@ -213,7 +145,7 @@ export const useProjectStore = create<ProjectStore>()(
 
           const updatedProject = {
             ...state.currentProject,
-            compilation_rules: [...state.currentProject.compilation_rules, rule],
+            compilation_rules: [...(state.currentProject.compilation_rules || []), rule],
             metadata: {
               ...state.currentProject.metadata,
               updated_at: new Date().toISOString()
@@ -226,11 +158,12 @@ export const useProjectStore = create<ProjectStore>()(
 
       updateCompilationRule: (index, updates) => {
         set((state) => {
-          if (!state.currentProject || index < 0 || index >= state.currentProject.compilation_rules.length) {
+          const rules = state.currentProject?.compilation_rules || [];
+          if (!state.currentProject || index < 0 || index >= rules.length) {
             return state;
           }
 
-          const updatedRules = state.currentProject.compilation_rules.map((rule, i) => {
+          const updatedRules = rules.map((rule, i) => {
             if (i !== index) return rule;
             return { ...rule, ...updates };
           });
@@ -250,11 +183,12 @@ export const useProjectStore = create<ProjectStore>()(
 
       removeCompilationRule: (index) => {
         set((state) => {
-          if (!state.currentProject || index < 0 || index >= state.currentProject.compilation_rules.length) {
+          const rules = state.currentProject?.compilation_rules || [];
+          if (!state.currentProject || index < 0 || index >= rules.length) {
             return state;
           }
 
-          const updatedRules = state.currentProject.compilation_rules.filter((_, i) => i !== index);
+          const updatedRules = rules.filter((_, i) => i !== index);
 
           const updatedProject = {
             ...state.currentProject,
@@ -271,13 +205,14 @@ export const useProjectStore = create<ProjectStore>()(
 
       reorderCompilationRule: (fromIndex, toIndex) => {
         set((state) => {
+          const compilationRules = state.currentProject?.compilation_rules || [];
           if (!state.currentProject ||
-              fromIndex < 0 || fromIndex >= state.currentProject.compilation_rules.length ||
-              toIndex < 0 || toIndex >= state.currentProject.compilation_rules.length) {
+              fromIndex < 0 || fromIndex >= compilationRules.length ||
+              toIndex < 0 || toIndex >= compilationRules.length) {
             return state;
           }
 
-          const rules = [...state.currentProject.compilation_rules];
+          const rules = [...compilationRules];
           const [movedRule] = rules.splice(fromIndex, 1);
           rules.splice(toIndex, 0, movedRule);
 
@@ -303,12 +238,6 @@ export const useProjectStore = create<ProjectStore>()(
       // Utility functions
       getProjectById: (projectId) => {
         return get().projects.find(p => p.id === projectId);
-      },
-
-      getPageByName: (pageName) => {
-        const currentProject = get().currentProject;
-        if (!currentProject) return undefined;
-        return currentProject.pages.find(p => p.name === pageName);
       },
 
       clearStore: () => {

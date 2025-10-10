@@ -3,7 +3,7 @@ import { useAuth } from '@/auth/useAuth';
 import type { LoginFormData } from '@/auth/types';
 
 const LoginForm = () => {
-  const { login, error, clearError, isLoading } = useAuth();
+  const { login, error, isLoading } = useAuth();
   const {
     register,
     handleSubmit,

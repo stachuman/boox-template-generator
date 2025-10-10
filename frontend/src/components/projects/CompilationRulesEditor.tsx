@@ -27,7 +27,7 @@ const CompilationRulesEditor: React.FC = () => {
       setError(null);
       const projectData = await APIClient.getProject(projectId);
       setProject(projectData);
-      setRules([...projectData.compilation_rules].sort((a, b) => a.order - b.order));
+      setRules([...(projectData.compilation_rules || [])].sort((a, b) => a.order - b.order));
     } catch (err: any) {
       setError(err.message || 'Failed to load project');
     } finally {

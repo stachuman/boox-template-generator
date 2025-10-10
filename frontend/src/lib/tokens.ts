@@ -104,7 +104,6 @@ export const replaceTokensInData = (data: any, context?: Partial<PreviewContext>
  * Get a sample context for preview purposes.
  */
 export const getSamplePreviewContext = (overrides?: Partial<PreviewContext>): PreviewContext => {
-  const now = new Date();
   return {
     page: 1,
     total_pages: 10,

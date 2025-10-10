@@ -5,7 +5,7 @@
  * Follows CLAUDE.md coding standards - no dummy implementations.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useDrag } from 'react-dnd';
 import clsx from 'clsx';
 import { Widget } from '@/types';

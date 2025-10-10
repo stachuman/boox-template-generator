@@ -1,4 +1,4 @@
-import { Plan, PlanSection, Master, GenerateMode } from '@/types';
+import { Plan, PlanSection, ProjectMaster, GenerateMode } from '@/types';
 
 export interface ValidationError {
   section: string;
@@ -18,7 +18,7 @@ export class PlanValidationService {
   /**
    * Validate a complete plan configuration
    */
-  validatePlan(plan: Plan, masters: Master[]): ValidationResult {
+  validatePlan(plan: Plan, masters: ProjectMaster[]): ValidationResult {
     const errors: ValidationError[] = [];
     const warnings: ValidationError[] = [];
     let estimatedPages = 0;
@@ -91,7 +91,7 @@ export class PlanValidationService {
   private validateSection(
     section: PlanSection,
     index: number,
-    masters: Master[],
+    masters: ProjectMaster[],
     calendar: any
   ): { errors: ValidationError[]; warnings: ValidationError[]; estimatedPages: number } {
     const errors: ValidationError[] = [];

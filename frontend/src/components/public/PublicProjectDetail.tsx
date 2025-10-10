@@ -9,13 +9,8 @@ import type { PublicProject } from '@/types/public';
 import type { Project } from '@/types';
 import CloneDialog from './CloneDialog';
 
-interface RouteParams {
-  slug?: string;
-  projectId?: string;
-}
-
 const PublicProjectDetail = () => {
-  const { slug, projectId } = useParams<RouteParams>();
+  const { slug, projectId } = useParams<{ slug?: string; projectId?: string }>();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 

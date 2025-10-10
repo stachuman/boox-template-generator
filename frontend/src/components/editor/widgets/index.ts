@@ -21,10 +21,8 @@ import LinkWidget from './LinkWidget';
 import TapZoneWidget from './TapZoneWidget';
 import LinkListWidget from './LinkListWidget';
 
-// Widget component interface
-export interface WidgetComponent {
-  (props: { widget: Widget }): JSX.Element;
-}
+// Widget component type
+export type WidgetComponent = React.FC<{ widget: Widget }>;
 
 // Widget registry mapping widget types to components
 export const widgetRegistry: Record<string, WidgetComponent> = {

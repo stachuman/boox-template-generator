@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { LogOut, Folder, Globe, BookOpen, ExternalLink, Heart, Shield, XCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '@/auth/useAuth';
@@ -15,7 +15,6 @@ import { AdminAPI } from '@/services/adminApi';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   const handleStopImpersonation = async () => {

@@ -4,7 +4,6 @@ import { Github, ExternalLink, Heart, Search, SlidersHorizontal } from 'lucide-r
 import { usePublicProjectsStore } from '@/stores/public';
 import PublicProjectCard from './PublicProjectCard';
 import type { Project } from '@/types';
-import type { PublicProject } from '@/types/public';
 import { VersionService } from '@/services/version';
 
 interface PublicGalleryProps {
@@ -15,7 +14,6 @@ const PublicGallery = ({ onCloneSuccess }: PublicGalleryProps) => {
   const navigate = useNavigate();
   const fetchProjects = usePublicProjectsStore((state) => state.fetchProjects);
   const projects = usePublicProjectsStore((state) => state.projects);
-  const total = usePublicProjectsStore((state) => state.total);
   const isLoading = usePublicProjectsStore((state) => state.isLoading);
   const error = usePublicProjectsStore((state) => state.error);
   const clearError = usePublicProjectsStore((state) => state.clearError);

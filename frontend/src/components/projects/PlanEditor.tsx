@@ -5,8 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectItem } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Trash2, ChevronUp, ChevronDown, Info, Save, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react';
-import { Project, Plan, PlanSection, CalendarConfig, GenerateMode, Master } from '@/types';
+import { Plus, Trash2, Info, Save, AlertCircle, ChevronRight } from 'lucide-react';
+import { Project, Plan, PlanSection, CalendarConfig, GenerateMode, ProjectMaster } from '@/types';
 
 interface PlanEditorProps {
   project: Project;
@@ -56,7 +56,6 @@ const estimateSectionPages = (section: PlanSection): { estimatedPages: number; d
 // Helper: Render nested section overview
 const renderNestedOverview = (section: PlanSection, index: number, depth: number): JSX.Element => {
   const { estimatedPages, details } = estimateSectionPages(section);
-  const indentClass = `ml-${depth * 4}`;
 
   return (
     <div key={`nested-${index}-${depth}`} className="space-y-2">
@@ -265,14 +264,14 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
       const orderFiltered = plan.order.filter(k => sectionKinds.includes(k));
       const missing = sectionKinds.filter(k => !orderFiltered.includes(k));
 
-      // Clean up calendar dates - convert empty strings to null
+      // Clean up calendar dates - ensure non-empty strings
       const normalizedPlan: Plan = {
         ...plan,
         order: [...orderFiltered, ...missing],
         calendar: {
           ...plan.calendar,
-          start_date: plan.calendar.start_date?.trim() || null,
-          end_date: plan.calendar.end_date?.trim() || null,
+          start_date: plan.calendar.start_date?.trim() || '',
+          end_date: plan.calendar.end_date?.trim() || '',
         }
       };
 
@@ -462,14 +461,13 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
 const SectionEditor: React.FC<{
   section: PlanSection;
   sectionIndex: number;
-  availableMasters: Master[];
+  availableMasters: ProjectMaster[];
   validationErrors: ValidationError[];
   onChange: (section: PlanSection) => void;
   onDelete: () => void;
   depth?: number;  // Nesting depth (0 = top-level)
 }> = ({ section, sectionIndex, availableMasters, validationErrors, onChange, onDelete, depth = 0 }) => {
   const hasErrors = validationErrors.length > 0;
-  const [showNested, setShowNested] = useState(true);
   const maxDepth = 3;
   const canAddNested = depth < maxDepth - 1;
 

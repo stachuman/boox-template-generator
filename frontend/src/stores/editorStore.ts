@@ -291,10 +291,13 @@ export const useEditorStore = create<EditorStore>()(
         if (currentTemplate) {
           const filteredWidgets = currentTemplate.widgets.filter(w => w.page !== pageNumber);
           // Adjust page numbers for widgets on pages after the deleted one
-          const adjustedWidgets = filteredWidgets.map(w => ({
-            ...w,
-            page: w.page > pageNumber ? w.page - 1 : w.page
-          }));
+          const adjustedWidgets = filteredWidgets.map(w => {
+            const widgetPage = w.page ?? 1; // Treat undefined as page 1
+            return {
+              ...w,
+              page: widgetPage > pageNumber ? widgetPage - 1 : widgetPage
+            };
+          });
 
           set({
             currentTemplate: {

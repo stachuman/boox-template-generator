@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '@/auth/useAuth';
 import type { PasswordResetConfirmData } from '@/auth/types';

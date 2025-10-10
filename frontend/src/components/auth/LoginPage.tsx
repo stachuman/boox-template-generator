@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Github, BookOpen, ExternalLink, Heart, Globe } from 'lucide-react';
+import { Github, BookOpen, ExternalLink, Heart } from 'lucide-react';
 import AuthLayout from './AuthLayout';
 import LoginForm from './LoginForm';
 import { VersionService } from '@/services/version';

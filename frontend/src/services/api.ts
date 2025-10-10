@@ -16,8 +16,6 @@ import {
   CompilationResult,
   CreateProjectRequest,
   UpdateProjectRequest,
-  AddPageRequest,
-  UpdatePageRequest,
   UpdateCompilationRulesRequest,
   AddMasterRequest,
   UpdateMasterRequest,
@@ -45,7 +43,7 @@ apiClient.interceptors.request.use((config) => {
       TokenStorage.removeToken();
     } else {
       if (!config.headers) {
-        config.headers = {};
+        config.headers = {} as any;
       }
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -252,22 +250,6 @@ export class APIClient {
 
   static async deleteProject(projectId: string): Promise<void> {
     await apiClient.delete(`/projects/${projectId}`);
-  }
-
-  // Named Pages
-  static async addNamedPage(projectId: string, request: AddPageRequest): Promise<Project> {
-    const response: AxiosResponse<Project> = await apiClient.post(`/projects/${projectId}/pages`, request);
-    return response.data;
-  }
-
-  static async updateNamedPage(projectId: string, pageName: string, request: UpdatePageRequest): Promise<Project> {
-    const response: AxiosResponse<Project> = await apiClient.patch(`/projects/${projectId}/pages/${encodeURIComponent(pageName)}`, request);
-    return response.data;
-  }
-
-  static async removeNamedPage(projectId: string, pageName: string): Promise<Project> {
-    const response: AxiosResponse<Project> = await apiClient.delete(`/projects/${projectId}/pages/${encodeURIComponent(pageName)}`);
-    return response.data;
   }
 
   // Masters

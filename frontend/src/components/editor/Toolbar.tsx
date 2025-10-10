@@ -6,7 +6,13 @@
  */
 
 import React, { useState } from 'react';
-import { Save, Download, Eye, Grid, Monitor, Settings, Hammer } from 'lucide-react';
+import {
+  Save, Download, Eye, Grid, Monitor, Hammer,
+  AlignLeft, AlignCenter, AlignRight,
+  AlignStartVertical, AlignCenterVertical, AlignEndVertical,
+  AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter,
+  ArrowLeftRight, ArrowUpDown
+} from 'lucide-react';
 import clsx from 'clsx';
 import { DeviceProfile, Template } from '@/types';
 import { useEditorStore } from '@/stores/editorStore';
@@ -62,14 +68,19 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onToggleGrid,
   onTogglePreview,
   showPreview,
-  showWidgetPalette,
-  showPagesPanel,
-  showRightPanel,
-  onToggleWidgetPalette,
-  onTogglePagesPanel,
-  onToggleRightPanel,
   hideProfileSelector = false,
   hidePreviewButton = false,
+  selectedCount,
+  onAlignLeft,
+  onAlignCenter,
+  onAlignRight,
+  onAlignTop,
+  onAlignMiddle,
+  onAlignBottom,
+  onDistributeH,
+  onDistributeV,
+  onEqualizeW,
+  onEqualizeH,
 }) => {
   const [showMetadataEditor, setShowMetadataEditor] = useState(false);
   const { zoom, setZoom, wheelMode, setWheelMode, canvasContainerSize, canvasScrollContainer } = useEditorStore() as any;
@@ -147,22 +158,99 @@ const Toolbar: React.FC<ToolbarProps> = ({
           </button>
         )}
 
-        <div className="w-px h-6 bg-eink-pale-gray" />
+        {/* Alignment & Distribution Tools - Show when 2+ widgets selected */}
+        {selectedCount && selectedCount >= 2 && onAlignLeft && (
+          <>
+            <div className="w-px h-6 bg-eink-pale-gray" />
+            <div className="flex items-center space-x-1">
+              {/* Align Horizontal */}
+              <button
+                onClick={onAlignLeft}
+                className="p-2 rounded hover:bg-eink-pale-gray"
+                title="Align Left"
+              >
+                <AlignLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onAlignCenter}
+                className="p-2 rounded hover:bg-eink-pale-gray"
+                title="Align Center (Horizontal)"
+              >
+                <AlignCenter className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onAlignRight}
+                className="p-2 rounded hover:bg-eink-pale-gray"
+                title="Align Right"
+              >
+                <AlignRight className="w-4 h-4" />
+              </button>
 
-        {/* Align / Distribute */}
-        {((typeof selectedCount !== 'undefined') && (selectedCount as number) >= 2) && (
-          <div className="flex items-center space-x-1">
-            <button onClick={onAlignLeft} className="px-2 py-1 text-xs border rounded">Align L</button>
-            <button onClick={onAlignCenter} className="px-2 py-1 text-xs border rounded">Align C</button>
-            <button onClick={onAlignRight} className="px-2 py-1 text-xs border rounded">Align R</button>
-            <button onClick={onAlignTop} className="px-2 py-1 text-xs border rounded">Align T</button>
-            <button onClick={onAlignMiddle} className="px-2 py-1 text-xs border rounded">Align M</button>
-            <button onClick={onAlignBottom} className="px-2 py-1 text-xs border rounded">Align B</button>
-            <button onClick={onDistributeH} className="px-2 py-1 text-xs border rounded">Distribute H</button>
-            <button onClick={onDistributeV} className="px-2 py-1 text-xs border rounded">Distribute V</button>
-            <button onClick={onEqualizeW} className="px-2 py-1 text-xs border rounded">=W</button>
-            <button onClick={onEqualizeH} className="px-2 py-1 text-xs border rounded">=H</button>
-          </div>
+              <div className="w-px h-4 bg-eink-pale-gray mx-1" />
+
+              {/* Align Vertical */}
+              <button
+                onClick={onAlignTop}
+                className="p-2 rounded hover:bg-eink-pale-gray"
+                title="Align Top"
+              >
+                <AlignStartVertical className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onAlignMiddle}
+                className="p-2 rounded hover:bg-eink-pale-gray"
+                title="Align Middle (Vertical)"
+              >
+                <AlignCenterVertical className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onAlignBottom}
+                className="p-2 rounded hover:bg-eink-pale-gray"
+                title="Align Bottom"
+              >
+                <AlignEndVertical className="w-4 h-4" />
+              </button>
+
+              {/* Distribute & Equalize - Show when 3+ widgets selected */}
+              {selectedCount >= 3 && (
+                <>
+                  <div className="w-px h-4 bg-eink-pale-gray mx-1" />
+                  <button
+                    onClick={onDistributeH}
+                    className="p-2 rounded hover:bg-eink-pale-gray"
+                    title="Distribute Horizontally"
+                  >
+                    <AlignHorizontalDistributeCenter className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={onDistributeV}
+                    className="p-2 rounded hover:bg-eink-pale-gray"
+                    title="Distribute Vertically"
+                  >
+                    <AlignVerticalDistributeCenter className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+
+              <div className="w-px h-4 bg-eink-pale-gray mx-1" />
+
+              {/* Equalize Size */}
+              <button
+                onClick={onEqualizeW}
+                className="p-2 rounded hover:bg-eink-pale-gray"
+                title="Equalize Width"
+              >
+                <ArrowLeftRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={onEqualizeH}
+                className="p-2 rounded hover:bg-eink-pale-gray"
+                title="Equalize Height"
+              >
+                <ArrowUpDown className="w-4 h-4" />
+              </button>
+            </div>
+          </>
         )}
 
         <button
