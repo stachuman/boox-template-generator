@@ -28,7 +28,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
   zoom,
   onContextMenu
 }) => {
-  const { updateWidget } = useEditorStore() as any;
+  const { updateWidget, selectedIds, currentTemplate } = useEditorStore() as any;
   const snapEnabled = false; // TODO: get from settings
   const gridSize = 10; // TODO: get from settings
 
@@ -38,6 +38,19 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
   const [{ isDragging }, drag] = useDrag({
     type: 'WIDGET',
     item: () => {
+      // If this widget is part of a multi-selection, include all selected widgets
+      if (selectedIds && selectedIds.length > 1 && selectedIds.includes(widget.id)) {
+        const allWidgets = currentTemplate?.widgets || [];
+        const selectedWidgets = allWidgets.filter((w: any) => selectedIds.includes(w.id));
+        return {
+          type: 'WIDGET',
+          widget, // Main widget being dragged (anchor for positioning)
+          selectedWidgets, // All selected widgets to move together
+          isNew: false
+        };
+      }
+
+      // Single widget drag
       return {
         type: 'WIDGET',
         widget,

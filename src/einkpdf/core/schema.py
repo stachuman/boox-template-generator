@@ -151,6 +151,7 @@ class Widget(BaseModel):
     page: Optional[int] = Field(None, ge=1, le=10000, description="Page number (assigned during compilation for multi-page documents)")
     position: Position
     background_color: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$", description="Background color as hex value")
+    z_order: Optional[int] = Field(None, description="Rendering order (higher values render on top)")
 
     # Optional properties that may be set by subclasses
     content: Optional[str] = Field(None)

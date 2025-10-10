@@ -142,6 +142,7 @@ export interface Widget {
   background_color?: string;
   styling?: TextStyling;
   properties?: WidgetProperties;
+  z_order?: number; // Optional - controls widget layering (higher values render on top)
 }
 
 export interface Master {
@@ -437,6 +438,7 @@ export interface DragItem {
     properties?: any;
   };
   isNew?: boolean;
+  selectedWidgets?: Widget[]; // All selected widgets when dragging a group
 }
 
 // PDF Job Types (async PDF generation)

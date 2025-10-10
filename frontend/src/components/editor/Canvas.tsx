@@ -82,9 +82,13 @@ const Canvas: React.FC = () => {
       // item.widget may be undefined for new
       const width = item.isNew ? (item.defaultProps?.position.width || 100) : (item.widget?.position.width || 100);
       const height = item.isNew ? (item.defaultProps?.position.height || 30) : (item.widget?.position.height || 30);
-      const movingId = item.widget?.id;
 
-      const widgets = getWidgetsForCurrentPage().filter((w: Widget) => w.id !== movingId);
+      // Filter out all moving widgets (single or group)
+      const movingIds = item.selectedWidgets
+        ? item.selectedWidgets.map((w: Widget) => w.id)
+        : (item.widget ? [item.widget.id] : []);
+
+      const widgets = getWidgetsForCurrentPage().filter((w: Widget) => !movingIds.includes(w.id));
       const TOL = 6 / zoom;
       const xTargets: number[] = [];
       const xCenterTargets: number[] = [];
@@ -154,9 +158,10 @@ const Canvas: React.FC = () => {
       const canvasPosition = getCanvasPosition(clientOffset.x, clientOffset.y);
 
       // Helper: snap to nearby widget edges/centers
-      const snapToWidgets = (pos: { x: number; y: number; width: number; height: number }, movingId?: string) => {
+      const snapToWidgets = (pos: { x: number; y: number; width: number; height: number }, movingId?: string, movingIds?: string[]) => {
         const TOL = 6 / zoom; // tolerance in points (scaled)
-        const widgets = getWidgetsForCurrentPage().filter(w => w.id !== movingId);
+        const excludeIds = movingIds || (movingId ? [movingId] : []);
+        const widgets = getWidgetsForCurrentPage().filter((w: Widget) => !excludeIds.includes(w.id));
         if (widgets.length === 0) return pos;
 
         const left = pos.x;
@@ -174,7 +179,7 @@ const Canvas: React.FC = () => {
         const xCenterTargets: number[] = [];
         const yTargets: number[] = [];
         const yCenterTargets: number[] = [];
-        widgets.forEach(w => {
+        widgets.forEach((w: Widget) => {
           const wx = w.position.x;
           const wy = w.position.y;
           const ww = w.position.width;
@@ -246,25 +251,67 @@ const Canvas: React.FC = () => {
         const snapped = snapToWidgets({ ...newWidget.position }, newWidget.id);
         addWidget({ ...newWidget, position: snapped });
       } else if (!item.isNew && item.widget) {
-        // Move existing widget using delta movement for smooth repositioning
+        // Move existing widget(s) using delta movement for smooth repositioning
         const offset = monitor.getDifferenceFromInitialOffset();
-        if (offset) {
-          const updatedPosition = {
-            ...item.widget.position,
-            x: snapToGrid(item.widget.position.x + offset.x / zoom),
-            y: snapToGrid(item.widget.position.y + offset.y / zoom)
-          };
-          const snapped = snapToWidgets({ ...updatedPosition, width: item.widget.position.width, height: item.widget.position.height }, item.widget.id);
-          updateWidget(item.widget.id, { position: snapped });
+
+        if (item.selectedWidgets && item.selectedWidgets.length > 1 && item.widget) {
+          // Multi-widget drag: move all selected widgets together maintaining relative positions
+          if (offset) {
+            const deltaX = offset.x / zoom;
+            const deltaY = offset.y / zoom;
+
+            // Update all selected widgets with the same offset
+            item.selectedWidgets.forEach((w: Widget) => {
+              const updatedPosition = {
+                ...w.position,
+                x: snapToGrid(w.position.x + deltaX),
+                y: snapToGrid(w.position.y + deltaY)
+              };
+
+              // Only snap the main dragged widget to guides, others follow
+              if (item.widget && w.id === item.widget.id) {
+                const movingIds = item.selectedWidgets!.map((sw: Widget) => sw.id);
+                const snapped = snapToWidgets(
+                  { ...updatedPosition, width: w.position.width, height: w.position.height },
+                  w.id,
+                  movingIds
+                );
+                // Calculate snap adjustment
+                const snapDeltaX = snapped.x - updatedPosition.x;
+                const snapDeltaY = snapped.y - updatedPosition.y;
+
+                // Apply main widget snap adjustment to all widgets
+                item.selectedWidgets!.forEach((sw: Widget) => {
+                  const finalPosition = {
+                    x: snapToGrid(sw.position.x + deltaX + snapDeltaX),
+                    y: snapToGrid(sw.position.y + deltaY + snapDeltaY)
+                  };
+                  updateWidget(sw.id, { position: finalPosition });
+                });
+                return; // Exit after handling all widgets
+              }
+            });
+          }
         } else {
-          // Fallback to drop position
-          const updatedPosition = {
-            ...item.widget.position,
-            x: canvasPosition.x,
-            y: canvasPosition.y
-          };
-          const snapped = snapToWidgets({ ...updatedPosition, width: item.widget.position.width, height: item.widget.position.height }, item.widget.id);
-          updateWidget(item.widget.id, { position: snapped });
+          // Single widget drag
+          if (offset) {
+            const updatedPosition = {
+              ...item.widget.position,
+              x: snapToGrid(item.widget.position.x + offset.x / zoom),
+              y: snapToGrid(item.widget.position.y + offset.y / zoom)
+            };
+            const snapped = snapToWidgets({ ...updatedPosition, width: item.widget.position.width, height: item.widget.position.height }, item.widget.id);
+            updateWidget(item.widget.id, { position: snapped });
+          } else {
+            // Fallback to drop position
+            const updatedPosition = {
+              ...item.widget.position,
+              x: canvasPosition.x,
+              y: canvasPosition.y
+            };
+            const snapped = snapToWidgets({ ...updatedPosition, width: item.widget.position.width, height: item.widget.position.height }, item.widget.id);
+            updateWidget(item.widget.id, { position: snapped });
+          }
         }
       }
       // Clear guides after drop
@@ -281,7 +328,10 @@ const Canvas: React.FC = () => {
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
     // If a marquee selection was just completed, do not clear
     if (justSelectedRef.current) {
-      justSelectedRef.current = false;
+      // Delay reset to allow all onClick events to process
+      setTimeout(() => {
+        justSelectedRef.current = false;
+      }, 100);
       return;
     }
 
@@ -348,53 +398,86 @@ const Canvas: React.FC = () => {
   const canvasWidth = currentTemplate.canvas.dimensions.width;
   const canvasHeight = currentTemplate.canvas.dimensions.height;
 
-  // Marquee selection state
-  const [dragSelectStart, setDragSelectStart] = useState<{x:number;y:number}|null>(null);
+  // Marquee selection state - use state for rendering, refs for event handlers
   const [dragSelectRect, setDragSelectRect] = useState<{x:number;y:number;width:number;height:number}|null>(null);
+  const dragSelectStartRef = useRef<{x:number;y:number}|null>(null);
+  const dragSelectRectRef = useRef<{x:number;y:number;width:number;height:number}|null>(null);
 
-  const onMouseDown = (e: React.MouseEvent) => {
-    if (e.target !== e.currentTarget) return; // only on empty canvas
-    const pos = getCanvasPositionRaw(e.clientX, e.clientY);
-    setDragSelectStart(pos);
-    setDragSelectRect({ x: pos.x, y: pos.y, width: 0, height: 0 });
-  };
+  // Use native event listeners to capture before react-dnd
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-  const onMouseMove = (e: React.MouseEvent) => {
-    if (!dragSelectStart) return;
-    const pos = getCanvasPositionRaw(e.clientX, e.clientY);
-    const x = Math.min(dragSelectStart.x, pos.x);
-    const y = Math.min(dragSelectStart.y, pos.y);
-    const width = Math.abs(pos.x - dragSelectStart.x);
-    const height = Math.abs(pos.y - dragSelectStart.y);
-    setDragSelectRect({ x, y, width, height });
-  };
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.target !== canvas) return;
+      const pos = getCanvasPositionRaw(e.clientX, e.clientY);
+      dragSelectStartRef.current = pos;
+      const rect = { x: pos.x, y: pos.y, width: 0, height: 0 };
+      dragSelectRectRef.current = rect;
+      setDragSelectRect(rect);
+    };
 
-  const onMouseUp = () => {
-    if (!dragSelectRect) return;
-    const rect = dragSelectRect;
-    const widgets: Widget[] = getWidgetsForCurrentPage();
-    const selected = widgets.filter(w => {
-      const wx1 = w.position.x;
-      const wy1 = w.position.y;
-      const wx2 = wx1 + w.position.width;
-      const wy2 = wy1 + w.position.height;
-      const rx1 = rect.x;
-      const ry1 = rect.y;
-      const rx2 = rect.x + rect.width;
-      const ry2 = rect.y + rect.height;
-      // intersection
-      return !(wx2 < rx1 || wx1 > rx2 || wy2 < ry1 || wy1 > ry2);
-    });
-    if (selected.length) {
-      // Set first as primary, add others
-      setSelectedWidget(selected[0]);
-      for (let i = 1; i < selected.length; i++) toggleSelectWidget(selected[i].id);
-      // Mark to avoid immediate clear by click bubbling
-      justSelectedRef.current = true;
-    }
-    setDragSelectStart(null);
-    setDragSelectRect(null);
-  };
+    const onMouseMove = (e: MouseEvent) => {
+      if (!dragSelectStartRef.current) return;
+      const start = dragSelectStartRef.current;
+      const pos = getCanvasPositionRaw(e.clientX, e.clientY);
+      const x = Math.min(start.x, pos.x);
+      const y = Math.min(start.y, pos.y);
+      const width = Math.abs(pos.x - start.x);
+      const height = Math.abs(pos.y - start.y);
+      const rect = { x, y, width, height };
+      dragSelectRectRef.current = rect;
+      setDragSelectRect(rect);
+    };
+
+    const onMouseUp = (e: MouseEvent) => {
+      const rect = dragSelectRectRef.current;
+      if (!rect || (rect.width === 0 && rect.height === 0)) {
+        dragSelectStartRef.current = null;
+        dragSelectRectRef.current = null;
+        setDragSelectRect(null);
+        return;
+      }
+
+      const widgets: Widget[] = getWidgetsForCurrentPage();
+
+      const selected = widgets.filter(w => {
+        const wx1 = w.position.x;
+        const wy1 = w.position.y;
+        const wx2 = wx1 + w.position.width;
+        const wy2 = wy1 + w.position.height;
+        const rx1 = rect.x;
+        const ry1 = rect.y;
+        const rx2 = rect.x + rect.width;
+        const ry2 = rect.y + rect.height;
+        return !(wx2 < rx1 || wx1 > rx2 || wy2 < ry1 || wy1 > ry2);
+      });
+
+      if (selected.length) {
+        setSelectedWidget(selected[0]);
+        for (let i = 1; i < selected.length; i++) {
+          toggleSelectWidget(selected[i].id);
+        }
+        justSelectedRef.current = true;
+        e.stopPropagation();
+        e.preventDefault();
+      }
+
+      dragSelectStartRef.current = null;
+      dragSelectRectRef.current = null;
+      setDragSelectRect(null);
+    };
+
+    canvas.addEventListener('mousedown', onMouseDown, true);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+    return () => {
+      canvas.removeEventListener('mousedown', onMouseDown, true);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
 
   // Context menu helpers
   const openWidgetMenu = (e: React.MouseEvent, w: any) => {
@@ -480,9 +563,6 @@ const Canvas: React.FC = () => {
           transformOrigin: `${origin.x}px ${origin.y}px`,
         }}
         onClick={handleCanvasClick}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
         onContextMenu={(e) => {
           e.preventDefault();
           if (e.target === e.currentTarget) openCanvasMenu(e);
@@ -504,19 +584,21 @@ const Canvas: React.FC = () => {
           <div className="absolute left-0 h-px bg-blue-400" style={{ top: guideH, width: canvasWidth }} />
         )}
 
-        {/* Widgets */}
-        {getWidgetsForCurrentPage().map((widget) => (
-          <CanvasWidget
-            key={widget.id}
-            widget={widget}
-            isSelected={selectedIds?.includes(widget.id) || selectedWidget?.id === widget.id}
-            onSelect={(w, additive) => {
-              if (additive) toggleSelectWidget(w.id); else setSelectedWidget(w);
-            }}
-            zoom={zoom}
-            onContextMenu={(evt, w) => openWidgetMenu(evt, w)}
-          />
-        ))}
+        {/* Widgets - sorted by z_order (lower values render first/behind) */}
+        {getWidgetsForCurrentPage()
+          .sort((a: Widget, b: Widget) => (a.z_order ?? 0) - (b.z_order ?? 0))
+          .map((widget: Widget) => (
+            <CanvasWidget
+              key={widget.id}
+              widget={widget}
+              isSelected={selectedIds?.includes(widget.id) || selectedWidget?.id === widget.id}
+              onSelect={(w, additive) => {
+                if (additive) toggleSelectWidget(w.id); else setSelectedWidget(w);
+              }}
+              zoom={zoom}
+              onContextMenu={(evt, w) => openWidgetMenu(evt, w)}
+            />
+          ))}
 
         {/* Marquee Selection (inside canvas, respects transform) */}
         {dragSelectRect && (
@@ -546,6 +628,8 @@ const Canvas: React.FC = () => {
             const items: { label: string; onClick: () => void; disabled?: boolean }[] = [];
             const store = (useEditorStore.getState() as any);
             if (menu.widget) {
+              items.push({ label: 'Bring to Front', onClick: () => store.bringToFront(menu.widget.id) });
+              items.push({ label: 'Send to Back', onClick: () => store.sendToBack(menu.widget.id) });
               items.push({ label: 'Copy', onClick: () => store.copySelected() });
               items.push({ label: 'Paste', onClick: () => store.pasteClipboard(), disabled: !(store.clipboard && store.clipboard.length) });
               items.push({ label: 'Duplicate', onClick: () => store.duplicateWidget(menu.widget.id) });

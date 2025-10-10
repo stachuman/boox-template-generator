@@ -150,7 +150,7 @@ class DeterministicPDFRenderer:
             if deterministic:
                 pdf_canvas.setTitle(self.template.metadata.name)
                 pdf_canvas.setSubject(self.template.metadata.description)
-                pdf_canvas.setCreator("E-ink PDF Templates v0.3.2")
+                pdf_canvas.setCreator("E-ink PDF Templates v0.3.3")
                 pdf_canvas.setAuthor(self.template.metadata.author or "Unknown")
                 # Note: ReportLab Canvas doesn't support setCreationDate directly
                 # Creation date will be handled by pikepdf post-processor for deterministic builds
@@ -285,7 +285,7 @@ class DeterministicPDFRenderer:
     def _render_page_widgets(self, pdf_canvas: canvas.Canvas, widgets: List[Widget], page_num: int) -> None:
         """
         Render all widgets on a page.
-        
+
         Args:
             pdf_canvas: ReportLab canvas
             widgets: Widgets to render on this page
@@ -300,7 +300,12 @@ class DeterministicPDFRenderer:
                     master = m
                     break
             if master:
-                for m_widget in getattr(master, 'widgets', []) or []:
+                # Sort master widgets by z_order (default to 0 if not specified)
+                master_widgets = sorted(
+                    getattr(master, 'widgets', []) or [],
+                    key=lambda w: getattr(w, 'z_order', None) or 0
+                )
+                for m_widget in master_widgets:
                     try:
                         # Render a copy so we can set page number without mutating original
                         mw = m_widget.model_copy(update={"page": page_num}) if hasattr(m_widget, 'model_copy') else m_widget
@@ -313,8 +318,11 @@ class DeterministicPDFRenderer:
                         else:
                             print(f"Warning: Skipping master widget {getattr(m_widget, 'id', '?')} due to rendering error: {e}")
 
+        # Sort page widgets by z_order (default to 0 if not specified)
+        sorted_widgets = sorted(widgets, key=lambda w: getattr(w, 'z_order', None) or 0)
+
         # Render page widgets
-        for widget in widgets:
+        for widget in sorted_widgets:
             try:
                 self._render_widget(pdf_canvas, widget, page_num)
             except RenderingError as e:

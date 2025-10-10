@@ -104,6 +104,8 @@ interface EditorStore extends EditorState {
   updateWidget: (widgetId: string, updates: Partial<Widget>) => void;
   removeWidget: (widgetId: string) => void;
   duplicateWidget: (widgetId: string) => void;
+  bringToFront: (widgetId: string) => void;
+  sendToBack: (widgetId: string) => void;
 
   // Template metadata operations
   updateTemplateMetadata: (updates: Partial<Template['metadata']>) => void;
@@ -433,10 +435,18 @@ export const useEditorStore = create<EditorStore>()(
           throw new Error("No template loaded");
         }
 
+        // Find max z_order to place new widget on top
+        const maxZOrder = currentTemplate.widgets.reduce((max, w) => {
+          const z = w.z_order ?? 0;
+          return z > max ? z : max;
+        }, 0);
+
         // Only assign page if not already specified (for master templates, leave undefined)
+        // Always assign z_order to place new widget on top
         const widgetWithPage = {
           ...widget,
-          ...(widget.page === undefined ? { page: currentPage } : {})
+          ...(widget.page === undefined ? { page: currentPage } : {}),
+          z_order: widget.z_order !== undefined ? widget.z_order : maxZOrder + 1
         };
 
         set({
@@ -529,8 +539,10 @@ export const useEditorStore = create<EditorStore>()(
         }
 
         // Create duplicate with new ID and offset position
+        // Exclude z_order so addWidget assigns a new one (on top)
+        const { z_order, ...widgetWithoutZOrder } = originalWidget;
         const duplicatedWidget: Widget = {
-          ...originalWidget,
+          ...widgetWithoutZOrder,
           id: `${originalWidget.id}_copy_${Date.now()}`,
           position: {
             ...originalWidget.position,
@@ -540,6 +552,40 @@ export const useEditorStore = create<EditorStore>()(
         };
 
         get().addWidget(duplicatedWidget);
+      },
+
+      bringToFront: (widgetId) => {
+        const currentTemplate = get().currentTemplate;
+        if (!currentTemplate) {
+          throw new Error("No template loaded");
+        }
+
+        // Find max z_order among all widgets (default to 0 if none have z_order)
+        const allWidgets = currentTemplate.widgets;
+        const maxZOrder = allWidgets.reduce((max, w) => {
+          const z = w.z_order ?? 0;
+          return z > max ? z : max;
+        }, 0);
+
+        // Set this widget's z_order to max + 1
+        get().updateWidget(widgetId, { z_order: maxZOrder + 1 });
+      },
+
+      sendToBack: (widgetId) => {
+        const currentTemplate = get().currentTemplate;
+        if (!currentTemplate) {
+          throw new Error("No template loaded");
+        }
+
+        // Find min z_order among all widgets (default to 0 if none have z_order)
+        const allWidgets = currentTemplate.widgets;
+        const minZOrder = allWidgets.reduce((min, w) => {
+          const z = w.z_order ?? 0;
+          return z < min ? z : min;
+        }, 0);
+
+        // Set this widget's z_order to min - 1
+        get().updateWidget(widgetId, { z_order: minZOrder - 1 });
       },
 
       // Template metadata operations
@@ -777,7 +823,13 @@ export const useEditorStore = create<EditorStore>()(
         const genId = () => `widget_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
         const OFFSET = 20;
 
-        const pasted = clipboard.map((w: any) => ({
+        // Find max z_order to place pasted widgets on top
+        const maxZOrder = currentTemplate.widgets.reduce((max: number, w: any) => {
+          const z = w.z_order ?? 0;
+          return z > max ? z : max;
+        }, 0);
+
+        const pasted = clipboard.map((w: any, index: number) => ({
           id: genId(),
           type: w.type,
           page: currentPage,
@@ -791,6 +843,7 @@ export const useEditorStore = create<EditorStore>()(
           },
           styling: w.styling ? { ...w.styling } : undefined,
           properties: w.properties ? { ...w.properties } : undefined,
+          z_order: maxZOrder + 1 + index, // Each pasted widget gets incrementing z_order
         }));
 
         set({
