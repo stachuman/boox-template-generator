@@ -12,6 +12,7 @@ import Navigation from '@/components/Navigation';
 import ProtectedRoute from '@/components/common/ProtectedRoute';
 import PublicGallery from '@/components/public/PublicGallery';
 import PublicProjectDetail from '@/components/public/PublicProjectDetail';
+import ReadOnlyProjectViewer from '@/components/public/ReadOnlyProjectViewer';
 import PublicRoute from '@/components/common/PublicRoute';
 import LoginPage from '@/components/auth/LoginPage';
 import RegisterPage from '@/components/auth/RegisterPage';
@@ -56,6 +57,8 @@ const App: React.FC = () => {
             <Route path="gallery" element={<GalleryRoute />} />
             <Route path="gallery/id/:projectId" element={<PublicProjectDetailRoute />} />
             <Route path="gallery/:slug" element={<PublicProjectDetailRoute />} />
+            <Route path="gallery/id/:projectId/view" element={<ReadOnlyProjectViewer />} />
+            <Route path="gallery/:slug/view" element={<ReadOnlyProjectViewer />} />
           </Route>
 
           {/* Protected routes - require authentication */}

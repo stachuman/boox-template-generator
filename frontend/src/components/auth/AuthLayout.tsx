@@ -4,10 +4,11 @@ import { Link } from 'react-router-dom';
 interface AuthLayoutProps extends PropsWithChildren {
   title: string;
   subtitle?: string;
+  header?: React.ReactNode;
   footer?: React.ReactNode;
 }
 
-const AuthLayout = ({ title, subtitle, footer, children }: AuthLayoutProps) => {
+const AuthLayout = ({ title, subtitle, header, footer, children }: AuthLayoutProps) => {
   return (
     <div className="flex min-h-screen flex-col bg-eink-off-white">
       <header className="flex items-center justify-between px-4 py-6">
@@ -22,6 +23,7 @@ const AuthLayout = ({ title, subtitle, footer, children }: AuthLayoutProps) => {
             <h1 className="text-2xl font-semibold text-eink-black">{title}</h1>
             {subtitle ? <p className="mt-2 text-sm text-eink-dark-gray">{subtitle}</p> : null}
           </div>
+          {header}
           {children}
           {footer ? <div className="mt-6 text-center text-sm text-eink-dark-gray">{footer}</div> : null}
         </div>

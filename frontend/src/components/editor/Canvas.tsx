@@ -13,7 +13,11 @@ import CanvasWidget from './CanvasWidget';
 import GridOverlay from './GridOverlay';
 import ContextMenu from './ContextMenu';
 
-const Canvas: React.FC = () => {
+interface CanvasProps {
+  readOnly?: boolean;
+}
+
+const Canvas: React.FC<CanvasProps> = ({ readOnly = false }) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   
   const {
@@ -553,7 +557,9 @@ const Canvas: React.FC = () => {
           if (canvasRef) {
             (canvasRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
           }
-          drop(node);
+          if (!readOnly) {
+            drop(node);
+          }
         }}
         className="relative bg-white shadow-lg border border-eink-pale-gray"
         style={{
@@ -593,10 +599,13 @@ const Canvas: React.FC = () => {
               widget={widget}
               isSelected={selectedIds?.includes(widget.id) || selectedWidget?.id === widget.id}
               onSelect={(w, additive) => {
-                if (additive) toggleSelectWidget(w.id); else setSelectedWidget(w);
+                if (!readOnly) {
+                  if (additive) toggleSelectWidget(w.id); else setSelectedWidget(w);
+                }
               }}
               zoom={zoom}
-              onContextMenu={(evt, w) => openWidgetMenu(evt, w)}
+              onContextMenu={(evt, w) => !readOnly && openWidgetMenu(evt, w)}
+              readOnly={readOnly}
             />
           ))}
 

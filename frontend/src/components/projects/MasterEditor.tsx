@@ -10,10 +10,23 @@ import {
 import { useEditorStore } from '@/stores/editorStore';
 import { Project, ProjectMaster, Template, Canvas, AddMasterRequest, UpdateMasterRequest } from '@/types';
 import { APIClient } from '@/services/api';
+import { PublicAPI } from '@/services/public';
 import TemplateEditor from '@/components/TemplateEditor';
 
-const MasterEditor: React.FC = () => {
-  const { projectId, masterName } = useParams<{ projectId: string; masterName?: string }>();
+interface MasterEditorProps {
+  projectId?: string;
+  masterName?: string;
+  readOnly?: boolean;
+}
+
+const MasterEditor: React.FC<MasterEditorProps> = ({
+  projectId: propsProjectId,
+  masterName: propsMasterName,
+  readOnly = false
+}) => {
+  const params = useParams<{ projectId: string; masterName?: string }>();
+  const projectId = propsProjectId || params.projectId;
+  const masterName = propsMasterName || params.masterName;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [project, setProject] = useState<Project | null>(null);
@@ -46,27 +59,33 @@ const MasterEditor: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      // Auto-validate and fix canvas dimensions if needed
-      // This ensures canvas always matches the device profile
-      // If validation fails (e.g., profile doesn't exist), load project anyway
-      // but display error to user
       let projectData;
-      try {
-        projectData = await APIClient.validateCanvasDimensions(projectId);
-      } catch (validationErr: any) {
-        // If canvas validation fails, try to load project without validation
-        // User will see the error and be prompted to select a valid profile
-        console.warn('Canvas validation failed:', validationErr);
-        projectData = await APIClient.getProject(projectId);
 
-        // Set error to guide user
-        if (validationErr.message && validationErr.message.includes('Device profile')) {
-          setError(
-            `${validationErr.message}\n\n` +
-            'Please update the device profile in the project editor before editing masters.'
-          );
-        } else {
-          setError(validationErr.message || 'Failed to validate canvas dimensions');
+      if (readOnly) {
+        // In read-only mode, load from public API
+        projectData = await PublicAPI.getProjectDefinition(projectId);
+      } else {
+        // Auto-validate and fix canvas dimensions if needed
+        // This ensures canvas always matches the device profile
+        // If validation fails (e.g., profile doesn't exist), load project anyway
+        // but display error to user
+        try {
+          projectData = await APIClient.validateCanvasDimensions(projectId);
+        } catch (validationErr: any) {
+          // If canvas validation fails, try to load project without validation
+          // User will see the error and be prompted to select a valid profile
+          console.warn('Canvas validation failed:', validationErr);
+          projectData = await APIClient.getProject(projectId);
+
+          // Set error to guide user
+          if (validationErr.message && validationErr.message.includes('Device profile')) {
+            setError(
+              `${validationErr.message}\n\n` +
+              'Please update the device profile in the project editor before editing masters.'
+            );
+          } else {
+            setError(validationErr.message || 'Failed to validate canvas dimensions');
+          }
         }
       }
       setProject(projectData);
@@ -347,16 +366,20 @@ const MasterEditor: React.FC = () => {
       {/* Single Consolidated Toolbar */}
       <div className="toolbar flex items-center justify-between px-4 py-2 border-b border-eink-light-gray bg-white">
         <div className="flex items-center gap-3">
-          {/* Navigation */}
-          <button
-            onClick={() => navigate(`/projects/${project.id}?tab=masters`)}
-            className="text-eink-dark-gray hover:text-eink-black transition-colors"
-            title="Back to Projects"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+          {/* Navigation - only show in edit mode */}
+          {!readOnly && (
+            <>
+              <button
+                onClick={() => navigate(`/projects/${project.id}?tab=masters`)}
+                className="text-eink-dark-gray hover:text-eink-black transition-colors"
+                title="Back to Projects"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
 
-          <div className="w-px h-6 bg-eink-pale-gray" />
+              <div className="w-px h-6 bg-eink-pale-gray" />
+            </>
+          )}
 
           {/* View Mode Toggle */}
           <div className="flex border border-eink-light-gray rounded-lg">
@@ -405,8 +428,8 @@ const MasterEditor: React.FC = () => {
                 <ZoomControls />
               </div>
 
-              {/* Alignment Tools - Show when 2+ widgets selected */}
-              {selectedIds && selectedIds.length >= 2 && (
+              {/* Alignment Tools - Show when 2+ widgets selected and not in read-only mode */}
+              {!readOnly && selectedIds && selectedIds.length >= 2 && (
                 <>
                   <div className="w-px h-6 bg-eink-pale-gray" />
                   <div className="flex items-center space-x-1">
@@ -504,61 +527,61 @@ const MasterEditor: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Export PNG Button - only for existing masters */}
-          {!isNewMaster && currentMaster && (
-            <button
-              onClick={handleExportPNG}
-              disabled={exportingPNG}
-              className="flex items-center gap-2 px-4 py-2 border border-eink-light-gray text-eink-dark-gray rounded-lg hover:bg-eink-pale-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Export master as PNG template for e-ink devices"
-            >
-              {exportingPNG ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Exporting...
-                </>
-              ) : (
-                <>
-                  <Download className="w-5 h-5" />
-                  Export PNG
-                </>
+          {!readOnly && (
+            <>
+              {/* Export PNG Button - only for existing masters */}
+              {!isNewMaster && currentMaster && (
+                <button
+                  onClick={handleExportPNG}
+                  disabled={exportingPNG}
+                  className="flex items-center gap-2 px-4 py-2 border border-eink-light-gray text-eink-dark-gray rounded-lg hover:bg-eink-pale-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Export master as PNG template for e-ink devices"
+                >
+                  {exportingPNG ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-5 h-5" />
+                      Export PNG
+                    </>
+                  )}
+                </button>
               )}
-            </button>
+
+              {/* Save Button */}
+              <button
+                onClick={handleSave}
+                disabled={saving || !masterNameValue.trim()}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  saveSuccess
+                    ? 'bg-green-600 text-white'
+                    : 'bg-eink-black text-white hover:bg-gray-800'
+                }`}
+              >
+                {saveSuccess ? (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Saved!
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" />
+                    {saving ? 'Saving...' : (isNewMaster ? 'Create Master' : 'Save Changes')}
+                  </>
+                )}
+              </button>
+            </>
           )}
 
-          {/* Save Button */}
-          <button
-            onClick={handleSave}
-            disabled={saving || !masterNameValue.trim()}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-              saveSuccess
-                ? 'bg-green-600 text-white'
-                : 'bg-eink-black text-white hover:bg-gray-800'
-            }`}
-          >
-            {saveSuccess ? (
-              <>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Saved!
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5" />
-                {saving ? 'Saving...' : (isNewMaster ? 'Create Master' : 'Save Changes')}
-              </>
-            )}
-          </button>
-
-          {/* Master Name Input */}
-          <input
-            type="text"
-            value={masterNameValue}
-            onChange={(e) => setMasterNameValue(e.target.value)}
-            placeholder="Master name..."
-            className="px-3 py-2 border border-eink-light-gray rounded-lg focus:outline-none focus:ring-2 focus:ring-eink-black focus:border-transparent text-sm"
-          />
+          {/* Master Name Display */}
+          <div className="px-3 py-2 border border-eink-light-gray rounded-lg text-sm font-medium text-eink-black bg-eink-pale-gray">
+            {masterNameValue || 'Unnamed Master'}
+          </div>
 
         </div>
       </div>
@@ -583,13 +606,15 @@ const MasterEditor: React.FC = () => {
             hideToolbar={true}
             showGrid={showGrid}
             onToggleGrid={() => setShowGrid(!showGrid)}
+            readOnly={readOnly}
           />
         ) : (
           <div className="h-full p-4">
             <textarea
               value={yamlContent}
-              onChange={(e) => setYamlContent(e.target.value)}
+              onChange={(e) => !readOnly && setYamlContent(e.target.value)}
               rows={25}
+              readOnly={readOnly}
               className="w-full h-full min-h-[600px] font-mono text-sm border border-eink-light-gray rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-eink-black resize-y"
               placeholder="YAML content will appear here..."
             />

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import shutil
@@ -22,6 +23,8 @@ from einkpdf.services.project_service import ProjectService, ProjectServiceError
 
 from .auth import UserRecord
 from .models import PublicProjectListResponse, PublicProjectResponse
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_data_root() -> Path:
@@ -90,8 +93,8 @@ class PublicProjectManager:
         self._index_file = self._public_root / "index.json"
         self._lock = threading.RLock()
         self._index: Dict[str, PublicProjectIndexEntry] = {}
-        self._load_index()
         self._project_service = ProjectService(storage_dir=str(self._public_root))
+        self._load_index()
 
     # ---------------------
     # Index maintenance
@@ -100,22 +103,123 @@ class PublicProjectManager:
     def _load_index(self) -> None:
         if not self._index_file.exists():
             self._index = {}
+            # Check if there are project directories that need indexing
+            self._check_and_rebuild_if_needed()
             return
         try:
             raw = json.loads(self._index_file.read_text())
         except json.JSONDecodeError as exc:
-            raise WorkspaceError(f"Failed to parse public project index: {exc}") from exc
+            logger.error(f"Failed to parse public project index, rebuilding from disk: {exc}")
+            self._rebuild_index_from_disk()
+            return
         entries: Dict[str, PublicProjectIndexEntry] = {}
+        invalid_count = 0
         for project_id, payload in raw.items():
             try:
                 entries[project_id] = PublicProjectIndexEntry.model_validate(payload)
-            except ValidationError:
+            except ValidationError as exc:
+                logger.warning(f"Invalid index entry for project {project_id}: {exc}")
+                invalid_count += 1
                 continue
         self._index = entries
+
+        # If we found invalid entries, rebuild from disk to repair them
+        if invalid_count > 0:
+            logger.info(f"Found {invalid_count} invalid index entries, rebuilding from disk")
+            self._rebuild_index_from_disk()
+            return
+
+        # Check if there are orphaned project directories not in the index
+        self._check_and_rebuild_if_needed()
+
+    def _check_and_rebuild_if_needed(self) -> None:
+        """Check if project directories exist that are not in the index and trigger rebuild if needed."""
+        project_dirs = [
+            d.name for d in self._public_root.iterdir()
+            if d.is_dir() and d.name != "index.json" and (d / "project.json").exists()
+        ]
+        indexed_ids = set(self._index.keys())
+        unindexed = set(project_dirs) - indexed_ids
+
+        if unindexed:
+            logger.warning(
+                f"Found {len(unindexed)} project directories not in index, rebuilding: {', '.join(unindexed)}"
+            )
+            self._rebuild_index_from_disk()
 
     def _save_index(self) -> None:
         snapshot = {pid: entry.model_dump(mode="json") for pid, entry in self._index.items()}
         self._index_file.write_text(json.dumps(snapshot, indent=2))
+
+    def _rebuild_index_from_disk(self) -> None:
+        """
+        Rebuild the public project index by scanning project directories.
+
+        NEVER deletes project directories - only skips entries that cannot be indexed.
+        Projects with missing owner info are indexed with placeholder values.
+        """
+        logger.info("Rebuilding public project index from disk")
+        new_index: Dict[str, PublicProjectIndexEntry] = {}
+        skipped_count = 0
+
+        # Scan all directories in public-projects
+        for project_dir in self._public_root.iterdir():
+            if not project_dir.is_dir() or project_dir.name == "index.json":
+                continue
+
+            project_id = project_dir.name
+            project_json_path = project_dir / "project.json"
+
+            # If no project.json exists, skip but don't delete
+            if not project_json_path.exists():
+                logger.warning(f"Skipping orphaned directory (no project.json): {project_id}")
+                skipped_count += 1
+                continue
+
+            try:
+                # Load project to get metadata
+                project = self._project_service.get_project(project_id)
+                if not project:
+                    logger.warning(f"Failed to load project {project_id}, skipping")
+                    skipped_count += 1
+                    continue
+
+                # Try to get owner info from existing index entry
+                existing = self._index.get(project_id)
+                if existing and existing.owner_id and existing.owner_username:
+                    owner_id = existing.owner_id
+                    owner_username = existing.owner_username
+                else:
+                    # Use author from project metadata as fallback, with "unknown" owner_id
+                    owner_username = project.metadata.author or "unknown"
+                    owner_id = "unknown"
+                    logger.warning(
+                        f"No owner info for project {project_id}, using author '{owner_username}' "
+                        f"from metadata. Project should be republished to fix."
+                    )
+
+                # Use shared method to create index entry (same as publish)
+                entry = self._create_index_entry(
+                    project=project,
+                    owner_id=owner_id,
+                    owner_username=owner_username,
+                    url_slug=None,  # Will use project.metadata.public_url_slug
+                )
+                new_index[project_id] = entry
+                logger.info(f"Rebuilt index entry for project {project_id}")
+
+            except Exception as exc:
+                logger.error(f"Failed to rebuild index entry for {project_id}: {exc}")
+                logger.warning(f"Skipping project {project_id} - manual republish required")
+                skipped_count += 1
+                continue
+
+        self._index = new_index
+        self._save_index()
+
+        if skipped_count > 0:
+            logger.warning(f"Skipped {skipped_count} project(s) during index rebuild")
+        logger.info(f"Index rebuild complete. {len(new_index)} projects indexed")
 
     def _slug_exists(self, slug: str, exclude_project_id: Optional[str] = None) -> bool:
         for project_id, entry in self._index.items():
@@ -128,6 +232,43 @@ class PublicProjectManager:
     # ---------------------
     # Publication helpers
     # ---------------------
+
+    def _create_index_entry(
+        self,
+        *,
+        project: Project,
+        owner_id: str,
+        owner_username: str,
+        url_slug: Optional[str] = None,
+    ) -> PublicProjectIndexEntry:
+        """
+        Create a PublicProjectIndexEntry from a project.
+
+        This is the SINGLE SOURCE OF TRUTH for index entry creation.
+        Used by both publish and rebuild to ensure consistency.
+
+        Args:
+            project: The project to index
+            owner_id: Owner user ID (can be "unknown" for corrupted entries)
+            owner_username: Owner username (fallback to author if unknown)
+            url_slug: Optional public URL slug
+
+        Returns:
+            PublicProjectIndexEntry ready to be stored in index
+        """
+        now = datetime.now(timezone.utc).isoformat()
+        existing = self._index.get(project.id)
+
+        return PublicProjectIndexEntry(
+            id=project.id,
+            owner_id=owner_id,
+            owner_username=owner_username,
+            metadata=project.metadata.model_dump(),
+            url_slug=url_slug or project.metadata.public_url_slug,
+            clone_count=project.metadata.clone_count,
+            created_at=existing.created_at if existing else now,
+            updated_at=now,
+        )
 
     @staticmethod
     def _normalize_slug(candidate: Optional[str], fallback_name: str) -> Optional[str]:
@@ -151,7 +292,6 @@ class PublicProjectManager:
         with self._lock:
             if slug and self._slug_exists(slug, exclude_project_id=project.id):
                 raise WorkspaceError(f"Slug '{slug}' is already in use")
-            now = datetime.now(timezone.utc).isoformat()
             masters_dir = source_dir / "masters"
             compiled_dir = source_dir / "compiled"
             plan_path = source_dir / "plan.yaml"
@@ -161,30 +301,32 @@ class PublicProjectManager:
                 plan_source_path=plan_path if plan_path.exists() else None,
                 compiled_source_dir=compiled_dir if compiled_dir.exists() else None,
             )
-            existing = self._index.get(project.id)
-            created_at = existing.created_at if existing else now
-            entry = PublicProjectIndexEntry(
-                id=project.id,
+            # Use shared method to create index entry
+            entry = self._create_index_entry(
+                project=project,
                 owner_id=owner.id,
                 owner_username=owner.username,
-                metadata=project.metadata.model_dump(),
                 url_slug=slug,
-                clone_count=project.metadata.clone_count,
-                created_at=created_at,
-                updated_at=now,
             )
             self._index[project.id] = entry
             self._save_index()
         return self._build_response(entry)
 
     def revoke_publication(self, project_id: str) -> None:
+        """
+        Revoke publication of a project (explicit unpublish action).
+
+        This is the ONLY method that deletes public project directories.
+        """
         with self._lock:
             entry = self._index.pop(project_id, None)
             if entry is None:
                 return
             self._save_index()
         project_dir = self._public_root / project_id
-        shutil.rmtree(project_dir, ignore_errors=True)
+        if project_dir.exists():
+            logger.info(f"Removing public project directory for unpublished project: {project_id}")
+            shutil.rmtree(project_dir, ignore_errors=True)
 
     def list_public_projects(self) -> PublicProjectListResponse:
         entries = [self._build_response(entry) for entry in self._index.values()]
@@ -200,7 +342,16 @@ class PublicProjectManager:
             raise PublicProjectNotFoundError(f"Public project {project_id} not found")
         entry = self._index.get(project_id)
         if entry is None:
-            raise PublicProjectNotFoundError(f"Public project {project_id} not indexed")
+            # Index entry missing but project exists - attempt to repair index
+            logger.warning(f"Public project {project_id} exists but not indexed, rebuilding index")
+            self._rebuild_index_from_disk()
+            # Try again after rebuild
+            entry = self._index.get(project_id)
+            if entry is None:
+                raise PublicProjectNotFoundError(
+                    f"Public project {project_id} not indexed and could not be rebuilt. "
+                    f"Project may be corrupted and should be republished."
+                )
         return project, entry, self._public_root / project_id
 
     def get_public_project_by_slug(self, slug: str) -> Tuple[Project, PublicProjectIndexEntry, Path]:

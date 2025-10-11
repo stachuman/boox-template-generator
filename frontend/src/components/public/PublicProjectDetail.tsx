@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Calendar, CopyPlus, GitFork, Globe, Loader2, Download, FileText } from 'lucide-react';
+import { ArrowLeft, Calendar, CopyPlus, GitFork, Globe, Loader2, Download, FileText, Eye } from 'lucide-react';
 import { PublicAPI } from '@/services/public';
 import { usePublicProjectsStore } from '@/stores/public';
 import { useProjectStore } from '@/stores/projectStore';
@@ -171,40 +171,55 @@ const PublicProjectDetail = () => {
             <span> · based on {project.original_author}</span>
           ) : null}
         </div>
-        <div className="flex items-center gap-3">
-          {isAuthenticated ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => {
-                setCloneError(null);
-                setDialogOpen(true);
+                const viewUrl = project.metadata.public_url_slug
+                  ? `/gallery/${project.metadata.public_url_slug}/view`
+                  : `/gallery/id/${project.id}/view`;
+                navigate(viewUrl);
               }}
-              disabled={isSubmitting}
-              className="rounded-md bg-eink-black px-4 py-2 text-sm font-semibold text-eink-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
             >
-              {isSubmitting ? 'Cloning…' : 'Clone this project'}
+              <Eye className="h-4 w-4" />
+              View Project
             </button>
-          ) : (
+            {isAuthenticated ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setCloneError(null);
+                  setDialogOpen(true);
+                }}
+                disabled={isSubmitting}
+                className="rounded-md bg-eink-black px-4 py-2 text-sm font-semibold text-eink-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSubmitting ? 'Cloning…' : 'Clone this project'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  navigate('/login', { state: { from: window.location.pathname } });
+                }}
+                className="rounded-md bg-eink-black px-4 py-2 text-sm font-semibold text-eink-white transition-opacity hover:opacity-90"
+              >
+                Sign in to clone
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => {
-                navigate('/login', { state: { from: window.location.pathname } });
-              }}
-              className="rounded-md bg-eink-black px-4 py-2 text-sm font-semibold text-eink-white transition-opacity hover:opacity-90"
+              onClick={handleDownloadPDF}
+              className="inline-flex items-center gap-2 rounded-md border border-eink-dark-gray bg-white px-4 py-2 text-sm font-semibold text-eink-black transition-colors hover:bg-eink-pale-gray"
+              title="Download PDF"
             >
-              Sign in to clone
+              <Download className="h-4 w-4" />
+              Download PDF
             </button>
-          )}
-          <button
-            type="button"
-            onClick={handleDownloadPDF}
-            className="inline-flex items-center gap-2 rounded-md border border-eink-dark-gray bg-white px-4 py-2 text-sm font-semibold text-eink-black transition-colors hover:bg-eink-pale-gray"
-            title="Download PDF"
-          >
-            <Download className="h-4 w-4" />
-            Download PDF
-          </button>
-          <span className="text-xs text-eink-dark-gray">Share link: {shareLink}</span>
+          </div>
+          <div className="text-xs text-eink-dark-gray">Share link: {shareLink}</div>
         </div>
       </div>
 

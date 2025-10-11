@@ -29,6 +29,7 @@ interface TemplateEditorProps {
   hideToolbar?: boolean;
   showGrid?: boolean;
   onToggleGrid?: () => void;
+  readOnly?: boolean;
 }
 
 const TemplateEditor: React.FC<TemplateEditorProps> = ({
@@ -39,7 +40,8 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({
   hideCompilePanel = false,
   hideToolbar = false,
   showGrid: externalShowGrid,
-  onToggleGrid: externalOnToggleGrid
+  onToggleGrid: externalOnToggleGrid,
+  readOnly = false
 }) => {
   const { templateId } = useParams<{ templateId: string }>();
   const canvasScrollRef = React.useRef<HTMLDivElement>(null);
@@ -331,18 +333,20 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({
             ref={canvasScrollRef}
             className="flex-1 overflow-auto bg-eink-off-white p-4"
           >
-            <Canvas />
+            <Canvas readOnly={readOnly} />
           </div>
         </div>
 
         {/* Right Sidebar - Properties or Preview */}
-        <div className="w-64 border-l border-eink-pale-gray bg-eink-white">
-          {showPreview ? (
-            <PreviewPanel />
-          ) : (
-            <PropertiesPanel />
-          )}
-        </div>
+        {!readOnly && (
+          <div className="w-64 border-l border-eink-pale-gray bg-eink-white">
+            {showPreview ? (
+              <PreviewPanel />
+            ) : (
+              <PropertiesPanel />
+            )}
+          </div>
+        )}
       </div>
       {showCompile && !hideCompilePanel && (
         <CompilePanel

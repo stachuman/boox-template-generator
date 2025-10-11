@@ -45,6 +45,15 @@ export class PublicAPI {
     }
   }
 
+  static async getProjectDefinition(projectId: string): Promise<Project> {
+    try {
+      const response: AxiosResponse<Project> = await apiClient.get(`/public/projects/${projectId}/definition`);
+      return response.data;
+    } catch (error) {
+      throw normalizeError(error);
+    }
+  }
+
   static async cloneProject(projectId: string, payload: CloneProjectRequestPayload): Promise<Project> {
     try {
       const response: AxiosResponse<Project> = await apiClient.post(`/projects/public/${projectId}/clone`, {

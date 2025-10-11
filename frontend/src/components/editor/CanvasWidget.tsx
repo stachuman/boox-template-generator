@@ -19,6 +19,7 @@ interface CanvasWidgetProps {
   onSelect: (widget: Widget, additive?: boolean) => void;
   zoom: number;
   onContextMenu?: (e: React.MouseEvent, widget: Widget) => void;
+  readOnly?: boolean;
 }
 
 const CanvasWidget: React.FC<CanvasWidgetProps> = ({
@@ -26,7 +27,8 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
   isSelected,
   onSelect,
   zoom,
-  onContextMenu
+  onContextMenu,
+  readOnly = false
 }) => {
   const { updateWidget, selectedIds, currentTemplate } = useEditorStore() as any;
   const snapEnabled = false; // TODO: get from settings
@@ -38,6 +40,8 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
   const [{ isDragging }, drag] = useDrag({
     type: 'WIDGET',
     item: () => {
+      if (readOnly) return null;
+
       // If this widget is part of a multi-selection, include all selected widgets
       if (selectedIds && selectedIds.length > 1 && selectedIds.includes(widget.id)) {
         const allWidgets = currentTemplate?.widgets || [];
@@ -57,6 +61,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
         isNew: false
       };
     },
+    canDrag: !readOnly,
     collect: (monitor) => ({
       isDragging: monitor.isDragging()
     })
@@ -208,7 +213,7 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
       </div>
 
       {/* Selection Handles - outside rotated content */}
-      {isSelected && (
+      {isSelected && !readOnly && (
         <>
           {/* Corner handles - for tables, only show horizontal corners */}
           {widget.type !== 'table' && (

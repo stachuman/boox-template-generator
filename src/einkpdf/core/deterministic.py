@@ -86,8 +86,8 @@ class DeterministicProcessor:
         info["/Title"] = self.template.metadata.name
         info["/Subject"] = self.template.metadata.description  
         info["/Author"] = self.template.metadata.author or "E-ink PDF Templates"
-        info["/Creator"] = "E-ink PDF Templates v0.3.4"
-        info["/Producer"] = "E-ink PDF Templates v0.3.4"
+        info["/Creator"] = "E-ink PDF Templates v0.4.0"
+        info["/Producer"] = "E-ink PDF Templates v0.4.0"
         info["/CreationDate"] = timestamp_str
         info["/ModDate"] = timestamp_str
     

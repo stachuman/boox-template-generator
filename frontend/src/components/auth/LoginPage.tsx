@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Github, BookOpen, ExternalLink, Heart } from 'lucide-react';
+import { Github, BookOpen, ExternalLink, Heart, Sparkles } from 'lucide-react';
 import AuthLayout from './AuthLayout';
 import LoginForm from './LoginForm';
 import { VersionService } from '@/services/version';
@@ -9,6 +9,25 @@ const LoginPage = () => {
     <AuthLayout
       title="Sign in"
       subtitle="Access your templates and continue where you left off."
+      header={
+        <Link
+          to="/gallery"
+          className="block w-full mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg hover:border-blue-400 transition-all group"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                <Sparkles className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <div className="font-semibold text-gray-900">Explore Public Gallery</div>
+                <div className="text-sm text-gray-600">Browse tutorials and example templates</div>
+              </div>
+            </div>
+            <ExternalLink className="h-5 w-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
+          </div>
+        </Link>
+      }
       footer={
         <div className="space-y-4">
           <div className="space-y-2">
@@ -23,13 +42,6 @@ const LoginPage = () => {
               Need an account?{' '}
               <Link to="/register" className="text-eink-black underline">
                 Create one now
-              </Link>
-              .
-            </div>
-            <div>
-              Just browsing?{' '}
-              <Link to="/gallery" className="text-eink-black underline">
-                Explore public gallery
               </Link>
               .
             </div>
