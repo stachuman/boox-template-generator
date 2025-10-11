@@ -16,7 +16,7 @@ const PasswordResetPage = () => {
       subtitle={
         isConfirmMode
           ? 'Enter a secure password to regain access to your workspace.'
-          : 'We will email you a link to create a new password. (not yet implemented)'
+          : 'We will email you a link to create a new password.'
       }
       footer={
         <div>

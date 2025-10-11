@@ -398,7 +398,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
       // Calculate dimensions
       const gridHeight = widget.position.height;
       const showHeader = showMonthName || showYear;
-    const headerHeight = showHeader ? calendarFontSize * 2 : 0;
+      const headerHeight = showHeader ? calendarFontSize * 1.5 : 0;
       const weekdayHeight = showWeekdays ? calendarFontSize * 1.5 : 0;
       const availableHeight = gridHeight - headerHeight - weekdayHeight;
 

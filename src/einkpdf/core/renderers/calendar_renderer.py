@@ -314,7 +314,7 @@ class CalendarRenderer(BaseWidgetRenderer):
         # Reserve space for headers
         font_size = text_options.font_size
         show_header = show_month_name or show_year
-        header_height = font_size * 2 if show_header else 0
+        header_height = font_size * 1.5 if show_header else 0
         weekday_height = font_size * 1.5 if show_weekdays else 0
         available_height = calendar_height - header_height - weekday_height
 
@@ -379,9 +379,9 @@ class CalendarRenderer(BaseWidgetRenderer):
             # Create header text box
             header_box = {
                 'x': cal_pos['x'],
-                'y': cal_pos['y'] + calendar_height - font_size,
+                'y': cal_pos['y'] + calendar_height - header_height,
                 'width': calendar_width,
-                'height': font_size
+                'height': header_height
             }
 
             # Create text options for header (might be different styling)
@@ -669,9 +669,9 @@ class CalendarRenderer(BaseWidgetRenderer):
         if show_header:
             header_box = {
                 'x': base_x,
-                'y': grid_top - font_size,
+                'y': grid_top - header_height,
                 'width': calendar_width,
-                'height': font_size
+                'height': header_height
             }
             header_options = TextRenderingOptions(
                 font_name=text_options.font_name,
@@ -903,9 +903,9 @@ class CalendarRenderer(BaseWidgetRenderer):
         if show_header:
             header_box = {
                 'x': base_x,
-                'y': grid_top - font_size,
+                'y': grid_top - header_height,
                 'width': calendar_width,
-                'height': font_size
+                'height': header_height
             }
             header_options = TextRenderingOptions(
                 font_name=text_options.font_name,
@@ -965,6 +965,13 @@ class CalendarRenderer(BaseWidgetRenderer):
         elif bool(props.get('highlight_today', False)):
             target_highlight = datetime.utcnow().date()
 
+        if show_grid_lines and cell_width > 0 and cell_height > 0:
+            pdf_canvas.setStrokeColor(grid_lines_color)
+            pdf_canvas.setLineWidth(0.5)
+
+            # pdf_canvas.rect(cell_x, cell_y, cell_width, cell_height, stroke=1, fill=0)
+            pdf_canvas.line(base_x, grid_top, base_x + cell_width + 2*weekday_gutter_width, grid_top)   
+
         for idx, day_date in enumerate(week_days):
             row_top = grid_top - idx * cell_height
             cell_y = row_top - cell_height
@@ -990,7 +997,15 @@ class CalendarRenderer(BaseWidgetRenderer):
             if show_grid_lines and cell_width > 0 and cell_height > 0:
                 pdf_canvas.setStrokeColor(grid_lines_color)
                 pdf_canvas.setLineWidth(0.5)
-                pdf_canvas.rect(cell_x, cell_y, cell_width, cell_height, stroke=1, fill=0)
+
+                # pdf_canvas.rect(cell_x, cell_y, cell_width, cell_height, stroke=1, fill=0)
+                pdf_canvas.line(base_x, cell_y, cell_x + cell_width + weekday_gutter_width, cell_y)
+                # Draw bottom border for day content area
+                pdf_canvas.line(base_x, cell_y, cell_x + cell_width, cell_y)
+                # Draw right border for weekday gutter (if present)
+                if show_weekdays and weekday_gutter_width > 0:
+                    pdf_canvas.line(base_x + weekday_gutter_width, cell_y,
+                                  base_x + weekday_gutter_width, cell_y + cell_height)
 
             if show_time_grid and cell_height > 0:
                 pdf_canvas.setStrokeColor(grid_lines_color)

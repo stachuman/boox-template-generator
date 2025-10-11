@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 90
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    PASSWORD_RESET_TTL_MINUTES: int = 60  # Password reset token validity
 
     # User Migration
     AUTH_LEGACY_FALLBACK: bool = False  # Enable during user migration

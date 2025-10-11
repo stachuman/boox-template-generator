@@ -19,6 +19,9 @@ from ..db.auth_service import (
 )
 from ..db.jwt_service import get_jwt_service
 from ..db.models import User
+from ..auth import EmailService
+import os
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from ..models import (
     AcceptTermsRequest,
     MessageResponse,
@@ -33,6 +36,19 @@ from ..models import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Initialize email service for password resets
+_email_service = EmailService()
+
+
+def _build_reset_link(token: str) -> str:
+    """Build password reset link with token."""
+    reset_base_url = os.getenv("EINK_PASSWORD_RESET_URL", "http://localhost:5173/reset-password")
+    parsed = urlparse(reset_base_url)
+    query_params = dict(parse_qsl(parsed.query))
+    query_params["token"] = token
+    new_query = urlencode(query_params)
+    return urlunparse(parsed._replace(query=new_query))
 
 
 def _to_user_response(user: User) -> UserResponse:
@@ -119,12 +135,20 @@ async def request_password_reset(
     try:
         token_value, expires_at, recipient_email = reset_service.initiate_reset(payload.email)
 
-        # TODO: Integrate with email service to send the reset link
-        if token_value and recipient_email:
+        if token_value and recipient_email and expires_at:
             logger.info(f"Password reset initiated for {recipient_email}")
-            # In production, send email with token here
-            # For now, just log it (development mode)
-            logger.info(f"Reset token (DEV ONLY): {token_value}")
+
+            # Build reset link with token
+            reset_link = _build_reset_link(token_value)
+
+            # Send password reset email
+            try:
+                _email_service.send_password_reset_email(recipient_email, reset_link, expires_at)
+                logger.info(f"Password reset email sent to {recipient_email}")
+            except Exception as email_exc:
+                logger.error(f"Failed to send password reset email to {recipient_email}: {email_exc}")
+                # Log token for manual recovery if email fails
+                logger.warning(f"Reset token for {recipient_email} (email delivery failed): {token_value}")
 
     except Exception as exc:
         logger.error("Failed to initiate password reset: %s", exc)

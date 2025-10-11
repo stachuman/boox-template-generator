@@ -301,11 +301,18 @@ class DBPasswordResetService:
             select(PasswordResetToken).where(PasswordResetToken.token_hash == token_hash)
         ).scalar_one_or_none()
 
-        if reset_token is None or reset_token.expires_at <= now:
-            # Clean up if found but expired
-            if reset_token:
-                self.db.delete(reset_token)
-                self.db.commit()
+        if reset_token is None:
+            raise PasswordResetServiceError("Password reset token is invalid or has expired")
+
+        # Ensure expires_at is timezone-aware for comparison (SQLite may return naive datetime)
+        expires_at = reset_token.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+        if expires_at <= now:
+            # Clean up expired token
+            self.db.delete(reset_token)
+            self.db.commit()
             raise PasswordResetServiceError("Password reset token is invalid or has expired")
 
         user_id = reset_token.user_id

@@ -32,14 +32,16 @@ engine = create_engine(
 )
 
 
-# Enable WAL mode for better concurrency
+# Configure SQLite for network filesystem compatibility
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_conn, connection_record):
     """Configure SQLite for optimal concurrent access."""
     cursor = dbapi_conn.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")  # Write-Ahead Logging
+    # Use DELETE mode instead of WAL for network filesystems (QNAP/NFS)
+    # WAL requires shared memory that doesn't work reliably on network storage
+    cursor.execute("PRAGMA journal_mode=DELETE")
     cursor.execute("PRAGMA busy_timeout=30000")  # 30 second timeout
-    cursor.execute("PRAGMA synchronous=NORMAL")  # Balance safety/performance
+    cursor.execute("PRAGMA synchronous=FULL")  # FULL for network filesystem safety
     cursor.execute("PRAGMA foreign_keys=ON")  # Enable foreign key constraints
     cursor.close()
 
