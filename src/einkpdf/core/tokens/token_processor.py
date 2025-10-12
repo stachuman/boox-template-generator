@@ -57,9 +57,10 @@ class TokenProcessor:
     """
 
     # Pattern for matching {token} style replacements
-    TOKEN_PATTERN = re.compile(r'\{([a-zA-Z_][a-zA-Z0-9_]*)\}')
+    # Allows: letters, digits, underscore, hyphen (no Python identifier restriction)
+    TOKEN_PATTERN = re.compile(r'\{([a-zA-Z_][a-zA-Z0-9_-]*)\}')
     # Pattern supporting optional format specifiers {token:format}
-    TOKEN_FORMAT_PATTERN = re.compile(r'\{([a-zA-Z_][a-zA-Z0-9_]*)(:[^{}]+)?\}')
+    TOKEN_FORMAT_PATTERN = re.compile(r'\{([a-zA-Z_][a-zA-Z0-9_-]*)(:[^{}]+)?\}')
 
     @staticmethod
     def replace_rendering_tokens(text: str, context: RenderingTokenContext) -> str:
