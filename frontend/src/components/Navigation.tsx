@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LogOut, Folder, Globe, BookOpen, ExternalLink, Heart, Shield, XCircle } from 'lucide-react';
+import { LogOut, Folder, Globe, BookOpen, ExternalLink, Heart, Shield, XCircle, Bug } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '@/auth/useAuth';
 import { VersionService } from '@/services/version';
@@ -88,15 +88,26 @@ const Navigation: React.FC = () => {
           <ExternalLink className="h-3 w-3" />
         </a>
         <a
+          href="https://github.com/stachuman/boox-template-generator/issues"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center space-x-1 rounded-md border border-eink-pale-gray px-3 py-2 text-sm text-eink-dark-gray transition-colors hover:border-eink-black hover:text-eink-black"
+          title="Report issues or request features"
+        >
+          <Bug className="h-4 w-4" />
+          <span>Issues</span>
+          <ExternalLink className="h-3 w-3" />
+        </a>
+        <a
           href="https://paypal.me/StachuMan"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center space-x-1 rounded-md border border-red-200 px-3 py-2 text-sm text-red-600 transition-colors hover:border-red-400 hover:text-red-700"
+          className="flex items-center space-x-1 rounded-md border border-red-200 px-2 py-1.5 text-xs text-red-600 transition-colors hover:border-red-400 hover:text-red-700"
           title="Support this project"
         >
-          <Heart className="h-4 w-4" />
+          <Heart className="h-3.5 w-3.5" />
           <span>Donate</span>
-          <ExternalLink className="h-3 w-3" />
+          <ExternalLink className="h-2.5 w-2.5" />
         </a>
         <span className="text-xs text-eink-dark-gray">{VersionService.getVersionString()}</span>
         {user ? (

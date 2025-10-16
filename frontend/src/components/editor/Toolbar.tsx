@@ -9,7 +9,7 @@ import React, { useState } from 'react';
 import {
   Save, Download, Eye, Grid, Monitor, Hammer,
   AlignLeft, AlignCenter, AlignRight,
-  AlignStartVertical, AlignCenterVertical, AlignEndVertical,
+  AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter,
   ArrowLeftRight, ArrowUpDown
 } from 'lucide-react';
@@ -194,21 +194,21 @@ const Toolbar: React.FC<ToolbarProps> = ({
                 className="p-2 rounded hover:bg-eink-pale-gray"
                 title="Align Top"
               >
-                <AlignStartVertical className="w-4 h-4" />
+                <AlignVerticalJustifyStart className="w-4 h-4" />
               </button>
               <button
                 onClick={onAlignMiddle}
                 className="p-2 rounded hover:bg-eink-pale-gray"
                 title="Align Middle (Vertical)"
               >
-                <AlignCenterVertical className="w-4 h-4" />
+                <AlignVerticalJustifyCenter className="w-4 h-4" />
               </button>
               <button
                 onClick={onAlignBottom}
                 className="p-2 rounded hover:bg-eink-pale-gray"
                 title="Align Bottom"
               >
-                <AlignEndVertical className="w-4 h-4" />
+                <AlignVerticalJustifyEnd className="w-4 h-4" />
               </button>
 
               {/* Distribute & Equalize - Show when 3+ widgets selected */}

@@ -736,22 +736,31 @@ export const useEditorStore = create<EditorStore>()(
         const ids = selectedIds.filter((id: string) => !masterIds.includes(id));
         const widgets = currentTemplate.widgets.filter((w: any) => ids.includes(w.id) && w.page === currentPage);
         if (widgets.length < 2) return;
-        const left = Math.min(...widgets.map((w: any) => w.position.x));
-        const right = Math.max(...widgets.map((w: any) => w.position.x + w.position.width));
-        const top = Math.min(...widgets.map((w: any) => w.position.y));
-        const bottom = Math.max(...widgets.map((w: any) => w.position.y + w.position.height));
-        const centerX = (left + right) / 2;
-        const centerY = (top + bottom) / 2;
+
+        // Use first selected widget as anchor (reference) - consistent with equalize
+        const anchorId = ids[0];
+        const anchor = widgets.find((w: any) => w.id === anchorId);
+        if (!anchor) return;
+
+        // Calculate anchor reference points
+        const anchorLeft = anchor.position.x;
+        const anchorRight = anchor.position.x + anchor.position.width;
+        const anchorTop = anchor.position.y;
+        const anchorBottom = anchor.position.y + anchor.position.height;
+        const anchorCenterX = anchor.position.x + anchor.position.width / 2;
+        const anchorCenterY = anchor.position.y + anchor.position.height / 2;
+
         const updated = currentTemplate.widgets.map((w: any) => {
-          if (!ids.includes(w.id) || w.page !== currentPage) return w;
+          // Skip anchor widget and non-selected widgets
+          if (!ids.includes(w.id) || w.page !== currentPage || w.id === anchorId) return w;
           const pos = { ...w.position };
           switch (mode) {
-            case 'left': pos.x = left; break;
-            case 'right': pos.x = right - pos.width; break;
-            case 'center': pos.x = centerX - pos.width / 2; break;
-            case 'top': pos.y = top; break;
-            case 'bottom': pos.y = bottom - pos.height; break;
-            case 'middle': pos.y = centerY - pos.height / 2; break;
+            case 'left': pos.x = anchorLeft; break;
+            case 'right': pos.x = anchorRight - pos.width; break;
+            case 'center': pos.x = anchorCenterX - pos.width / 2; break;
+            case 'top': pos.y = anchorTop; break;
+            case 'bottom': pos.y = anchorBottom - pos.height; break;
+            case 'middle': pos.y = anchorCenterY - pos.height / 2; break;
           }
           return { ...w, position: pos };
         });

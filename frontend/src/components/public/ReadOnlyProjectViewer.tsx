@@ -115,6 +115,35 @@ const ReadOnlyProjectViewer = () => {
 
   const selectedMaster = project.masters?.[selectedMasterIndex];
 
+  // Helper to extract all variables from plan sections recursively
+  const extractAllVariables = (sections: PlanSection[]): Record<string, any> => {
+    const allVariables: Record<string, any> = {};
+
+    const extractFromSection = (section: PlanSection) => {
+      // Add variables from current section's context
+      if (section.context && Object.keys(section.context).length > 0) {
+        Object.entries(section.context).forEach(([key, value]) => {
+          allVariables[key] = value;
+        });
+      }
+
+      // Add counter variables (counters define variables with start/step values)
+      if (section.counters && Object.keys(section.counters).length > 0) {
+        Object.entries(section.counters).forEach(([key, config]) => {
+          allVariables[key] = `counter(start: ${config.start}, step: ${config.step})`;
+        });
+      }
+
+      // Recursively extract from nested sections
+      if (section.nested && section.nested.length > 0) {
+        section.nested.forEach(extractFromSection);
+      }
+    };
+
+    sections.forEach(extractFromSection);
+    return allVariables;
+  };
+
   // Helper to render plan sections recursively
   const renderPlanSection = (section: PlanSection, depth: number = 0): JSX.Element => {
     const indentClass = depth > 0 ? 'ml-6' : '';
@@ -290,6 +319,32 @@ const ReadOnlyProjectViewer = () => {
                   This defines how masters are combined and repeated to generate the final document.
                 </p>
               </div>
+
+              {/* Variables Summary */}
+              {(() => {
+                const allVariables = extractAllVariables(project.plan.sections);
+                const variableCount = Object.keys(allVariables).length;
+
+                return variableCount > 0 ? (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 mb-6">
+                    <h3 className="font-semibold text-blue-900 mb-3">
+                      Defined Variables ({variableCount})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {Object.entries(allVariables).map(([key, value]) => (
+                        <div key={key} className="flex items-baseline gap-2 text-sm">
+                          <code className="font-mono font-medium text-blue-800 bg-blue-100 px-2 py-0.5 rounded">
+                            {'{' + key + '}'}
+                          </code>
+                          <span className="text-blue-700">=</span>
+                          <span className="text-blue-900 truncate">{String(value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
               {project.plan.sections.map((section, index) => (
                 <div key={index}>
                   {renderPlanSection(section)}

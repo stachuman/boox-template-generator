@@ -34,6 +34,9 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
   const snapEnabled = false; // TODO: get from settings
   const gridSize = 10; // TODO: get from settings
 
+  // Check if this widget is the anchor (first selected widget used for alignment/equalize)
+  const isAnchor = isSelected && selectedIds && selectedIds.length > 1 && selectedIds[0] === widget.id;
+
   const resizeEdgeRef = useRef<string | null>(null);
   const startRef = useRef<any>(null);
 
@@ -188,7 +191,8 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
       className={clsx(
         'absolute cursor-move select-none pointer-events-auto',
         isDragging && 'opacity-50',
-        isSelected && 'ring-2 ring-blue-500 ring-offset-1'
+        isSelected && !isAnchor && 'ring-2 ring-blue-500 ring-offset-1',
+        isAnchor && 'ring-2 ring-orange-500 ring-offset-1'
       )}
       style={{
         left: widget.position.x,
