@@ -504,7 +504,7 @@ const ProjectEditor: React.FC = () => {
     }
   };
 
-  const handleCreateMaster = (masterName: string) => {
+  const handleCreateMaster = async (masterName: string) => {
     if (!project) {
       setError('Project not loaded');
       return;
@@ -516,8 +516,51 @@ const ProjectEditor: React.FC = () => {
     }
 
     setShowCreateMasterModal(false);
-    // Navigate to master editor with the pre-filled name
-    navigate(`/projects/${project.id}/masters/new?name=${encodeURIComponent(masterName)}`);
+
+    try {
+      // Create empty master immediately (following CLAUDE.md - explicit action, no silent defaults)
+      const emptyTemplate = {
+        schema_version: "1.0",
+        metadata: {
+          name: masterName.trim(),
+          description: "",
+          category: project.metadata.category || "general",
+          version: "1.0",
+          author: project.metadata.author || "",
+          created: new Date().toISOString(),
+          profile: project.metadata.device_profile
+        },
+        canvas: project.default_canvas || {
+          dimensions: {
+            width: 612,
+            height: 792,
+            margins: [72, 72, 72, 72]
+          },
+          coordinate_system: "top_left",
+          background: "#ffffff"
+        },
+        widgets: [],
+        navigation: {},
+        export: {
+          default_mode: "interactive"
+        }
+      };
+
+      const request = {
+        name: masterName.trim(),
+        template_yaml: JSON.stringify(emptyTemplate, null, 2),
+        description: ''
+      };
+
+      // Create the master via API
+      const updatedProject = await APIClient.addMaster(project.id, request);
+      setProject(updatedProject);
+
+      // Navigate to the newly created master for editing
+      navigate(`/projects/${project.id}/masters/${encodeURIComponent(masterName.trim())}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to create master');
+    }
   };
 
   const formatDate = (dateString: string) => {

@@ -34,6 +34,7 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
   const [masterNameValue, setMasterNameValue] = useState('');
   const [currentTemplate, setCurrentTemplate] = useState<Template | null>(null);
   const [yamlContent, setYamlContent] = useState('');
+  const [initialYamlContent, setInitialYamlContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,15 +43,94 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
   const [showGrid, setShowGrid] = useState(false);
   const [exportingPNG, setExportingPNG] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [draftAvailable, setDraftAvailable] = useState(false);
+  const [showDraftRecovery, setShowDraftRecovery] = useState(false);
 
   // Get editor state for alignment tools
   const { selectedIds, alignSelected, distributeSelected, equalizeSizeSelected } = useEditorStore();
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = !readOnly && yamlContent !== initialYamlContent;
+
+  // Get localStorage key for drafts
+  const getDraftKey = () => {
+    if (!projectId || !masterName) return null;
+    return `einkpdf:draft:${projectId}:${masterName}`;
+  };
 
   useEffect(() => {
     if (projectId) {
       loadProject();
     }
   }, [projectId, masterName, searchParams]);
+
+  // Check for draft on mount (following CLAUDE.md - explicit recovery, not silent)
+  useEffect(() => {
+    if (readOnly || !projectId || !masterName) return;
+
+    const draftKey = getDraftKey();
+    if (!draftKey) return;
+
+    try {
+      const draft = localStorage.getItem(draftKey);
+      if (draft) {
+        const draftData = JSON.parse(draft);
+        const draftAge = Date.now() - draftData.timestamp;
+        // Only offer recovery if draft is less than 7 days old
+        if (draftAge < 7 * 24 * 60 * 60 * 1000) {
+          setDraftAvailable(true);
+          setShowDraftRecovery(true);
+        } else {
+          // Clear old draft
+          localStorage.removeItem(draftKey);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to check for draft:', err);
+    }
+  }, [projectId, masterName, readOnly]);
+
+  // Auto-save to localStorage every 30 seconds (following CLAUDE.md - explicit behavior)
+  useEffect(() => {
+    if (readOnly || !projectId || !masterName || !yamlContent) return;
+
+    const draftKey = getDraftKey();
+    if (!draftKey) return;
+
+    const autoSaveInterval = setInterval(() => {
+      if (hasUnsavedChanges) {
+        try {
+          const draftData = {
+            content: yamlContent,
+            timestamp: Date.now(),
+            masterName: masterNameValue
+          };
+          localStorage.setItem(draftKey, JSON.stringify(draftData));
+          console.log('Auto-saved draft to localStorage');
+        } catch (err) {
+          console.warn('Failed to auto-save draft:', err);
+        }
+      }
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [yamlContent, hasUnsavedChanges, projectId, masterName, masterNameValue, readOnly]);
+
+  // Warn user about unsaved changes when navigating away or closing tab
+  useEffect(() => {
+    if (readOnly) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        // Modern browsers ignore custom messages, but setting returnValue triggers the dialog
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges, readOnly]);
 
   const loadProject = async () => {
     if (!projectId) return;
@@ -100,7 +180,9 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
           const template = convertMasterToTemplate(master, projectData);
           setCurrentTemplate(template);
           // Initialize with a basic YAML structure - TemplateEditor will sync properly
-          setYamlContent(JSON.stringify(template, null, 2));
+          const initialYaml = JSON.stringify(template, null, 2);
+          setYamlContent(initialYaml);
+          setInitialYamlContent(initialYaml);
           setIsNewMaster(false);
         } else {
           setError(`Master "${decodedMasterName}" not found`);
@@ -114,7 +196,9 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
         const defaultTemplate = generateDefaultTemplate(projectData);
         setCurrentTemplate(defaultTemplate);
         // Initialize with the default template structure
-        setYamlContent(JSON.stringify(defaultTemplate, null, 2));
+        const initialYaml = JSON.stringify(defaultTemplate, null, 2);
+        setYamlContent(initialYaml);
+        setInitialYamlContent(initialYaml);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load project');
@@ -187,6 +271,43 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
     setYamlContent(yamlContent);
   };
 
+  const restoreDraft = () => {
+    const draftKey = getDraftKey();
+    if (!draftKey) return;
+
+    try {
+      const draft = localStorage.getItem(draftKey);
+      if (draft) {
+        const draftData = JSON.parse(draft);
+        setYamlContent(draftData.content);
+        setShowDraftRecovery(false);
+        setDraftAvailable(false);
+      }
+    } catch (err) {
+      setError('Failed to restore draft: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
+  };
+
+  const discardDraft = () => {
+    const draftKey = getDraftKey();
+    if (draftKey) {
+      localStorage.removeItem(draftKey);
+    }
+    setShowDraftRecovery(false);
+    setDraftAvailable(false);
+  };
+
+  const clearDraft = () => {
+    const draftKey = getDraftKey();
+    if (draftKey) {
+      try {
+        localStorage.removeItem(draftKey);
+      } catch (err) {
+        console.warn('Failed to clear draft:', err);
+      }
+    }
+  };
+
   const saveProject = async () => {
     if (!masterNameValue.trim()) {
       setError('Master name is required');
@@ -243,8 +364,40 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
 
+      // Reset unsaved changes tracker after successful save
+      setInitialYamlContent(yamlContent);
+
+      // Clear draft after successful save (following CLAUDE.md - explicit cleanup)
+      clearDraft();
+
     } catch (err: any) {
-      setError(err.message || 'Failed to save master');
+      // Special handling for auth errors (following CLAUDE.md - explicit user guidance)
+      const errorMessage = err.message || 'Failed to save master';
+
+      if (errorMessage.includes('Authentication required') || errorMessage.includes('UNAUTHORIZED')) {
+        setError(
+          'Your session has expired. Your work has been auto-saved locally. ' +
+          'Please sign in again, then return to this page to continue editing. ' +
+          'Your changes will be preserved.'
+        );
+
+        // Ensure current content is saved to draft
+        const draftKey = getDraftKey();
+        if (draftKey) {
+          try {
+            const draftData = {
+              content: yamlContent,
+              timestamp: Date.now(),
+              masterName: masterNameValue
+            };
+            localStorage.setItem(draftKey, JSON.stringify(draftData));
+          } catch (draftErr) {
+            console.error('Failed to save draft after auth error:', draftErr);
+          }
+        }
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setSaving(false);
     }
@@ -370,7 +523,15 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
           {!readOnly && (
             <>
               <button
-                onClick={() => navigate(`/projects/${project.id}?tab=masters`)}
+                onClick={() => {
+                  if (hasUnsavedChanges) {
+                    const confirmed = window.confirm(
+                      'You have unsaved changes. Are you sure you want to leave? All unsaved changes will be lost.'
+                    );
+                    if (!confirmed) return;
+                  }
+                  navigate(`/projects/${project.id}?tab=masters`);
+                }}
                 className="text-eink-dark-gray hover:text-eink-black transition-colors"
                 title="Back to Projects"
               >
@@ -558,6 +719,8 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   saveSuccess
                     ? 'bg-green-600 text-white'
+                    : hasUnsavedChanges
+                    ? 'bg-orange-600 text-white hover:bg-orange-700'
                     : 'bg-eink-black text-white hover:bg-gray-800'
                 }`}
               >
@@ -571,7 +734,7 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
                 ) : (
                   <>
                     <Save className="w-5 h-5" />
-                    {saving ? 'Saving...' : (isNewMaster ? 'Create Master' : 'Save Changes')}
+                    {saving ? 'Saving...' : hasUnsavedChanges ? 'Save Changes *' : (isNewMaster ? 'Create Master' : 'Save')}
                   </>
                 )}
               </button>
@@ -579,17 +742,60 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
           )}
 
           {/* Master Name Display */}
-          <div className="px-3 py-2 border border-eink-light-gray rounded-lg text-sm font-medium text-eink-black bg-eink-pale-gray">
-            {masterNameValue || 'Unnamed Master'}
+          <div className={`px-3 py-2 border rounded-lg text-sm font-medium ${
+            hasUnsavedChanges
+              ? 'border-orange-400 text-orange-900 bg-orange-50'
+              : 'border-eink-light-gray text-eink-black bg-eink-pale-gray'
+          }`}>
+            {masterNameValue || 'Unnamed Master'}{hasUnsavedChanges ? ' *' : ''}
           </div>
+
+          {/* Auto-save indicator */}
+          {!readOnly && (
+            <div className="text-xs text-eink-light-gray flex items-center gap-1">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Auto-save enabled
+            </div>
+          )}
 
         </div>
       </div>
 
+      {/* Draft Recovery Banner */}
+      {showDraftRecovery && draftAvailable && (
+        <div className="m-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h3 className="text-blue-900 font-semibold mb-2">Unsaved Draft Available</h3>
+              <p className="text-blue-800 text-sm mb-3">
+                We found an auto-saved draft of your work. This may contain changes that weren't saved
+                (for example, if your session expired). Would you like to restore it?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={restoreDraft}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                  Restore Draft
+                </button>
+                <button
+                  onClick={discardDraft}
+                  className="px-4 py-2 border border-blue-300 text-blue-800 rounded-lg hover:bg-blue-100 transition-colors text-sm"
+                >
+                  Discard Draft
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Error Message */}
       {error && (
         <div className="m-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-800">{error}</p>
+          <p className="text-red-800 whitespace-pre-line">{error}</p>
         </div>
       )}
 
