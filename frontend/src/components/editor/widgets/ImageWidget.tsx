@@ -21,6 +21,9 @@ const ImageWidget: React.FC<ImageWidgetProps> = ({ widget }) => {
   const fit = widget.properties?.image_fit || 'fit';
   const objectFit = fit === 'fit' ? 'contain' : fit === 'stretch' ? 'fill' : 'none';
 
+  // Get opacity (default 1.0 if not specified)
+  const opacity = widget.properties?.opacity !== undefined ? widget.properties.opacity : 1.0;
+
   return (
     <div className="w-full h-full bg-white overflow-hidden">
       {src ? (
@@ -35,13 +38,15 @@ const ImageWidget: React.FC<ImageWidgetProps> = ({ widget }) => {
                   maxWidth: 'none',
                   maxHeight: 'none',
                   objectFit: 'none',
-                  imageRendering: 'auto'
+                  imageRendering: 'auto',
+                  opacity
                 }
               : {
                   width: '100%',
                   height: '100%',
                   objectFit,
-                  imageRendering: 'auto'
+                  imageRendering: 'auto',
+                  opacity
                 }
           }
         />

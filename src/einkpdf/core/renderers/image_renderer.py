@@ -78,6 +78,16 @@ class ImageRenderer(BaseWidgetRenderer):
                 logger.warning(f"Skipping image widget {widget.id}: grayscale conversion failed")
                 return
 
+        # Apply opacity if specified (useful for e-ink to reduce darkness)
+        opacity = props.get('opacity')
+        if opacity is not None and opacity < 1.0:
+            img_reader = self._apply_opacity(img_reader, opacity, widget.id)
+            if not img_reader:
+                if self.strict_mode:
+                    raise RenderingError(f"Image widget '{widget.id}': failed to apply opacity")
+                logger.warning(f"Skipping image widget {widget.id}: opacity application failed")
+                return
+
         # Get image intrinsic size
         try:
             image_width, image_height = img_reader.getSize()
@@ -160,6 +170,85 @@ class ImageRenderer(BaseWidgetRenderer):
         except Exception as e:
             logger.debug(f"Failed to convert image to grayscale for widget {widget_id}: {e}")
             return None
+
+    def _apply_opacity(self, img_reader: ImageReader, opacity: float, widget_id: str) -> Optional[ImageReader]:
+        """
+        Apply opacity/transparency to image to reduce darkness for e-ink displays.
+
+        Args:
+            img_reader: Original ImageReader
+            opacity: Opacity value (0.0=fully transparent, 1.0=fully opaque)
+            widget_id: Widget ID for error reporting
+
+        Returns:
+            New ImageReader with opacity applied or None on failure
+        """
+        # Validate opacity value
+        if not isinstance(opacity, (int, float)):
+            logger.warning(f"Invalid opacity type for widget {widget_id}: {type(opacity)}")
+            return img_reader
+
+        if opacity < 0.0 or opacity > 1.0:
+            logger.warning(f"Opacity value {opacity} out of range [0.0, 1.0] for widget {widget_id}")
+            # Clamp to valid range
+            opacity = max(0.0, min(1.0, opacity))
+
+        # Opacity 1.0 means no change
+        if opacity >= 1.0:
+            return img_reader
+
+        try:
+            from PIL import Image
+
+            # Get PIL Image from ImageReader
+            pil_img = img_reader._image if hasattr(img_reader, '_image') else None
+
+            if pil_img is None:
+                # Try to extract from ImageReader's internal file pointer
+                if hasattr(img_reader, 'fp'):
+                    img_reader.fp.seek(0)
+                    pil_img = Image.open(img_reader.fp)
+                else:
+                    logger.debug(f"Cannot extract PIL image from ImageReader for widget {widget_id}")
+                    return img_reader  # Return original if can't extract
+
+            # Ensure image has alpha channel
+            if pil_img.mode not in ('RGBA', 'LA'):
+                # Convert to RGBA to add alpha channel
+                if pil_img.mode == 'L':
+                    pil_img = pil_img.convert('LA')
+                else:
+                    pil_img = pil_img.convert('RGBA')
+
+            # Apply opacity by adjusting alpha channel
+            # Split into bands, multiply alpha by opacity factor
+            if pil_img.mode == 'RGBA':
+                r, g, b, a = pil_img.split()
+                # Apply opacity to alpha channel
+                a = a.point(lambda x: int(x * opacity))
+                result_img = Image.merge('RGBA', (r, g, b, a))
+            elif pil_img.mode == 'LA':
+                l, a = pil_img.split()
+                a = a.point(lambda x: int(x * opacity))
+                result_img = Image.merge('LA', (l, a))
+            else:
+                # Fallback - should not reach here
+                logger.warning(f"Unexpected image mode {pil_img.mode} for opacity in widget {widget_id}")
+                return img_reader
+
+            # Create new ImageReader from modified image
+            img_buffer = BytesIO()
+            result_img.save(img_buffer, format='PNG')
+            img_buffer.seek(0)
+
+            return ImageReader(img_buffer)
+
+        except ImportError:
+            logger.warning(f"PIL/Pillow not available for opacity adjustment in widget {widget_id}")
+            return img_reader  # Return original if PIL not available
+        except Exception as e:
+            logger.debug(f"Failed to apply opacity for widget {widget_id}: {e}")
+            return img_reader  # Return original on error
 
     def _resolve_image_reader(self, src: str) -> Optional[ImageReader]:
         """
@@ -365,3 +454,15 @@ class ImageRenderer(BaseWidgetRenderer):
                 f"Image widget '{widget.id}': invalid image_fit '{image_fit}'. "
                 f"Valid modes: {valid_fit_modes}"
             )
+
+        # Validate opacity if specified
+        opacity = props.get('opacity')
+        if opacity is not None:
+            if not isinstance(opacity, (int, float)):
+                raise RenderingError(
+                    f"Image widget '{widget.id}': opacity must be a number, got {type(opacity).__name__}"
+                )
+            if opacity < 0.0 or opacity > 1.0:
+                raise RenderingError(
+                    f"Image widget '{widget.id}': opacity must be between 0.0 and 1.0, got {opacity}"
+                )

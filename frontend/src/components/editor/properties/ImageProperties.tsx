@@ -101,6 +101,16 @@ const ImageProperties: React.FC<ImagePropertiesProps> = ({ widget, onUpdate }) =
             onChange={(checked) => updateProperty('convert_to_grayscale', checked)}
             helpText="Render image as grayscale in PDF output (useful for e-ink)"
           />
+
+          <NumberInput
+            label="Opacity"
+            value={properties.opacity !== undefined ? properties.opacity : 1.0}
+            onChange={(value) => updateProperty('opacity', value)}
+            min={0.0}
+            max={1.0}
+            step={0.05}
+            helpText="Image opacity (1.0=fully opaque, 0.5=50% transparent) - reduces darkness for e-ink"
+          />
         </div>
       </div>
 

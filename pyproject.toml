@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "einkpdf"
-version = "0.4.2"
+version = "0.4.3"
 description = "Interactive PDF template system optimized for Boox Onyx e-readers"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
