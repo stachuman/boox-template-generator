@@ -1,0 +1,25 @@
+profile:
+  name: "supernote-nomad"
+  display:
+    screen_size: [1404, 1872]  # 7.8" E Ink Carta (A6 X2 generation)
+    ppi: 300
+    physical_size: "7.8 inch"
+    color: false
+    technology: "E Ink Carta with glass screen"
+  pdf_settings:
+    page_size: "Custom"
+    orientation: "portrait"
+    safe_margins: [28, 28, 28, 28]
+  constraints:
+    min_font_pt: 8.0
+    min_stroke_pt: 0.5
+    min_touch_target_pt: 28.0
+    grayscale_levels: 16
+    max_gray_fill_area: 0.2
+  features:
+    stylus_support: true
+    frontlight: false
+    note_taking: true
+    document_annotation: true
+    compact_size: true
+    latest_generation: true

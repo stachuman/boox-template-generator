@@ -711,48 +711,140 @@ const ProjectEditor: React.FC = () => {
         </div>
       )}
 
+      {/* Progress Tracker */}
+      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-blue-900 mb-3">Project Progress</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+              {/* Step 1: Pages Designed */}
+              <div className="flex items-start gap-2">
+                {project.masters.length > 0 ? (
+                  <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 000 2h4a1 1 0 100-2H8z" clipRule="evenodd" />
+                  </svg>
+                )}
+                <div>
+                  <div className={`font-medium ${project.masters.length > 0 ? 'text-green-900' : 'text-gray-600'}`}>
+                    Pages Designed
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    {project.masters.length} page{project.masters.length !== 1 ? 's' : ''} created
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2: Structure Defined */}
+              <div className="flex items-start gap-2">
+                {project.plan?.sections && project.plan.sections.length > 0 ? (
+                  <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 000 2h4a1 1 0 100-2H8z" clipRule="evenodd" />
+                  </svg>
+                )}
+                <div>
+                  <div className={`font-medium ${project.plan?.sections && project.plan.sections.length > 0 ? 'text-green-900' : 'text-gray-600'}`}>
+                    Structure Defined
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    {project.plan?.sections ? `${project.plan.sections.length} section${project.plan.sections.length !== 1 ? 's' : ''}` : 'Not configured'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 3: PDF Generated */}
+              <div className="flex items-start gap-2">
+                {completedPDFJobId ? (
+                  <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 000 2h4a1 1 0 100-2H8z" clipRule="evenodd" />
+                  </svg>
+                )}
+                <div>
+                  <div className={`font-medium ${completedPDFJobId ? 'text-green-900' : 'text-gray-600'}`}>
+                    PDF Generated
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    {completedPDFJobId ? 'Ready for download' : 'Not yet created'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <a
+            href="https://github.com/stachuman/boox-template-generator/blob/main/TUTORIAL.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="ml-4 flex items-center gap-1 text-xs text-blue-700 hover:text-blue-900 hover:underline whitespace-nowrap"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            View Tutorial
+          </a>
+        </div>
+      </div>
+
       {/* Tab Navigation - Moved to top with improved styling */}
       <div className="mb-6 bg-white border-b-2 border-eink-pale-gray">
         <nav className="flex space-x-1">
           <button
             onClick={() => setActiveTab('masters')}
-            className={`py-3 px-6 font-medium transition-all ${
+            className={`py-3 px-6 font-medium transition-all flex items-center gap-2 ${
               activeTab === 'masters'
                 ? 'bg-eink-black text-white'
                 : 'bg-eink-pale-gray text-eink-dark-gray hover:bg-eink-light-gray hover:text-eink-black'
             }`}
+            title="Create reusable page templates for your PDF"
           >
-            Masters
+            <span className="text-xs opacity-70">STEP 1</span>
+            Design Pages
           </button>
           <button
             onClick={() => setActiveTab('plan')}
-            className={`py-3 px-6 font-medium transition-all ${
+            className={`py-3 px-6 font-medium transition-all flex items-center gap-2 ${
               activeTab === 'plan'
                 ? 'bg-eink-black text-white'
                 : 'bg-eink-pale-gray text-eink-dark-gray hover:bg-eink-light-gray hover:text-eink-black'
             }`}
+            title="Configure how pages are combined and repeated in your PDF"
           >
-            Plan Configuration
+            <span className="text-xs opacity-70">STEP 2</span>
+            Define Structure
           </button>
           <button
             onClick={() => setActiveTab('preview')}
-            className={`py-3 px-6 font-medium transition-all ${
+            className={`py-3 px-6 font-medium transition-all flex items-center gap-2 ${
               activeTab === 'preview'
                 ? 'bg-eink-black text-white'
                 : 'bg-eink-pale-gray text-eink-dark-gray hover:bg-eink-light-gray hover:text-eink-black'
             }`}
+            title="Generate your final PDF file for download"
           >
-            Preview & Compile
+            <span className="text-xs opacity-70">STEP 3</span>
+            Generate PDF
           </button>
           <button
             onClick={() => setActiveTab('sharing')}
-            className={`py-3 px-6 font-medium transition-all ${
+            className={`py-3 px-6 font-medium transition-all flex items-center gap-2 ${
               activeTab === 'sharing'
                 ? 'bg-eink-black text-white'
                 : 'bg-eink-pale-gray text-eink-dark-gray hover:bg-eink-light-gray hover:text-eink-black'
             }`}
+            title="Make your project public so others can use it"
           >
-            Sharing
+            <span className="text-xs opacity-70">OPTIONAL</span>
+            Share
           </button>
         </nav>
       </div>
@@ -772,17 +864,31 @@ const ProjectEditor: React.FC = () => {
           </div>
 
           {project.masters.length === 0 ? (
-            <div className="text-center py-12 border border-eink-light-gray rounded-lg">
-              <h3 className="text-lg font-medium text-eink-dark-gray mb-2">No masters yet</h3>
-              <p className="text-eink-dark-gray mb-4">
-                Create your first master template to start building your project
-              </p>
-              <button
-                onClick={() => setShowCreateMasterModal(true)}
-                className="px-4 py-2 bg-eink-black text-white rounded-lg hover:bg-gray-800 transition-colors"
-              >
-                Create First Master
-              </button>
+            <div className="max-w-2xl mx-auto">
+              <div className="text-center py-12 border-2 border-dashed border-eink-light-gray rounded-lg bg-white">
+                <svg className="w-16 h-16 mx-auto text-eink-light-gray mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h3 className="text-xl font-semibold text-eink-black mb-2">Create Your First Page Design</h3>
+                <p className="text-eink-dark-gray mb-6 max-w-md mx-auto">
+                  Page designs (masters) are reusable templates. Create one for each type of page in your PDF
+                  (e.g., daily page, weekly page, cover page).
+                </p>
+                <button
+                  onClick={() => setShowCreateMasterModal(true)}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-eink-black text-white rounded-lg hover:bg-gray-800 transition-colors text-lg"
+                >
+                  <Plus className="w-5 h-5" />
+                  Create First Page Design
+                </button>
+                <div className="mt-6 pt-6 border-t border-eink-pale-gray">
+                  <p className="text-sm text-eink-dark-gray mb-2">💡 <strong>What to design?</strong></p>
+                  <p className="text-sm text-eink-dark-gray max-w-md mx-auto">
+                    Add widgets like text fields, checkboxes, tables, and images to create your page layout.
+                    You can use the same design multiple times in Step 2.
+                  </p>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -830,24 +936,130 @@ const ProjectEditor: React.FC = () => {
 
       {activeTab === 'plan' && (
         <div>
-          {/* Debug info */}
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
-            <strong>Debug Info:</strong> Available masters: {project.masters.length}
-            {project.masters.length > 0 && (
-              <span> - {project.masters.map(m => m.name).join(', ')}</span>
-            )}
-          </div>
-          <PlanEditor
-            project={project}
-            onSave={handleSavePlan}
-          />
+          {project.masters.length === 0 ? (
+            <div className="max-w-2xl mx-auto">
+              <div className="text-center py-12 border-2 border-dashed border-eink-light-gray rounded-lg bg-white">
+                <svg className="w-16 h-16 mx-auto text-eink-light-gray mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+                <h3 className="text-xl font-semibold text-eink-black mb-2">First, Design Some Pages</h3>
+                <p className="text-eink-dark-gray mb-6 max-w-md mx-auto">
+                  Before you can define your PDF structure, you need to create at least one page design in Step 1.
+                </p>
+                <button
+                  onClick={() => setActiveTab('masters')}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-eink-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  Go to Step 1: Design Pages
+                </button>
+                <div className="mt-6 pt-6 border-t border-eink-pale-gray">
+                  <p className="text-sm text-eink-dark-gray mb-2">💡 <strong>What happens here?</strong></p>
+                  <p className="text-sm text-eink-dark-gray max-w-md mx-auto">
+                    In this step, you'll configure how your page designs are combined and repeated to create the final PDF.
+                    For example: "Use 'daily page' 30 times" or "Use 'cover' once, then 'weekly page' 52 times".
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Debug info */}
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                <strong>Debug Info:</strong> Available masters: {project.masters.length}
+                {project.masters.length > 0 && (
+                  <span> - {project.masters.map(m => m.name).join(', ')}</span>
+                )}
+              </div>
+              <PlanEditor
+                project={project}
+                onSave={handleSavePlan}
+              />
+            </>
+          )}
         </div>
       )}
 
       {activeTab === 'preview' && (
         <div>
-          {/* Device Profile and PDF Generation Section */}
-          <div className="mb-6 p-4 bg-gray-50 border border-eink-light-gray rounded-lg">
+          {(project.masters.length === 0 || !project.plan?.sections || project.plan.sections.length === 0) ? (
+            <div className="max-w-2xl mx-auto">
+              <div className="text-center py-12 border-2 border-dashed border-eink-light-gray rounded-lg bg-white">
+                <svg className="w-16 h-16 mx-auto text-eink-light-gray mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                <h3 className="text-xl font-semibold text-eink-black mb-2">Complete Previous Steps First</h3>
+                <p className="text-eink-dark-gray mb-6 max-w-md mx-auto">
+                  Before you can generate a PDF, you need to complete the previous steps.
+                </p>
+
+                <div className="space-y-3 mb-6 max-w-md mx-auto text-left">
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
+                    {project.masters.length > 0 ? (
+                      <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 000 2h4a1 1 0 100-2H8z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">Step 1: Design Pages</div>
+                      <div className="text-xs text-gray-600">{project.masters.length} page{project.masters.length !== 1 ? 's' : ''} created</div>
+                    </div>
+                    {project.masters.length === 0 && (
+                      <button
+                        onClick={() => setActiveTab('masters')}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        Go →
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
+                    {project.plan?.sections && project.plan.sections.length > 0 ? (
+                      <svg className="w-5 h-5 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 000 2h4a1 1 0 100-2H8z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">Step 2: Define Structure</div>
+                      <div className="text-xs text-gray-600">
+                        {project.plan?.sections ? `${project.plan.sections.length} section${project.plan.sections.length !== 1 ? 's' : ''}` : 'Not configured'}
+                      </div>
+                    </div>
+                    {(!project.plan?.sections || project.plan.sections.length === 0) && (
+                      <button
+                        onClick={() => setActiveTab('plan')}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        Go →
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-eink-pale-gray">
+                  <p className="text-sm text-eink-dark-gray mb-2">💡 <strong>What happens here?</strong></p>
+                  <p className="text-sm text-eink-dark-gray max-w-md mx-auto">
+                    Once you've designed pages and defined the structure, you can generate your final PDF file
+                    optimized for your e-ink device. The PDF will be created based on your configuration.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Device Profile and PDF Generation Section */}
+              <div className="mb-6 p-4 bg-gray-50 border border-eink-light-gray rounded-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-6">
                 <div className="flex flex-col">
@@ -996,6 +1208,8 @@ const ProjectEditor: React.FC = () => {
               <div className="text-sm text-eink-dark-gray">No preview yet. Create PDF to generate and preview it.</div>
             )}
           </div>
+            </>
+          )}
         </div>
       )}
 

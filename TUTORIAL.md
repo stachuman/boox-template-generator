@@ -1,21 +1,33 @@
 # E-ink PDF Templates - Getting Started Tutorial
 
-## Step 1: Understanding the Basics
+## Understanding the Workflow
 
 Welcome to E-ink PDF Templates! This tutorial will help you understand how to create personalized planners and documents for your e-ink device. Think of this system like a smart printing press that can create hundreds of custom pages automatically.
 
-### What Are Master Pages?
+The system follows a simple **3-step workflow**:
 
-A **master page** is like a template or blueprint for your pages. Instead of designing each page individually, you create one master page and tell the system how to make many similar pages from it.
+**Step 1: Design Pages** - Create reusable page templates (called "page designs")
+**Step 2: Define Structure** - Configure how your pages are combined and repeated
+**Step 3: Generate PDF** - Create your final PDF file for download
+
+Let's dive into each step!
+
+---
+
+## Step 1: Design Pages - Understanding Page Designs
+
+### What Are Page Designs?
+
+A **page design** is like a template or blueprint for your pages. Instead of designing each page individually, you create one page design and tell the system how to make many similar pages from it.
 
 **Think of it like this:**
-- You design a "Daily Page" master with spaces for date, tasks, and notes
+- You design a "Daily Page" template with spaces for date, tasks, and notes
 - The system can generate 365 unique daily pages (one for each day of the year)
 - Each page looks the same but shows different dates and information
 
 **Real Example:**
 ```
-Master Page: "Daily Planner"
+Page Design: "Daily Planner"
 ├── Date: {date}
 ├── Weekday: {weekday}
 ├── Tasks: [ ] [ ] [ ]
@@ -28,10 +40,10 @@ Generated Pages:
 └── ... (and so on)
 ```
 
-### How Pages Are Generated
+### How Pages Are Generated (Step 2: Define Structure)
 
-The magic happens when you create a **plan**. A plan tells the system:
-1. Which master page to use
+The magic happens when you **define your PDF structure**. This tells the system:
+1. Which page design to use
 2. How many pages to create
 3. What information to put on each page
 
@@ -75,14 +87,14 @@ Section 4: Note Pages (50 numbered pages)
 
 Let's create a simple weekend planner to understand these concepts:
 
-**Master Page: "Weekend Day"**
+**Page Design: "Weekend Day"**
 - Title: "{weekday} Plans"
 - Morning section
 - Afternoon section
 - Evening section
 - Link to "Next Day" (if it exists)
 
-**Plan:**
+**PDF Structure Configuration:**
 - Generate 2 pages (Saturday and Sunday)
 - Use weekend dates
 - Link Saturday → Sunday
@@ -93,29 +105,32 @@ Let's create a simple weekend planner to understand these concepts:
 
 ### Key Concepts to Remember
 
-1. **Master = Template** - Design once, use many times
-2. **Plan = Instructions** - Tells the system what to generate
+1. **Page Design = Template** - Design once, use many times (Step 1)
+2. **PDF Structure = Instructions** - Tells the system what to generate (Step 2)
 3. **Variables = Placeholders** - Like {date} that get filled in automatically
 4. **Links = Navigation** - Help you jump between related pages
+5. **Generate PDF = Final Output** - Create your final PDF file (Step 3)
 
-### What's Next?
+### What's Next in This Tutorial
 
-Now that you understand the basics:
-- **Step 2** will show you how to create your first master page
-- **Step 3** will teach you how to set up a simple plan
-- **Step 4** will cover adding links between pages
+This tutorial is organized to match the workflow:
+- **Creating Your First Page Design** - Design once, use many times
+- **Variable Reference Guide** - Understanding placeholders and formatting
+- **Nested Structures** - Advanced organization for complex documents
+- **Defining Your PDF Structure** - Configure how pages are combined
+- **Adding Navigation Links** - Help users jump between pages
 
 The power of this system is that you design once and generate hundreds of personalized pages automatically. No more copying and pasting dates or creating pages one by one!
 
 ---
 
-## Step 2: Creating Your First Master Page
+## Creating Your First Page Design
 
-Now let's create your first master page! We'll make a simple daily planner page that can be used to generate pages for any date.
+Now let's create your first page design! We'll make a simple daily planner page that can be used to generate pages for any date. This is what you'll do in **Step 1: Design Pages** in the UI.
 
-### Starting Your Master Page
+### Starting Your Page Design
 
-Think of creating a master page like designing a form that will be filled out automatically. You'll place text, boxes, and placeholders on the page, and the system will fill in the details.
+Think of creating a page design like designing a form that will be filled out automatically. You'll place text, boxes, and placeholders on the page, and the system will fill in the details.
 
 **What we'll create:** A daily page with date, weather space, tasks, and notes.
 
@@ -204,9 +219,9 @@ The page editor works like arranging furniture in a room:
 - Align elements in rows and columns
 - Make writing areas big enough for actual use
 
-### Testing Your Master Page
+### Testing Your Page Design
 
-Before generating multiple pages, test your master page:
+Before generating multiple pages, test your page design:
 
 1. **Preview** - See how it looks with real date information
 2. **Check spacing** - Make sure everything fits nicely
@@ -226,12 +241,12 @@ Instead of `{date_long}`, you'll see "Wednesday, January 15, 2026" (or whatever 
 - Remember you'll be writing with a stylus, not a fine pen
 
 **3. Forgetting to Test**
-- Always preview your page before creating the full plan
+- Always preview your page before defining your PDF structure
 - Check that text doesn't overlap or run off the page
 
-### Your First Master Page Checklist
+### Your First Page Design Checklist
 
-Before moving to Step 3, make sure your master page has:
+Before moving to Step 2, make sure your page design has:
 
 ☐ A clear title (with or without date variable)
 ☐ At least one variable that changes (like `{date}` or `{weekday}`)
@@ -241,15 +256,13 @@ Before moving to Step 3, make sure your master page has:
 
 ### What's Next?
 
-Once your master page looks good:
-- **Step 3** will show you how to create a plan to generate multiple pages
-- **Step 4** will teach you how to add navigation links between pages
+Once your page design looks good, proceed to **Step 2: Define Structure** where you'll configure how your pages are combined and repeated in your final PDF.
 
-Remember: Master pages are reusable templates. The time you spend getting this one right will save you hours when generating your full planner!
+Remember: Page designs are reusable templates. The time you spend getting this one right will save you hours when generating your full planner!
 
 ### Quick Example to Try
 
-**Easy First Master Page:**
+**Easy First Page Design:**
 1. Add title: "Daily Planning Page"
 2. Add date: "{date_long}"
 3. Add label: "Today's Goals"
@@ -258,7 +271,7 @@ Remember: Master pages are reusable templates. The time you spend getting this o
 6. Add large box for writing
 7. Preview and adjust spacing
 
-That's it! You've created your first master page template.
+That's it! You've created your first page design template.
 
 ---
 
@@ -381,7 +394,7 @@ When using the Calendar widget, additional variables are available:
 
 ## Advanced: Nested Structures and Custom Variables
 
-Once you're comfortable with basic plans, you can create more complex documents using **nested structures**. This is useful when you need pages organized in multiple levels, like projects containing meetings, or courses containing lessons.
+Once you're comfortable with the basics of **Step 2: Define Structure**, you can create more complex documents using **nested structures**. This is useful when you need pages organized in multiple levels, like projects containing meetings, or courses containing lessons.
 
 ### What Are Nested Structures?
 
@@ -435,30 +448,30 @@ For each project (1 to 5):
 
 Let's create a simple project meeting notebook.
 
-**Step 1: Create Master Pages**
+**Part 1: Design Your Pages (Step 1)**
 
-**Project Index Page** (parent master):
+**Project Index Page Design:**
 - Title: "Project {project_id}"
 - Section for project overview
 - Links to meetings 1-10 for this project
 
-**Meeting Note Page** (child master):
+**Meeting Note Page Design:**
 - Title: "Project {project_id} - Meeting {meeting_id}"
 - Date: {date_long}
 - Meeting notes area
 
-**Step 2: Set Up the Plan**
+**Part 2: Define Structure (Step 2)**
 
 **Parent Section - Projects:**
 - Section name: "projects"
-- Master page: "Project Index"
+- Page design: "Project Index"
 - Generate: Multiple copies
 - Count: 5 (for 5 projects)
 - Custom variable: `project_id` starting at 1
 
 **Child Section - Meetings** (nested inside projects):
 - Section name: "meetings"
-- Master page: "Meeting Note"
+- Page design: "Meeting Note"
 - Generate: Multiple copies
 - Count: 10 (for 10 meetings per project)
 - Custom variable: `meeting_id` starting at 1
@@ -683,15 +696,15 @@ Previous meeting: meeting({project_id}:{meeting_id} - 1)
 
 **Simple Book Reading Log:**
 
-**Master 1: Book Index**
+**Page Design 1: Book Index**
 - Title: "Book {book_num}: {book_title}"
 - Variable: `book_title` (you can add custom text variables too!)
 
-**Master 2: Chapter Notes**
+**Page Design 2: Chapter Notes**
 - Title: "Book {book_num} - Chapter {chapter}"
 - Notes area for chapter summary
 
-**Plan:**
+**Structure Configuration:**
 - Parent Section "books": 3 copies with `book_num`
 - Child Section "chapters": 10 copies with `chapter`
 
@@ -702,21 +715,23 @@ Previous meeting: meeting({project_id}:{meeting_id} - 1)
 
 ---
 
-## Step 3: Creating Your Plan and Generating Pages
+## Step 2: Define Structure - Configuring Your PDF
 
-Great! You have a master page. Now let's turn that single template into many pages using a **plan**. Think of a plan as giving instructions to an assistant: "Take this daily page template and make me 31 copies for January."
+Great! You have your page designs from **Step 1: Design Pages**. Now let's turn those templates into many pages by configuring your PDF structure. Think of this as giving instructions to an assistant: "Take this daily page design and make me 31 copies for January."
 
-### What Is a Plan?
+This is what you'll do in **Step 2: Define Structure** in the UI.
 
-A plan is a set of instructions that tells the system:
-1. Which master page to use
+### What Is PDF Structure?
+
+Your PDF structure configuration tells the system:
+1. Which page design to use
 2. How many pages to create
 3. What dates or information to put on each page
 
 **Think of it like ordering custom calendars:**
-- You give the printer your page design (master page)
-- You tell them "I want 365 pages, one for each day of 2026" (the plan)
-- They print all the pages with different dates automatically
+- You give the printer your page design (from Step 1)
+- You tell them "I want 365 pages, one for each day of 2026" (Step 2: structure)
+- They print all the pages with different dates automatically (Step 3: generation)
 
 ### The Three Types of Page Generation
 
@@ -732,14 +747,14 @@ A plan is a set of instructions that tells the system:
 - Good for: Daily pages, weekly pages, monthly pages
 - Example: "Make daily pages from January 1 to December 31"
 
-### Setting Up Your First Plan
+### Setting Up Your First Structure
 
-Let's create a simple plan using the daily master page you made in Step 2.
+Let's create a simple structure configuration using the daily page design you created in Step 1.
 
-**Step-by-Step Plan Creation:**
+**Step-by-Step Structure Creation:**
 
-**1. Choose Your Master Page**
-- Select the daily page master you created
+**1. Choose Your Page Design**
+- Select the daily page design you created
 - The system will use this as the template
 
 **2. Pick Generation Type**
@@ -757,14 +772,14 @@ Let's create a simple plan using the daily master page you made in Step 2.
 
 ### Understanding What Happens
 
-When you run your plan, here's what the system does:
+When you configure your structure, here's what the system does:
 
-**Day 1:** Takes your master page
+**Day 1:** Takes your page design
 - Replaces `{date_long}` with "Wednesday, January 1, 2026"
 - Replaces `{weekday}` with "Wednesday"
 - Creates "Page 1" of your final PDF
 
-**Day 2:** Takes your master page again
+**Day 2:** Takes your page design again
 - Replaces `{date_long}` with "Thursday, January 2, 2026"
 - Replaces `{weekday}` with "Thursday"
 - Creates "Page 2" of your final PDF
@@ -773,34 +788,34 @@ When you run your plan, here's what the system does:
 
 ### Building a Complete Planner
 
-Most planners have multiple sections. Here's a simple structure:
+Most planners have multiple sections. Here's a simple structure configuration:
 
 **Section 1: Cover Page**
 - Type: Single page
-- Master: Cover page design
+- Page design: Cover page design
 - Result: 1 page
 
 **Section 2: Monthly Overview**
 - Type: Each month
-- Master: Monthly calendar view
+- Page design: Monthly calendar view
 - Date range: January 1 - December 31
 - Result: 12 pages (one per month)
 
 **Section 3: Daily Pages**
 - Type: Each day
-- Master: Daily planner (the one you made!)
+- Page design: Daily planner (the one you made!)
 - Date range: January 1 - December 31
 - Result: 365 pages (one per day)
 
 **Section 4: Notes**
 - Type: Multiple copies
-- Master: Blank note page
+- Page design: Blank note page
 - Count: 50
 - Result: 50 numbered note pages
 
 **Total: 428 pages automatically generated!**
 
-### Plan Settings You Should Know
+### Structure Settings You Should Know
 
 **Pages Per Day:** Usually 1, but you can have more
 - Example: 2 pages per day for morning/evening planning
@@ -815,7 +830,7 @@ Most planners have multiple sections. Here's a simple structure:
 - `{month:02d}`: 01 (padded month number)
 - `{day:02d}`: 05 (padded day number)
 
-### Testing Your Plan
+### Testing Your Structure
 
 Before generating hundreds of pages:
 
@@ -825,16 +840,16 @@ Before generating hundreds of pages:
 - Verify page layout works well
 
 **2. Check the Preview**
-- Most systems show you what the first few pages will look like
+- The system will show you what the first few pages will look like
 - Make sure variables are filled in correctly
 - Confirm spacing and formatting
 
-**3. Generate and Review**
+**3. Generate and Review** (Step 3)
 - Create your test PDF
 - Open it on your device or computer
 - Check a few different pages to ensure consistency
 
-### Common Plan Mistakes to Avoid
+### Common Structure Mistakes to Avoid
 
 **1. Wrong Date Range**
 - Double-check start and end dates
@@ -852,46 +867,48 @@ Before generating hundreds of pages:
 - Put cover pages first
 - Put reference pages (like notes) at the end
 
-### Your First Plan Checklist
+### Your Structure Configuration Checklist
 
-Before generating your planner:
+Before generating your planner (Step 3):
 
-☐ Master page is tested and looks good
+☐ Page designs are tested and look good (Step 1 complete)
 ☐ Date range is correct (start and end dates)
 ☐ Generation type matches what you want (daily, weekly, etc.)
 ☐ Section name is clear and descriptive
 ☐ You've tested with a small date range first
 ☐ Preview shows correct information in variables
 
-### Quick Plan to Try
+### Quick Structure to Try
 
 **Simple January Daily Planner:**
-1. Use your daily master page from Step 2
+1. Use your daily page design from earlier
 2. Set type to "Each Day"
 3. Start date: January 1, 2026
 4. End date: January 7, 2026 (just one week for testing)
 5. Section name: "January Week 1"
-6. Generate and check the result
+6. Generate and check the result (Step 3)
 
 **What you should get:**
 - 7 pages, one for each day of the first week
 - Each page shows the correct date and weekday
-- All pages use your master page layout
+- All pages use your page design layout
 
 ### What's Next?
 
-Once your plan generates pages correctly:
-- **Step 4** will show you how to add navigation links between pages
+Once your structure generates pages correctly:
+- **Adding Navigation Links** section will show you how to add navigation between pages
 - You'll learn to create "Previous Day" and "Next Day" buttons
 - Plus how to link from monthly overviews to specific daily pages
 
-Remember: Plans are reusable! Once you create a good plan, you can use it every year by just changing the dates.
+Remember: Structure configurations are reusable! Once you create a good structure, you can use it every year by just changing the dates.
 
 ---
 
-## Step 4: Adding Navigation Links
+## Adding Navigation Links
 
 Now for the magic touch - navigation links! These let you jump between pages in your PDF just like clicking links on a website. No more scrolling through hundreds of pages to find what you need.
+
+You add navigation links when designing your pages in **Step 1: Design Pages**.
 
 ### Why Links Matter for E-ink Devices
 
@@ -922,12 +939,12 @@ On your e-ink tablet, flipping through 365 daily pages to find "March 15th" woul
 
 ### Adding Your First Link
 
-Let's add a simple link to your daily master page that goes to the next day.
+Let's add a simple link to your daily page design that goes to the next day.
 
 **Step-by-Step Link Creation:**
 
 **1. Add a Link Widget**
-- In your daily master page, add an "Internal Link" widget
+- In your daily page design (Step 1), add an "Internal Link" widget
 - Position it where you want the clickable area (like bottom right)
 - Make it big enough to tap easily with your finger
 
@@ -941,7 +958,7 @@ Let's add a simple link to your daily master page that goes to the next day.
 
 **4. Test the Link**
 - Preview your page to see the link appear
-- When you generate multiple pages, each day will link to the next day
+- When you generate multiple pages (Step 2 & 3), each day will link to the next day
 
 ### Understanding Link Templates
 
@@ -979,7 +996,7 @@ For links to work, you need **anchor points** - these are invisible markers that
 **Adding Anchors:**
 
 **1. Add Anchor Widget**
-- In your master page, add an "Anchor" widget
+- In your page design (Step 1), add an "Anchor" widget
 - Position doesn't matter - anchors are invisible
 - Usually put them at the top of the page
 
@@ -996,9 +1013,9 @@ For links to work, you need **anchor points** - these are invisible markers that
 
 ### Building a Navigation System
 
-Let's create a complete navigation system for your planner:
+Let's create a complete navigation system for your planner. Remember, you add these widgets when designing your pages in **Step 1**:
 
-**Daily Page Navigation:**
+**Daily Page Design Navigation:**
 ```
 Top of page: "← Jan 2026" (links to monthly overview)
 Bottom left: "← Yesterday"
@@ -1007,7 +1024,7 @@ Bottom center: "Notes" (links to notes section)
 Anchor: day:{date}
 ```
 
-**Monthly Page Navigation:**
+**Monthly Page Design Navigation:**
 ```
 Top: "← 2026" (links to yearly overview)
 Calendar grid: Each day number links to that daily page
@@ -1084,7 +1101,7 @@ For each page type, ensure you have:
 
 ### Quick Navigation to Try
 
-**Add to your daily master page:**
+**Add to your daily page design (Step 1):**
 1. **Next Day Link:**
    - Text: "Tomorrow →"
    - Template: `day({date} + 1 day)`
@@ -1100,7 +1117,8 @@ For each page type, ensure you have:
    - Position: Top of page (invisible)
 
 4. **Test:**
-   - Generate 3-5 daily pages
+   - Configure structure for 3-5 daily pages (Step 2)
+   - Generate the PDF (Step 3)
    - Check that links work between consecutive days
 
 ### Advanced Navigation Ideas
@@ -1124,10 +1142,10 @@ Once you're comfortable with basic links:
 
 ### Congratulations!
 
-You now know how to:
-✅ Create master page templates with variables
-✅ Build plans that generate hundreds of pages automatically
-✅ Add navigation links for easy jumping between pages
+You now know how to use the complete 3-step workflow:
+✅ **Step 1: Design Pages** - Create page templates with variables and navigation
+✅ **Step 2: Define Structure** - Configure how pages are combined and repeated
+✅ **Step 3: Generate PDF** - Create your final PDF file for download
 ✅ Create complete, usable digital planners for your e-ink device
 
 ### What You Can Build Now
@@ -1139,15 +1157,15 @@ With these skills, you can create:
 - **Habit trackers** with weekly and monthly views
 - **Meeting notebooks** with date-based organization
 
-The system handles all the repetitive work - you just design the templates and set up the navigation once!
+The system handles all the repetitive work - you just design the templates and configure the structure once!
 
 ### Next Steps Beyond This Tutorial
 
-- **Experiment** with different master page layouts
-- **Try weekly and monthly generation** modes
+- **Experiment** with different page layouts (Step 1)
+- **Try weekly and monthly generation** modes (Step 2)
 - **Create specialized sections** for different purposes
 - **Build template libraries** you can reuse each year
-- **Share your designs** with other e-ink users
+- **Share your projects** with other e-ink users (Optional: Share tab)
 
 Remember: The best planners are the ones you actually use. Start simple, test on your device, and gradually add features that make your digital planning more effective.
 
