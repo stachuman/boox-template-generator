@@ -748,6 +748,49 @@ const ProjectEditor: React.FC = () => {
         </div>
       </div>
 
+      {/* Device Profile Selection - Project-wide Setting */}
+      <div className="mb-6 p-4 bg-white border-2 border-eink-light-gray rounded-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div className="flex flex-col">
+              <label className="text-sm font-semibold text-eink-dark-gray mb-1">Device Profile</label>
+              <div className="text-xs text-eink-gray mb-2">Target device for this project</div>
+              <div className="w-80">
+                <ProfileSelect
+                  value={project.metadata.device_profile}
+                  profiles={profiles}
+                  loading={profilesLoading || savingProfile}
+                  onChange={handleChangeProfile}
+                />
+              </div>
+            </div>
+            {(() => {
+              const currentProfile = profiles.find(p => p.name === project.metadata.device_profile);
+              if (!currentProfile) return null;
+
+              const screenSize = currentProfile.display?.screen_size || [0, 0];
+              const ppi = currentProfile.display?.ppi || 0;
+              const physicalSize = currentProfile.display?.physical_size || 'Unknown';
+              const isColor = currentProfile.display?.color || false;
+
+              return (
+                <div className="flex flex-col gap-1 text-sm text-eink-dark-gray">
+                  <div><span className="font-medium">Canvas:</span> {screenSize[0]} × {screenSize[1]}px</div>
+                  <div><span className="font-medium">Display:</span> {physicalSize} @ {ppi} PPI</div>
+                  <div><span className="font-medium">Type:</span> {isColor ? 'Color E-ink' : 'Grayscale E-ink'}</div>
+                </div>
+              );
+            })()}
+          </div>
+          {savingProfile && (
+            <div className="flex items-center gap-2 text-sm text-eink-dark-gray">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Saving...
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Error Message */}
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -1102,27 +1145,16 @@ const ProjectEditor: React.FC = () => {
             </div>
           ) : (
             <>
-              {/* Device Profile and PDF Generation Section */}
+              {/* PDF Generation Actions */}
               <div className="mb-6 p-4 bg-gray-50 border border-eink-light-gray rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-6">
-                <div className="flex flex-col">
-                  <span className="font-medium text-eink-black mb-2">Device Profile</span>
-                  <div className="w-64">
-                    <ProfileSelect
-                      value={project.metadata.device_profile}
-                      profiles={profiles}
-                      loading={profilesLoading || savingProfile}
-                      onChange={handleChangeProfile}
-                    />
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-eink-dark-gray">
+                    <div className="font-semibold mb-1">Ready to generate PDF</div>
+                    <div className="text-xs">
+                      <span className="font-medium">Masters:</span> {project.masters.length} • <span className="font-medium">Sections:</span> {project.plan.sections.length}
+                    </div>
                   </div>
-                </div>
-                <div className="text-sm text-eink-dark-gray">
-                  <div><span className="font-medium">Masters:</span> {project.masters.length}</div>
-                  <div><span className="font-medium">Plan Sections:</span> {project.plan.sections.length}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3">
                 <button
                   onClick={handleCreatePDF}
                   disabled={creatingPDF || jobInProgress || project.masters.length === 0 || project.plan.sections.length === 0}

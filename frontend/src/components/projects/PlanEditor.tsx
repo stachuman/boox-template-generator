@@ -84,6 +84,7 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
   const [plan, setPlan] = useState<Plan>(project.plan);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [initialPlanJson, setInitialPlanJson] = useState(JSON.stringify(project.plan));
 
@@ -258,6 +259,7 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
     if (validationErrors.length > 0) return;
 
     setIsSaving(true);
+    setSaveSuccess(false);
     try {
       // Normalize order to match section kinds (preserve existing order where possible)
       const sectionKinds = plan.sections.map(s => s.kind).filter(k => k && k.trim().length > 0);
@@ -277,9 +279,16 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
 
       await onSave(normalizedPlan);
 
+      // Update plan state to normalized version (fixes "double click" issue)
+      setPlan(normalizedPlan);
+
       // Update initial plan JSON after successful save
       setInitialPlanJson(JSON.stringify(normalizedPlan));
       setHasUnsavedChanges(false);
+
+      // Show success feedback for 2 seconds
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
     } finally {
       setIsSaving(false);
     }
@@ -314,11 +323,26 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
           <Button
             onClick={handleSave}
             disabled={validationErrors.length > 0 || isSaving || !hasUnsavedChanges}
-            className="flex items-center gap-2"
+            className={`flex items-center gap-2 transition-colors ${
+              saveSuccess
+                ? 'bg-green-600 hover:bg-green-700'
+                : ''
+            }`}
             title={hasUnsavedChanges ? "Save changes (Ctrl+S / Cmd+S)" : "No changes to save"}
           >
-            <Save size={16} />
-            {isSaving ? 'Saving...' : 'Save Plan'}
+            {saveSuccess ? (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Saved!
+              </>
+            ) : (
+              <>
+                <Save size={16} />
+                {isSaving ? 'Saving...' : 'Save Plan'}
+              </>
+            )}
           </Button>
         </div>
       </div>
