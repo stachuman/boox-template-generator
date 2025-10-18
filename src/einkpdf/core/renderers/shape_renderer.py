@@ -1,7 +1,7 @@
 """
-Shape widget renderers (box, divider, vertical_line, lines).
+Shape widget renderers (box, divider, vertical_line, lines, dot_grid).
 
-Handles rendering of basic geometric shapes and lines.
+Handles rendering of basic geometric shapes, lines, and dot patterns.
 Follows CLAUDE.md coding standards - no dummy implementations.
 """
 
@@ -20,13 +20,13 @@ class ShapeRenderer(BaseWidgetRenderer):
     """
     Renderer for basic shape widgets.
 
-    Handles: box, divider, vertical_line, lines
+    Handles: box, divider, vertical_line, lines, dot_grid
     Following CLAUDE.md rule #1: No dummy implementations - complete functionality.
     """
 
     @property
     def supported_widget_types(self) -> list[str]:
-        return ['box', 'divider', 'vertical_line', 'lines']
+        return ['box', 'divider', 'vertical_line', 'lines', 'dot_grid']
 
     def render(self, pdf_canvas: canvas.Canvas, widget: Widget, **kwargs) -> None:
         """Render shape widget based on its type."""
@@ -40,6 +40,8 @@ class ShapeRenderer(BaseWidgetRenderer):
             self._render_vertical_line(pdf_canvas, widget)
         elif widget.type == 'lines':
             self._render_lines(pdf_canvas, widget)
+        elif widget.type == 'dot_grid':
+            self._render_dot_grid(pdf_canvas, widget)
         else:
             raise RenderingError(f"Unsupported widget type: {widget.type}")
 
@@ -356,3 +358,107 @@ class ShapeRenderer(BaseWidgetRenderer):
             if self.strict_mode:
                 raise RenderingError(f"Failed to render custom lines widget '{widget.id}': {e}") from e
             logger.warning(f"Custom lines rendering failed for widget {widget.id}: {e}")
+
+    def _render_dot_grid(self, pdf_canvas: canvas.Canvas, widget: Widget) -> None:
+        """
+        Render evenly-spaced dot grid pattern.
+
+        Following CLAUDE.md rule #1: No dummy implementations - complete functionality.
+        Following CLAUDE.md rule #3: Explicit validation with meaningful errors.
+        """
+        props = getattr(widget, 'properties', {}) or {}
+
+        # Get dot grid properties with validation
+        grid_cell_size = RenderingUtils.get_safe_float(
+            props.get('grid_cell_size', 10), 10, 5, 100
+        )
+        dot_size = RenderingUtils.get_safe_float(
+            props.get('dot_size', 1.5), 1.5, 0.5, 10
+        )
+        dot_shape = props.get('dot_shape', 'round')
+        dot_color = RenderingUtils.validate_styling_color(
+            props.get('dot_color', '#CCCCCC')
+        )
+
+        # Validate dot shape
+        if dot_shape not in ['round', 'square']:
+            if self.strict_mode:
+                raise RenderingError(
+                    f"Dot grid widget '{widget.id}' invalid dot_shape='{dot_shape}'. "
+                    f"Must be 'round' or 'square'."
+                )
+            logger.warning(f"Invalid dot_shape '{dot_shape}' for widget {widget.id}, using 'round'")
+            dot_shape = 'round'
+
+        # Ensure dot size doesn't exceed grid cell size
+        dot_size = min(dot_size, grid_cell_size / 2)
+
+        # Get margins
+        margin_left = RenderingUtils.get_safe_float(
+            props.get('margin_left', 0), 0, 0, 500
+        )
+        margin_right = RenderingUtils.get_safe_float(
+            props.get('margin_right', 0), 0, 0, 500
+        )
+        margin_top = RenderingUtils.get_safe_float(
+            props.get('margin_top', 0), 0, 0, 500
+        )
+        margin_bottom = RenderingUtils.get_safe_float(
+            props.get('margin_bottom', 0), 0, 0, 500
+        )
+
+        # Get position and convert coordinates
+        pos = widget.position
+        box = self.converter.convert_position_for_drawing(pos)
+
+        # Calculate available area for dots after margins
+        available_width = box['width'] - margin_left - margin_right
+        available_height = box['height'] - margin_top - margin_bottom
+
+        # Validate that we have space to render
+        if available_width <= 0 or available_height <= 0:
+            if self.strict_mode:
+                raise RenderingError(
+                    f"Dot grid widget '{widget.id}' has no space to render after margins. "
+                    f"Widget size: {box['width']}x{box['height']}, "
+                    f"Margins: L={margin_left} R={margin_right} T={margin_top} B={margin_bottom}"
+                )
+            logger.warning(f"No space to render dot grid widget {widget.id} after margins")
+            return
+
+        # Calculate number of dots that fit
+        dots_x = int(available_width / grid_cell_size) + 1
+        dots_y = int(available_height / grid_cell_size) + 1
+
+        try:
+            pdf_canvas.setFillColor(HexColor(dot_color))
+
+            # Calculate starting positions (bottom-left in PDF coordinates)
+            start_x = box['x'] + margin_left
+            start_y = box['y'] + margin_bottom
+
+            # Render dots
+            for row in range(dots_y):
+                for col in range(dots_x):
+                    # Calculate dot position
+                    x = start_x + (col * grid_cell_size)
+                    y = start_y + (row * grid_cell_size)
+
+                    if dot_shape == 'round':
+                        # Draw filled circle
+                        pdf_canvas.circle(x, y, dot_size / 2, stroke=0, fill=1)
+                    else:  # square
+                        # Draw filled rectangle centered on grid point
+                        pdf_canvas.rect(
+                            x - dot_size / 2,
+                            y - dot_size / 2,
+                            dot_size,
+                            dot_size,
+                            stroke=0,
+                            fill=1
+                        )
+
+        except Exception as e:
+            if self.strict_mode:
+                raise RenderingError(f"Failed to render dot grid widget '{widget.id}': {e}") from e
+            logger.warning(f"Dot grid rendering failed for widget {widget.id}: {e}")

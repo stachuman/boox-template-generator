@@ -13,6 +13,7 @@ import TableProperties from './properties/TableProperties';
 import TextProperties from './properties/TextProperties';
 import CheckboxProperties from './properties/CheckboxProperties';
 import LineProperties from './properties/LineProperties';
+import DotGridProperties from './properties/DotGridProperties';
 import AnchorProperties from './properties/AnchorProperties';
 import LinkProperties from './properties/LinkProperties';
 import TapZoneProperties from './properties/TapZoneProperties';
@@ -77,6 +78,14 @@ const PropertiesPanel: React.FC = () => {
       case 'lines':
         return (
           <LineProperties
+            widget={selectedWidget}
+            onUpdate={handleUpdate}
+          />
+        );
+
+      case 'dot_grid':
+        return (
+          <DotGridProperties
             widget={selectedWidget}
             onUpdate={handleUpdate}
           />

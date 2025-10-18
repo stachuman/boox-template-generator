@@ -95,6 +95,7 @@ class DeterministicPDFRenderer:
         self.renderer_registry.register_renderer('divider', ShapeRenderer)
         self.renderer_registry.register_renderer('vertical_line', ShapeRenderer)
         self.renderer_registry.register_renderer('lines', ShapeRenderer)
+        self.renderer_registry.register_renderer('dot_grid', ShapeRenderer)
 
         self.renderer_registry.register_renderer('checkbox', FormRenderer)
 
@@ -150,7 +151,7 @@ class DeterministicPDFRenderer:
             if deterministic:
                 pdf_canvas.setTitle(self.template.metadata.name)
                 pdf_canvas.setSubject(self.template.metadata.description)
-                pdf_canvas.setCreator("E-ink PDF Templates v0.4.5")
+                pdf_canvas.setCreator("E-ink PDF Templates v0.4.7")
                 pdf_canvas.setAuthor(self.template.metadata.author or "Unknown")
                 # Note: ReportLab Canvas doesn't support setCreationDate directly
                 # Creation date will be handled by pikepdf post-processor for deterministic builds

@@ -148,6 +148,7 @@ const ProjectEditor: React.FC = () => {
     try {
       const job = await APIClient.getPDFJob(storedJobId);
       if (job.project_id && job.project_id !== projectId) {
+        // Job belongs to different project - clear it
         persistActiveJob(null);
         return false;
       }
@@ -168,10 +169,24 @@ const ProjectEditor: React.FC = () => {
         return true;
       }
 
+      // Job exists but has failed/cancelled status - clear it
       persistActiveJob(null);
-    } catch (err) {
-      console.warn('Failed to restore active PDF job', err);
-      persistActiveJob(null);
+    } catch (err: any) {
+      // Only clear localStorage for permanent failures (404 = job doesn't exist)
+      // Keep it for transient errors (network, 500, timeout, auth) so state isn't lost
+      const is404 = err.status === 404 ||
+                    err.response?.status === 404 ||
+                    err.message?.includes('404') ||
+                    err.message?.includes('Not Found');
+
+      if (is404) {
+        console.warn('Active PDF job not found (404), clearing storage:', storedJobId);
+        persistActiveJob(null);
+      } else {
+        // Transient error - keep localStorage intact, log error for visibility
+        console.error('Failed to restore active PDF job (keeping localStorage):', err);
+        setError('Failed to check PDF job status. Your PDF may still be available - try refreshing the page.');
+      }
     }
 
     return false;
@@ -186,6 +201,7 @@ const ProjectEditor: React.FC = () => {
     try {
       const job = await APIClient.getPDFJob(storedJobId);
       if (job.project_id && job.project_id !== projectId) {
+        // Job belongs to different project - clear it
         persistCompletedJob(null);
         return false;
       }
@@ -198,6 +214,7 @@ const ProjectEditor: React.FC = () => {
       }
 
       if (job.status === 'pending' || job.status === 'processing') {
+        // Job status changed from completed to in-progress (rare edge case)
         persistCompletedJob(null);
         persistActiveJob(job.id);
         setCurrentPDFJobId(job.id);
@@ -206,10 +223,24 @@ const ProjectEditor: React.FC = () => {
         return true;
       }
 
+      // Job exists but has failed/cancelled status - clear it
       persistCompletedJob(null);
-    } catch (err) {
-      console.warn('Failed to restore completed PDF job', err);
-      persistCompletedJob(null);
+    } catch (err: any) {
+      // Only clear localStorage for permanent failures (404 = job doesn't exist)
+      // Keep it for transient errors (network, 500, timeout, auth) so state isn't lost
+      const is404 = err.status === 404 ||
+                    err.response?.status === 404 ||
+                    err.message?.includes('404') ||
+                    err.message?.includes('Not Found');
+
+      if (is404) {
+        console.warn('Completed PDF job not found (404), clearing storage:', storedJobId);
+        persistCompletedJob(null);
+      } else {
+        // Transient error - keep localStorage intact, log error for visibility
+        console.error('Failed to restore completed PDF job (keeping localStorage):', err);
+        setError('Failed to check PDF job status. Your PDF may still be available - try refreshing the page.');
+      }
     }
 
     return false;
@@ -379,8 +410,21 @@ const ProjectEditor: React.FC = () => {
       const filename = `${project.metadata.name.replace(/[^a-zA-Z0-9\-_\s]/g, '').trim()}.pdf`;
       downloadBlob(blob, filename);
     } catch (err: any) {
-      setError(err.message || 'Failed to download PDF');
-      persistCompletedJob(null);
+      // Only clear completed job if PDF is permanently gone (404)
+      // Keep it for transient download errors (network, auth, server errors)
+      const is404 = err.status === 404 ||
+                    err.response?.status === 404 ||
+                    err.message?.includes('404') ||
+                    err.message?.includes('Not Found');
+
+      if (is404) {
+        setError('PDF not found. It may have been deleted or expired.');
+        persistCompletedJob(null);
+        setCompletedPDFJobId(null);
+      } else {
+        setError(err.message || 'Failed to download PDF. Please try again.');
+        // Keep completed job state - PDF still exists, download just failed
+      }
     }
   };
 

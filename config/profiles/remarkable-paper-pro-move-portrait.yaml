@@ -1,10 +1,10 @@
 profile:
-  name: "remarkable-paper-pro"
+  name: "remarkable-paper-pro-move-portrait"
   display:
-    screen_size: [1620, 2160]  # 11.8" E Ink Gallery 3 color display
-    ppi: 229
-    aspect_ratio: "3:4"
-    physical_size: "11.8 inch"
+    screen_size: [954, 1696]
+    ppi: 264
+    aspect_ratio: "9:16"
+    physical_size: "7.3 inch"
     color: true
     technology: "E Ink Gallery 3 (Kaleido 3 color)"
   pdf_settings:

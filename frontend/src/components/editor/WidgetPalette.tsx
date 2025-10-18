@@ -7,12 +7,12 @@
 
 import React from 'react';
 import { useDrag } from 'react-dnd';
-import { Type, Square, Minus, AlignJustify, Anchor, Calendar, MoveVertical, Table } from 'lucide-react';
+import { Type, Square, Minus, AlignJustify, Anchor, Calendar, MoveVertical, Table, Grid3x3 } from 'lucide-react';
 import clsx from 'clsx';
 
 interface WidgetType {
   id: string; // Unique identifier for React keys
-  type: 'text_block' | 'checkbox' | 'divider' | 'vertical_line' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box' | 'table';
+  type: 'text_block' | 'checkbox' | 'divider' | 'vertical_line' | 'lines' | 'dot_grid' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box' | 'table';
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
@@ -284,6 +284,26 @@ const WIDGET_TYPES: WidgetType[] = [
         line_thickness: 0.75,
         margin_left: 0,
         margin_right: 0
+      }
+    }
+  },
+  {
+    id: 'dot_grid',
+    type: 'dot_grid',
+    label: 'Dot Grid',
+    icon: Grid3x3,
+    description: 'Evenly-spaced dot grid pattern for note-taking',
+    defaultProps: {
+      position: { width: 400, height: 500 },
+      properties: {
+        grid_cell_size: 10,
+        dot_size: 1.5,
+        dot_shape: 'round',
+        dot_color: '#CCCCCC',
+        margin_left: 5,
+        margin_right: 5,
+        margin_top: 5,
+        margin_bottom: 5
       }
     }
   },

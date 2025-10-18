@@ -12,6 +12,7 @@ import { Widget } from '@/types';
 import TableWidget from './TableWidget';
 import CalendarWidget from './CalendarWidget';
 import LineWidget from './LineWidget';
+import DotGridWidget from './DotGridWidget';
 import TextWidget from './TextWidget';
 import CheckboxWidget from './CheckboxWidget';
 import BoxWidget from './BoxWidget';
@@ -31,10 +32,11 @@ export const widgetRegistry: Record<string, WidgetComponent> = {
   calendar: CalendarWidget,
   link_list: LinkListWidget,
 
-  // Line widgets (all handled by LineWidget)
+  // Line and grid widgets
   divider: LineWidget,
   vertical_line: LineWidget,
   lines: LineWidget,
+  dot_grid: DotGridWidget,
 
   // Simple widgets
   text_block: TextWidget,
@@ -72,6 +74,7 @@ export {
   TableWidget,
   CalendarWidget,
   LineWidget,
+  DotGridWidget,
   TextWidget,
   CheckboxWidget,
   BoxWidget,
