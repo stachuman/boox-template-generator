@@ -8,8 +8,8 @@ RUN npm ci
 RUN npm ls typescript >/dev/null 2>&1 || npm install --save-dev typescript
 RUN npm ls vite >/dev/null 2>&1 || npm install --save-dev vite
 COPY frontend /app/frontend
-# Build using ESM script to avoid npm .bin shim issues
-RUN node build.mjs
+# Build with TypeScript checking (tsc && vite build)
+RUN npm run build
 
 FROM nginx:alpine
 COPY --from=build /app/frontend/dist/ /usr/share/nginx/html/

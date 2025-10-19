@@ -533,7 +533,8 @@ class CompilationService:
         Checks:
         1. Total page count doesn't exceed limit (configurable, default 1000)
         2. All section kinds are unique across entire plan (including nested)
-        3. Resource estimation warnings
+        3. Counter variable names follow Python identifier rules (no hyphens)
+        4. Resource estimation warnings
 
         Raises:
             CompilationServiceError: If plan would generate too many pages or has invalid structure
@@ -542,6 +543,73 @@ class CompilationService:
 
         errors = []
         warnings = []
+
+        # Check 0: Validate variable names (context and counters must be valid Python identifiers)
+        # Valid pattern: starts with letter or underscore, followed by letters, numbers, or underscores
+        # Invalid: hyphens, spaces, special characters
+        variable_name_pattern = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+
+        def validate_variable_names(sections: List[PlanSection], path: str = "") -> None:
+            for section in sections:
+                current_path = f"{path}.{section.kind}" if path else section.kind
+
+                # Validate context variable names (static variables)
+                context = getattr(section, 'context', {}) or {}
+                for var_name in context.keys():
+                    if not variable_name_pattern.match(var_name):
+                        # Detect common issues
+                        if '-' in var_name:
+                            suggested_name = var_name.replace('-', '_')
+                            errors.append(
+                                f"Section '{current_path}': context variable '{var_name}' contains hyphens. "
+                                f"Use underscores instead: '{suggested_name}'. "
+                                f"Python identifiers (used in {{variable}} tokens) cannot contain hyphens."
+                            )
+                        elif ' ' in var_name:
+                            suggested_name = var_name.replace(' ', '_')
+                            errors.append(
+                                f"Section '{current_path}': context variable '{var_name}' contains spaces. "
+                                f"Use underscores instead: '{suggested_name}'. "
+                                f"Variable names must be valid Python identifiers."
+                            )
+                        else:
+                            errors.append(
+                                f"Section '{current_path}': context variable '{var_name}' is invalid. "
+                                f"Variable names must start with a letter or underscore, "
+                                f"followed by letters, numbers, or underscores only."
+                            )
+
+                # Validate counter names (dynamic variables)
+                counters = getattr(section, 'counters', {}) or {}
+                for counter_name in counters.keys():
+                    if not variable_name_pattern.match(counter_name):
+                        # Detect common issues
+                        if '-' in counter_name:
+                            suggested_name = counter_name.replace('-', '_')
+                            errors.append(
+                                f"Section '{current_path}': counter '{counter_name}' contains hyphens. "
+                                f"Use underscores instead: '{suggested_name}'. "
+                                f"Python identifiers (used in {{variable}} tokens) cannot contain hyphens."
+                            )
+                        elif ' ' in counter_name:
+                            suggested_name = counter_name.replace(' ', '_')
+                            errors.append(
+                                f"Section '{current_path}': counter '{counter_name}' contains spaces. "
+                                f"Use underscores instead: '{suggested_name}'. "
+                                f"Variable names must be valid Python identifiers."
+                            )
+                        else:
+                            errors.append(
+                                f"Section '{current_path}': counter '{counter_name}' is invalid. "
+                                f"Variable names must start with a letter or underscore, "
+                                f"followed by letters, numbers, or underscores only."
+                            )
+
+                # Recurse into nested sections
+                if section.nested:
+                    validate_variable_names(section.nested, current_path)
+
+        validate_variable_names(plan.sections)
 
         # Check 1: Estimate total page count
         total_estimated_pages = 0

@@ -27,6 +27,7 @@ class WidgetRendererRegistry:
         """Initialize empty registry."""
         self._renderers: Dict[str, BaseWidgetRenderer] = {}
         self._renderer_classes: Dict[str, Type[BaseWidgetRenderer]] = {}
+        self.widget_errors: list[tuple[str, str, str]] = []  # (widget_id, widget_type, error_msg)
 
     def register_renderer(self, widget_type: str, renderer_class: Type[BaseWidgetRenderer]) -> None:
         """
@@ -98,17 +99,22 @@ class WidgetRendererRegistry:
             **kwargs: Additional context (page_num, total_pages, etc.)
 
         Raises:
-            RenderingError: If rendering fails
+            RenderingError: If rendering fails in strict mode
+
+        Following CLAUDE.md rule #4: Fail fast - collect errors for user feedback
         """
         try:
             renderer = self.get_renderer(widget.type, converter, strict_mode)
             renderer.validate_widget(widget)
             renderer.render(pdf_canvas, widget, **kwargs)
         except Exception as e:
+            error_msg = str(e)
             if strict_mode:
-                raise RenderingError(f"Failed to render widget {widget.id} ({widget.type}): {e}") from e
+                raise RenderingError(f"Failed to render widget {widget.id} ({widget.type}): {error_msg}") from e
             else:
-                logger.warning(f"Skipping widget {widget.id} ({widget.type}) due to error: {e}")
+                # Collect error for UI display instead of just logging
+                self.widget_errors.append((widget.id, widget.type, error_msg))
+                logger.warning(f"Skipping widget {widget.id} ({widget.type}) due to error: {error_msg}")
 
     def get_supported_widget_types(self) -> list[str]:
         """Get list of all supported widget types."""
@@ -122,6 +128,14 @@ class WidgetRendererRegistry:
         """Clear cached renderer instances."""
         self._renderers.clear()
         logger.debug("Cleared renderer cache")
+
+    def clear_widget_errors(self) -> None:
+        """Clear collected widget errors (call before each render)."""
+        self.widget_errors.clear()
+
+    def get_widget_errors(self) -> list[tuple[str, str, str]]:
+        """Get collected widget rendering errors."""
+        return self.widget_errors.copy()
 
 
 # Global registry instance

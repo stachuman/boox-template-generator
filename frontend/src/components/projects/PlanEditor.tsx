@@ -740,13 +740,54 @@ const ContextEditor: React.FC<{
 }> = ({ context, onChange }) => {
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
+  const [validationError, setValidationError] = useState('');
+
+  // Validate variable name follows Python identifier rules
+  const validateVariableName = (name: string): string | null => {
+    if (!name.trim()) {
+      return 'Variable name cannot be empty';
+    }
+
+    // Valid Python identifier: starts with letter or underscore, followed by letters, numbers, or underscores
+    const validPattern = /^[A-Za-z_][A-Za-z0-9_]*$/;
+    if (!validPattern.test(name)) {
+      if (name.includes('-')) {
+        const suggested = name.replace(/-/g, '_');
+        return `Variable name '${name}' contains hyphens. Use underscores instead: '${suggested}'`;
+      }
+      if (name.includes(' ')) {
+        const suggested = name.replace(/\s+/g, '_');
+        return `Variable name '${name}' contains spaces. Use underscores instead: '${suggested}'`;
+      }
+      return `Variable name '${name}' is invalid. Must start with a letter or underscore, followed by letters, numbers, or underscores only.`;
+    }
+
+    if (context[name]) {
+      return `Variable '${name}' already exists`;
+    }
+
+    return null;
+  };
 
   const addContextVariable = () => {
-    if (newKey.trim() && newValue.trim()) {
-      onChange({ ...context, [newKey.trim()]: newValue.trim() });
-      setNewKey('');
-      setNewValue('');
+    const trimmedKey = newKey.trim();
+    const trimmedValue = newValue.trim();
+
+    if (!trimmedValue) {
+      setValidationError('Value cannot be empty');
+      return;
     }
+
+    const error = validateVariableName(trimmedKey);
+    if (error) {
+      setValidationError(error);
+      return;
+    }
+
+    onChange({ ...context, [trimmedKey]: trimmedValue });
+    setNewKey('');
+    setNewValue('');
+    setValidationError('');
   };
 
   const removeContextVariable = (key: string) => {
@@ -777,35 +818,48 @@ const ContextEditor: React.FC<{
         </div>
       ))}
 
-      <div className="flex items-center gap-2">
-        <Input
-          placeholder="Variable name"
-          value={newKey}
-          onChange={(e) => setNewKey(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              addContextVariable();
-            }
-          }}
-          className="flex-1"
-        />
-        <span>=</span>
-        <Input
-          placeholder="Value"
-          value={newValue}
-          onChange={(e) => setNewValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              addContextVariable();
-            }
-          }}
-          className="flex-1"
-        />
-        <Button onClick={addContextVariable} size="sm">
-          <Plus size={16} />
-        </Button>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="Variable name"
+            value={newKey}
+            onChange={(e) => {
+              setNewKey(e.target.value);
+              setValidationError(''); // Clear error when typing
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addContextVariable();
+              }
+            }}
+            className={`flex-1 ${validationError ? 'border-red-300' : ''}`}
+          />
+          <span>=</span>
+          <Input
+            placeholder="Value"
+            value={newValue}
+            onChange={(e) => {
+              setNewValue(e.target.value);
+              setValidationError(''); // Clear error when typing
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addContextVariable();
+              }
+            }}
+            className="flex-1"
+          />
+          <Button onClick={addContextVariable} size="sm">
+            <Plus size={16} />
+          </Button>
+        </div>
+        {validationError && (
+          <div className="text-sm text-red-600 bg-red-50 p-2 rounded border border-red-200">
+            ⚠️ {validationError}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -819,16 +873,51 @@ const CountersEditor: React.FC<{
   const [newName, setNewName] = useState('');
   const [newStart, setNewStart] = useState('0');
   const [newStep, setNewStep] = useState('1');
+  const [validationError, setValidationError] = useState('');
+
+  // Validate counter name follows Python identifier rules
+  const validateCounterName = (name: string): string | null => {
+    if (!name.trim()) {
+      return 'Counter name cannot be empty';
+    }
+
+    // Valid Python identifier: starts with letter or underscore, followed by letters, numbers, or underscores
+    const validPattern = /^[A-Za-z_][A-Za-z0-9_]*$/;
+    if (!validPattern.test(name)) {
+      if (name.includes('-')) {
+        const suggested = name.replace(/-/g, '_');
+        return `Counter name '${name}' contains hyphens. Use underscores instead: '${suggested}'`;
+      }
+      if (name.includes(' ')) {
+        const suggested = name.replace(/\s+/g, '_');
+        return `Counter name '${name}' contains spaces. Use underscores instead: '${suggested}'`;
+      }
+      return `Counter name '${name}' is invalid. Must start with a letter or underscore, followed by letters, numbers, or underscores only.`;
+    }
+
+    if (counters[name]) {
+      return `Counter '${name}' already exists`;
+    }
+
+    return null;
+  };
 
   const addCounter = () => {
-    if (newName.trim()) {
-      const start = parseFloat(newStart) || 0;
-      const step = parseFloat(newStep) || 1;
-      onChange({ ...counters, [newName.trim()]: { start, step } });
-      setNewName('');
-      setNewStart('0');
-      setNewStep('1');
+    const trimmedName = newName.trim();
+    const error = validateCounterName(trimmedName);
+
+    if (error) {
+      setValidationError(error);
+      return;
     }
+
+    const start = parseFloat(newStart) || 0;
+    const step = parseFloat(newStep) || 1;
+    onChange({ ...counters, [trimmedName]: { start, step } });
+    setNewName('');
+    setNewStart('0');
+    setNewStep('1');
+    setValidationError('');
   };
 
   const removeCounter = (name: string) => {
@@ -876,47 +965,58 @@ const CountersEditor: React.FC<{
         </div>
       ))}
 
-      <div className="grid grid-cols-[1fr_auto_80px_auto_80px_auto] gap-2 items-center">
-        <Input
-          placeholder="Counter name (e.g., page_num)"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              addCounter();
-            }
-          }}
-        />
-        <span className="text-xs text-gray-500 whitespace-nowrap">start:</span>
-        <Input
-          type="number"
-          placeholder="0"
-          value={newStart}
-          onChange={(e) => setNewStart(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              addCounter();
-            }
-          }}
-        />
-        <span className="text-xs text-gray-500 whitespace-nowrap">step:</span>
-        <Input
-          type="number"
-          placeholder="1"
-          value={newStep}
-          onChange={(e) => setNewStep(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              addCounter();
-            }
-          }}
-        />
-        <Button onClick={addCounter} size="sm">
-          <Plus size={16} />
-        </Button>
+      <div className="space-y-2">
+        <div className="grid grid-cols-[1fr_auto_80px_auto_80px_auto] gap-2 items-center">
+          <Input
+            placeholder="Counter name (e.g., page_num)"
+            value={newName}
+            onChange={(e) => {
+              setNewName(e.target.value);
+              setValidationError(''); // Clear error when typing
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addCounter();
+              }
+            }}
+            className={validationError ? 'border-red-300' : ''}
+          />
+          <span className="text-xs text-gray-500 whitespace-nowrap">start:</span>
+          <Input
+            type="number"
+            placeholder="0"
+            value={newStart}
+            onChange={(e) => setNewStart(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addCounter();
+              }
+            }}
+          />
+          <span className="text-xs text-gray-500 whitespace-nowrap">step:</span>
+          <Input
+            type="number"
+            placeholder="1"
+            value={newStep}
+            onChange={(e) => setNewStep(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addCounter();
+              }
+            }}
+          />
+          <Button onClick={addCounter} size="sm">
+            <Plus size={16} />
+          </Button>
+        </div>
+        {validationError && (
+          <div className="text-sm text-red-600 bg-red-50 p-2 rounded border border-red-200">
+            ⚠️ {validationError}
+          </div>
+        )}
       </div>
 
       {Object.keys(counters).length === 0 && (

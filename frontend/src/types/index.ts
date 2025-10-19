@@ -12,6 +12,7 @@ export interface DeviceProfile {
     ppi: number;
     aspect_ratio: string;
     physical_size: string;
+    color?: boolean;
   };
   pdf_settings: {
     page_size: string;
@@ -71,6 +72,14 @@ export interface WidgetProperties {
   vertical_guides?: number[];  // custom vertical guides as ratios [0..1]
   line_cap?: 'butt' | 'round';
 
+  // Dot grid properties
+  grid_cell_size?: number;
+  dot_size?: number;
+  dot_shape?: 'round' | 'square';
+  dot_color?: string;
+  margin_top?: number;
+  margin_bottom?: number;
+
   // Anchor widget properties (pages-only model)
   target_page?: number;
 
@@ -126,16 +135,15 @@ export interface WidgetProperties {
   column_aligns?: string[];           // Per-column alignment overrides
   text_wrap?: boolean;                // Wrap text in cells
   max_lines?: number;                 // Max lines per cell
-  cell_links?: boolean;               // Enable cell linking
-  link_template?: string;             // Link pattern for cells
-  link_columns?: number[];            // Which columns are linkable
+  link_template?: string;             // Link pattern for cells (use {row}, {col}, {value}); empty = no links
+  link_columns?: number[];            // Which columns are linkable (0-based internally, displayed as 1-based)
 
   [key: string]: any;
 }
 
 export interface Widget {
   id: string;
-  type: 'text_block' | 'checkbox' | 'divider' | 'vertical_line' | 'lines' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box' | 'table';
+  type: 'text_block' | 'checkbox' | 'divider' | 'vertical_line' | 'lines' | 'dot_grid' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box' | 'table';
   page?: number; // Optional - auto-assigned during compilation for multi-page documents
   content?: string;
   position: Position;

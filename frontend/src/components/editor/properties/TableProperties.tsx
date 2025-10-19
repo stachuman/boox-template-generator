@@ -21,6 +21,16 @@ interface TablePropertiesProps {
 const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) => {
   const properties = widget.properties || {};
   const [isEditingContent, setIsEditingContent] = useState(false);
+  const [linkColumnsText, setLinkColumnsText] = useState('');
+
+  // Initialize linkColumnsText from properties
+  React.useEffect(() => {
+    if (properties.link_columns && properties.link_columns.length > 0) {
+      setLinkColumnsText(properties.link_columns.map((c: number) => c + 1).join(', '));
+    } else {
+      setLinkColumnsText('');
+    }
+  }, [widget.id]); // Only reset when widget changes
 
   // Helper to generate table data structure
   const generateTableData = (rows: number, columns: number, hasHeader: boolean, existingData?: any[][]) => {
@@ -284,50 +294,62 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
       <div>
         <h4 className="font-medium mb-3">Interactivity (PDF Links)</h4>
         <div className="space-y-3">
-          <CheckboxInput
-            label="Enable Cell Links"
-            checked={properties.cell_links || false}
-            onChange={(checked) => updateProperty('cell_links', checked)}
-            helpText="Make table cells clickable links in PDF"
-          />
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Link Template
+            </label>
+            <input
+              type="text"
+              value={properties.link_template || ''}
+              onChange={(e) => updateProperty('link_template', e.target.value)}
+              placeholder="e.g., car:{row}, notes:{car-index}"
+              className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
+            />
+            <p className="text-xs text-eink-light-gray mt-1">
+              Per-cell: {'{row}'} (1-based), {'{col}'} (1-based), {'{value}'}. Global: {'{date}'}, {'{car-index}'}, etc. Leave empty to disable links.
+            </p>
+          </div>
 
-          {properties.cell_links && (
-            <>
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Link Template
-                </label>
-                <input
-                  type="text"
-                  value={properties.link_template || ''}
-                  onChange={(e) => updateProperty('link_template', e.target.value)}
-                  placeholder="e.g., page:{row}, notes:{value}"
-                  className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
-                />
-                <p className="text-xs text-eink-light-gray mt-1">
-                  Use {'{row}'}, {'{col}'}, {'{value}'} tokens
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Link Columns (comma-separated)
-                </label>
-                <input
-                  type="text"
-                  value={properties.link_columns?.join(',') || ''}
-                  onChange={(e) => {
-                    const cols = e.target.value.split(',').map(c => parseInt(c.trim())).filter(c => !isNaN(c));
-                    updateProperty('link_columns', cols);
-                  }}
-                  placeholder="e.g., 1,3,5"
-                  className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
-                />
-                <p className="text-xs text-eink-light-gray mt-1">
-                  Which columns should be clickable (1-based)
-                </p>
-              </div>
-            </>
+          {properties.link_template && properties.link_template.trim() && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Link Columns (comma-separated, 1-based)
+              </label>
+              <input
+                type="text"
+                value={linkColumnsText}
+                onChange={(e) => setLinkColumnsText(e.target.value)}
+                onBlur={() => {
+                  const input = linkColumnsText.trim();
+                  if (!input) {
+                    updateProperty('link_columns', []);
+                    return;
+                  }
+                  // Parse 1-based user input, convert to 0-based for backend
+                  const cols = input
+                    .split(',')
+                    .map(c => parseInt(c.trim()) - 1)
+                    .filter(c => !isNaN(c) && c >= 0);
+                  updateProperty('link_columns', cols);
+                  // Update displayed text to normalized format
+                  if (cols.length > 0) {
+                    setLinkColumnsText(cols.map(c => c + 1).join(', '));
+                  } else {
+                    setLinkColumnsText('');
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur(); // Trigger onBlur to save
+                  }
+                }}
+                placeholder="e.g., 1, 3, 5 (or leave empty for all columns)"
+                className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
+              />
+              <p className="text-xs text-eink-light-gray mt-1">
+                Which columns should be clickable (Column 1 = first column). <strong>Leave empty for all columns</strong>.
+              </p>
+            </div>
           )}
         </div>
       </div>

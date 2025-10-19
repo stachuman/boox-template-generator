@@ -137,7 +137,10 @@ class DeterministicPDFRenderer:
             RenderingError: If rendering fails
         """
         buffer = BytesIO()
-        
+
+        # Clear widget errors from previous render
+        self.renderer_registry.clear_widget_errors()
+
         try:
             # Pass 1: Initialize ReportLab canvas with compression for e-ink optimization
             page_width, page_height = self.get_page_size()
@@ -151,7 +154,7 @@ class DeterministicPDFRenderer:
             if deterministic:
                 pdf_canvas.setTitle(self.template.metadata.name)
                 pdf_canvas.setSubject(self.template.metadata.description)
-                pdf_canvas.setCreator("E-ink PDF Templates v0.4.7")
+                pdf_canvas.setCreator("E-ink PDF Templates v0.4.9")
                 pdf_canvas.setAuthor(self.template.metadata.author or "Unknown")
                 # Note: ReportLab Canvas doesn't support setCreationDate directly
                 # Creation date will be handled by pikepdf post-processor for deterministic builds
@@ -176,9 +179,21 @@ class DeterministicPDFRenderer:
             
             # Finalize base PDF
             pdf_canvas.save()
-            
-            # Store violations for later reporting
+
+            # Store violations for later reporting (from constraint enforcer)
             self.violations = self.enforcer.violations.copy()
+
+            # Add widget rendering errors to violations (following CLAUDE.md rule #4: explicit errors)
+            widget_errors = self.renderer_registry.get_widget_errors()
+            for widget_id, widget_type, error_msg in widget_errors:
+                from .profiles import ConstraintViolation
+                violation = ConstraintViolation(
+                    constraint_type=f"widget_{widget_type}",
+                    original_value=widget_id,
+                    fixed_value="skipped",
+                    description=f"Widget '{widget_id}' ({widget_type}) failed to render: {error_msg}"
+                )
+                self.violations.append(violation)
             
             # Pass 3: Post-process named destinations (from anchor widgets)
             base_pdf = buffer.getvalue()
@@ -378,7 +393,7 @@ class DeterministicPDFRenderer:
             self.renderer_registry.render_widget(
                 pdf_canvas, widget, self.converter, self.strict_mode,
                 page_num=page_num, total_pages=self._total_pages,
-                enforcer=self.enforcer, profile=self.profile_name
+                enforcer=self.enforcer, profile=self.enforcer.profile
             )
         elif widget.type == "anchor":
             # Define a named destination immediately so ReportLab resolves links.

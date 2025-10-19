@@ -256,10 +256,15 @@ class TableRenderer(BaseWidgetRenderer):
 
         # Add cell links if specified
         link_template = props.get('link_template')
-        link_columns = props.get('link_columns', [])
-        if link_template and link_columns:
+        if link_template and link_template.strip():
+            # Get link columns - if empty, link ALL columns (following CLAUDE.md rule #3: explicit intent)
+            link_columns = props.get('link_columns', [])
+            if not link_columns or len(link_columns) == 0:
+                # Empty means all columns clickable
+                link_columns = list(range(len(col_widths)))
             self._add_table_cell_links(pdf_canvas, widget, table_data, cal_pos, col_widths,
-                                     row_height, link_template, link_columns, has_header)
+                                     row_height, link_template, link_columns, has_header,
+                                     page_num, total_pages)
 
     def _apply_styling_constraints(self, styling: dict, enforcer=None) -> dict:
         """Apply device profile constraints to styling parameters."""
@@ -422,10 +427,18 @@ class TableRenderer(BaseWidgetRenderer):
 
     def _add_table_cell_links(self, pdf_canvas: canvas.Canvas, widget: Widget, table_data: List[List[str]],
                              table_pos: Dict[str, float], col_widths: List[float], row_height: float,
-                             link_template: str, link_columns: List[int], has_header: bool) -> None:
+                             link_template: str, link_columns: List[int], has_header: bool,
+                             page_num: int = 1, total_pages: int = 1) -> None:
         """Add PDF link annotations to table cells.
 
         Following CLAUDE.md rule #1: No dummy implementations - actual PDF link creation.
+
+        Note: link_columns is 0-based internally (received from frontend after conversion),
+        but {row} and {col} tokens are 1-based for user-friendliness.
+
+        Link templates support:
+        - Per-cell tokens: {row}, {col}, {value} (replaced first via .format())
+        - Global tokens: {date}, {page}, custom variables (replaced via TokenProcessor)
         """
         start_row = 1 if has_header else 0
 
@@ -441,12 +454,30 @@ class TableRenderer(BaseWidgetRenderer):
                 cell_y = table_pos['y'] + (len(table_data) - row_idx - 1) * row_height
                 cell_width = col_widths[col_idx]
 
-                # Generate link destination from template
-                link_dest = link_template.format(
-                    row=data_row_idx,
-                    col=col_idx,
-                    value=table_data[row_idx][col_idx] if col_idx < len(table_data[row_idx]) else ""
-                )
+                # Step 1: Replace per-cell dynamic tokens using Python .format()
+                # Use 1-based indices for user-friendly tokens (Row 1, Col 1 instead of Row 0, Col 0)
+                try:
+                    cell_value = table_data[row_idx][col_idx] if col_idx < len(table_data[row_idx]) else ""
+                    link_dest = link_template.format(
+                        row=data_row_idx + 1,  # 1-based for users
+                        col=col_idx + 1,        # 1-based for users
+                        value=cell_value
+                    )
+                except KeyError as e:
+                    # Unknown placeholder - might be a global token, proceed
+                    link_dest = link_template
+
+                # Step 2: Replace global tokens (like {date}, {car-index}, etc.) via TokenProcessor
+                # This allows variables with hyphens/underscores (following CLAUDE.md rule #3: explicit support)
+                try:
+                    render_context = RenderingTokenContext(
+                        widget_id=widget.id,
+                        page_num=page_num,
+                        total_pages=total_pages
+                    )
+                    link_dest = TokenProcessor.replace_rendering_tokens(link_dest, render_context)
+                except Exception as e:
+                    logger.warning(f"Table link template token processing failed for widget {widget.id}: {e}")
 
                 # Add link annotation
                 try:

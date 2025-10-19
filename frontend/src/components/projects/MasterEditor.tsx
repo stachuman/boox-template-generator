@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ArrowLeft, Save, Code, Layout, Grid, Download, Loader2,
+  ArrowLeft, Save, Code, Layout, Grid, Download, Loader2, Maximize2,
   AlignLeft, AlignCenter, AlignRight,
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
   AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter,
   ArrowLeftRight, ArrowUpDown
 } from 'lucide-react';
 import { useEditorStore } from '@/stores/editorStore';
-import { Project, ProjectMaster, Template, Canvas, AddMasterRequest, UpdateMasterRequest } from '@/types';
+import { Project, ProjectMaster, Template, Canvas, AddMasterRequest, UpdateMasterRequest, DeviceProfile, Widget } from '@/types';
 import { APIClient } from '@/services/api';
 import { PublicAPI } from '@/services/public';
 import TemplateEditor from '@/components/TemplateEditor';
+import RescaleDialog from '@/components/editor/RescaleDialog';
 
 interface MasterEditorProps {
   projectId?: string;
@@ -45,6 +46,8 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [draftAvailable, setDraftAvailable] = useState(false);
   const [showDraftRecovery, setShowDraftRecovery] = useState(false);
+  const [showRescaleDialog, setShowRescaleDialog] = useState(false);
+  const [deviceProfile, setDeviceProfile] = useState<DeviceProfile | null>(null);
 
   // Get editor state for alignment tools
   const { selectedIds, alignSelected, distributeSelected, equalizeSizeSelected } = useEditorStore();
@@ -169,6 +172,38 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
         }
       }
       setProject(projectData);
+
+      // Load device profile for rescaling functionality
+      try {
+        console.log('[MasterEditor] Loading device profiles for rescaling...');
+        const profiles = await APIClient.getProfiles();
+        console.log(`[MasterEditor] Loaded ${profiles.length} profiles:`, profiles.map(p => p.name));
+        console.log(`[MasterEditor] Looking for profile: "${projectData.metadata.device_profile}"`);
+
+        const profile = profiles.find(p => p.name === projectData.metadata.device_profile);
+
+        if (!profile) {
+          const availableNames = profiles.map(p => p.name).join(', ');
+          const profileError = `Device profile "${projectData.metadata.device_profile}" not found. ` +
+            `Available profiles: ${availableNames}. ` +
+            'Rescale functionality will be disabled. Please update the device profile in project settings.';
+          console.error('[MasterEditor]', profileError);
+
+          // Append to existing error if present
+          setError(prev => prev ? `${prev}\n\n${profileError}` : profileError);
+        } else {
+          console.log(`[MasterEditor] Found matching profile:`, profile.name);
+        }
+
+        setDeviceProfile(profile || null);
+      } catch (err: any) {
+        const errorMsg = err.message || 'Unknown error';
+        const profileError = `Failed to load device profiles: ${errorMsg}. Rescale functionality will be disabled.`;
+        console.error('[MasterEditor]', profileError, err);
+
+        // Append to existing error if present
+        setError(prev => prev ? `${prev}\n\n${profileError}` : profileError);
+      }
 
       if (masterName && masterName !== 'new') {
         // Editing existing master
@@ -489,6 +524,21 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
     }
   };
 
+  const handleApplyRescaling = (scaledWidgets: Widget[]) => {
+    if (!currentTemplate) return;
+
+    // Update template with rescaled widgets
+    const updatedTemplate: Template = {
+      ...currentTemplate,
+      widgets: scaledWidgets
+    };
+
+    // Convert template to YAML and update state
+    const updatedYaml = JSON.stringify(updatedTemplate, null, 2);
+    setCurrentTemplate(updatedTemplate);
+    setYamlContent(updatedYaml);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -690,6 +740,23 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
         <div className="flex items-center gap-3">
           {!readOnly && (
             <>
+              {/* Rescale Widgets Button */}
+              <button
+                onClick={() => setShowRescaleDialog(true)}
+                disabled={!currentTemplate?.widgets?.length || !deviceProfile}
+                className="flex items-center gap-2 px-4 py-2 border border-eink-light-gray text-eink-dark-gray rounded-lg hover:bg-eink-pale-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={
+                  !currentTemplate?.widgets?.length
+                    ? `No widgets to rescale (widgets: ${currentTemplate?.widgets?.length || 0})`
+                    : !deviceProfile
+                    ? `Device profile not loaded (project profile: ${project?.metadata.device_profile || 'unknown'})`
+                    : "Rescale all widgets to fit current canvas dimensions"
+                }
+              >
+                <Maximize2 className="w-5 h-5" />
+                Rescale Widgets
+              </button>
+
               {/* Export PNG Button - only for existing masters */}
               {!isNewMaster && currentMaster && (
                 <button
@@ -827,6 +894,17 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
           </div>
         )}
       </div>
+
+      {/* Rescale Dialog */}
+      {currentTemplate && deviceProfile && (
+        <RescaleDialog
+          isOpen={showRescaleDialog}
+          onClose={() => setShowRescaleDialog(false)}
+          template={currentTemplate}
+          deviceProfile={deviceProfile}
+          onApply={handleApplyRescaling}
+        />
+      )}
     </div>
   );
 };
