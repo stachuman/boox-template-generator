@@ -4,7 +4,7 @@ A complete web application for designing interactive PDF templates optimized for
 
 ![E‑ink PDF Templates](pic-1.png)
 
-[Calendar - example](https://eink.cgpsmapper.com/gallery/id/d3d68540-dfe9-4d30-b102-fd09f63cc2b2)
+[Calendar - example](https://eink.cgpsmapper.com/gallery/id/b08c7186-c465-40e8-b7c3-b46b95eb1edd)
 
 **Demo server**: [https://eink.cgpsmapper.com](https://eink.cgpsmapper.com)
 **Tutorial**: [TUTORIAL.md](TUTORIAL.md)
