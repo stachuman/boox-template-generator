@@ -9,8 +9,10 @@ Follows CLAUDE.md coding standards - no dummy implementations.
 import logging
 from typing import List, Dict, Any, Optional
 from reportlab.pdfgen import canvas
-from reportlab.platypus import Table, TableStyle
+from reportlab.platypus import Table, TableStyle, Paragraph
 from reportlab.lib.colors import HexColor
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 
 from ..schema import Widget
 from .base import BaseWidgetRenderer, RenderingError
@@ -191,14 +193,58 @@ class TableRenderer(BaseWidgetRenderer):
                     break
 
         # Create ReportLab Table data structure
-        # Convert string data to proper format
+        # Convert string data to proper format, using Paragraph objects for text wrapping
+        text_wrap = props.get('text_wrap', True)
+        max_lines = props.get('max_lines', 2)
+        text_align = props.get('text_align', 'left')
+
+        # Create paragraph style for wrapped cells
+        paragraph_style = None
+        if text_wrap:
+            # Map text alignment to ReportLab alignment constants
+            alignment_map = {
+                'left': TA_LEFT,
+                'center': TA_CENTER,
+                'right': TA_RIGHT
+            }
+            para_alignment = alignment_map.get(text_align, TA_LEFT)
+
+            paragraph_style = ParagraphStyle(
+                'table_cell',
+                fontName=text_options.font_name,
+                fontSize=text_options.font_size,
+                textColor=HexColor(text_options.color),
+                alignment=para_alignment,
+                leading=text_options.font_size * 1.2,  # Line spacing
+                wordWrap='CJK'  # Enable word wrapping
+            )
+
         reportlab_data = []
         for row in table_data:
             reportlab_row = []
             for cell in row:
                 # Ensure cell content is string
                 cell_content = str(cell) if cell is not None else ""
-                reportlab_row.append(cell_content)
+
+                # Use Paragraph for text wrapping if enabled
+                if text_wrap and paragraph_style:
+                    # Limit lines by truncating text if needed
+                    # ReportLab Paragraph doesn't have built-in max_lines, so we approximate
+                    # by limiting content length based on max_lines
+                    if max_lines and max_lines > 0:
+                        # Split by lines and limit
+                        lines = cell_content.split('\n')
+                        if len(lines) > max_lines:
+                            cell_content = '\n'.join(lines[:max_lines])
+
+                    try:
+                        cell_obj = Paragraph(cell_content, paragraph_style)
+                    except Exception as e:
+                        logger.warning(f"Failed to create Paragraph for cell content '{cell_content}': {e}")
+                        cell_obj = cell_content  # Fallback to plain string
+                    reportlab_row.append(cell_obj)
+                else:
+                    reportlab_row.append(cell_content)
             reportlab_data.append(reportlab_row)
 
         # Create ReportLab Table
@@ -215,7 +261,8 @@ class TableRenderer(BaseWidgetRenderer):
             cell_padding,
             props,
             has_header,
-            len(table_data)
+            len(table_data),
+            text_wrap  # Pass text_wrap flag to skip ALIGN when using Paragraphs
         )
 
         # Apply border styling
@@ -355,19 +402,20 @@ class TableRenderer(BaseWidgetRenderer):
 
     def _build_table_style(self, font_name: str, font_size: float, text_color: str,
                           cell_padding: float, props: dict, has_header: bool,
-                          num_rows: int) -> List:
+                          num_rows: int, text_wrap: bool = False) -> List:
         """Build ReportLab TableStyle commands."""
         table_style_commands = []
 
-        # Set font for all cells
+        # Set font for all cells (only applies to plain string cells, not Paragraphs)
         table_style_commands.append(('FONT', (0, 0), (-1, -1), font_name, font_size))
         table_style_commands.append(('TEXTCOLOR', (0, 0), (-1, -1), HexColor(text_color)))
         table_style_commands.append(('VALIGN', (0, 0), (-1, -1), 'MIDDLE'))
 
-        # Text alignment
-        text_align = props.get('text_align', 'left').upper()
-        if text_align in ['LEFT', 'CENTER', 'RIGHT']:
-            table_style_commands.append(('ALIGN', (0, 0), (-1, -1), text_align))
+        # Text alignment - only apply if NOT using Paragraphs (Paragraphs handle their own alignment)
+        if not text_wrap:
+            text_align = props.get('text_align', 'left').upper()
+            if text_align in ['LEFT', 'CENTER', 'RIGHT']:
+                table_style_commands.append(('ALIGN', (0, 0), (-1, -1), text_align))
 
         # Cell padding
         table_style_commands.append(('LEFTPADDING', (0, 0), (-1, -1), cell_padding))
@@ -467,7 +515,7 @@ class TableRenderer(BaseWidgetRenderer):
                     # Unknown placeholder - might be a global token, proceed
                     link_dest = link_template
 
-                # Step 2: Replace global tokens (like {date}, {car-index}, etc.) via TokenProcessor
+                # Step 2: Replace global tokens (like {date}, {car_index}, etc.) via TokenProcessor
                 # This allows variables with hyphens/underscores (following CLAUDE.md rule #3: explicit support)
                 try:
                     render_context = RenderingTokenContext(

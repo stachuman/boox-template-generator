@@ -22,6 +22,7 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
   const properties = widget.properties || {};
   const [isEditingContent, setIsEditingContent] = useState(false);
   const [linkColumnsText, setLinkColumnsText] = useState('');
+  const [columnWidthsText, setColumnWidthsText] = useState('');
 
   // Initialize linkColumnsText from properties
   React.useEffect(() => {
@@ -29,6 +30,15 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
       setLinkColumnsText(properties.link_columns.map((c: number) => c + 1).join(', '));
     } else {
       setLinkColumnsText('');
+    }
+  }, [widget.id]); // Only reset when widget changes
+
+  // Initialize columnWidthsText from properties
+  React.useEffect(() => {
+    if (properties.column_widths && properties.column_widths.length > 0) {
+      setColumnWidthsText(properties.column_widths.join(', '));
+    } else {
+      setColumnWidthsText('');
     }
   }, [widget.id]); // Only reset when widget changes
 
@@ -67,6 +77,20 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
     return generateTableData(rows, columns, hasHeader);
   });
 
+  // Reset tableData when widget changes (switching between templates)
+  // Following CLAUDE.md Rule #3: No silent defaults - explicitly reset state
+  React.useEffect(() => {
+    const rows = properties.rows || 4;
+    const columns = properties.columns || 3;
+    const hasHeader = properties.has_header !== false;
+
+    if (properties.table_data && Array.isArray(properties.table_data)) {
+      setTableData(generateTableData(rows, columns, hasHeader, properties.table_data));
+    } else {
+      setTableData(generateTableData(rows, columns, hasHeader));
+    }
+  }, [widget.id]); // Reset when widget changes
+
   const updateProperty = (key: string, value: any) => {
     // Calculate new height if rows or row_height changes
     let updates: Partial<Widget> = {
@@ -93,6 +117,15 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
           table_data: newTableData
         }
       };
+
+      // Clear column_widths if columns count changed (must match new column count)
+      if (key === 'columns' && updates.properties) {
+        const existingWidths = properties.column_widths || [];
+        if (existingWidths.length > 0 && existingWidths.length !== columns) {
+          updates.properties.column_widths = [];
+          setColumnWidthsText(''); // Clear UI
+        }
+      }
 
       // Update height when rows or has_header changes
       if (key === 'rows' || key === 'has_header') {
@@ -181,6 +214,60 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
             onChange={(checked) => updateProperty('has_header', checked)}
             helpText="Whether first row is a header"
           />
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Column Widths (ratios)
+            </label>
+            <input
+              type="text"
+              value={columnWidthsText}
+              onChange={(e) => setColumnWidthsText(e.target.value)}
+              onBlur={() => {
+                const input = columnWidthsText.trim();
+                if (!input) {
+                  updateProperty('column_widths', []);
+                  return;
+                }
+                // Parse comma-separated ratios
+                const ratios = input
+                  .split(',')
+                  .map(r => parseFloat(r.trim()))
+                  .filter(r => !isNaN(r) && r > 0);
+
+                // Validate count matches columns
+                const columns = properties.columns || 3;
+                if (ratios.length > 0 && ratios.length !== columns) {
+                  alert(`Column widths must have ${columns} values (one per column). You provided ${ratios.length}.`);
+                  // Reset to stored value
+                  if (properties.column_widths && properties.column_widths.length > 0) {
+                    setColumnWidthsText(properties.column_widths.join(', '));
+                  } else {
+                    setColumnWidthsText('');
+                  }
+                  return;
+                }
+
+                updateProperty('column_widths', ratios);
+                // Update displayed text to normalized format
+                if (ratios.length > 0) {
+                  setColumnWidthsText(ratios.join(', '));
+                } else {
+                  setColumnWidthsText('');
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur(); // Trigger onBlur to save
+                }
+              }}
+              placeholder="e.g., 1, 2, 1 (leave empty for equal widths)"
+              className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
+            />
+            <p className="text-xs text-eink-light-gray mt-1">
+              Relative ratios (e.g., "1, 2, 1" = 25%, 50%, 25%). <strong>Leave empty for equal widths</strong>.
+            </p>
+          </div>
 
           <button
             onClick={() => setIsEditingContent(true)}
@@ -302,11 +389,11 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
               type="text"
               value={properties.link_template || ''}
               onChange={(e) => updateProperty('link_template', e.target.value)}
-              placeholder="e.g., car:{row}, notes:{car-index}"
+              placeholder="e.g., car:{row}, notes:{custom_var}"
               className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
             />
             <p className="text-xs text-eink-light-gray mt-1">
-              Per-cell: {'{row}'} (1-based), {'{col}'} (1-based), {'{value}'}. Global: {'{date}'}, {'{car-index}'}, etc. Leave empty to disable links.
+              Per-cell: {'{row}'} (1-based), {'{col}'} (1-based), {'{value}'}. Global: {'{date}'}, etc. Leave empty to disable links.
             </p>
           </div>
 
