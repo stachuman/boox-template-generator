@@ -34,6 +34,13 @@ const estimateSectionPages = (section: PlanSection): { estimatedPages: number; d
     const dayCount = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     base *= dayCount;
     details += ` | ${section.start_date} to ${section.end_date} (${dayCount} days)`;
+  } else if (generateMode === 'each_week' && section.start_date && section.end_date) {
+    const start = new Date(section.start_date);
+    const end = new Date(section.end_date);
+    const dayCount = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const weekCount = Math.ceil(dayCount / 7);
+    base *= weekCount;
+    details += ` | ${section.start_date} to ${section.end_date} (~${weekCount} weeks)`;
   } else if (generateMode === 'each_month' && section.start_date && section.end_date) {
     const start = new Date(section.start_date);
     const end = new Date(section.end_date);
@@ -145,7 +152,7 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
       }
 
       // Date-based generation modes require both start and end dates
-      const needsDates = (section.generate === GenerateMode.EACH_DAY || section.generate === GenerateMode.EACH_MONTH);
+      const needsDates = (section.generate === GenerateMode.EACH_DAY || section.generate === GenerateMode.EACH_WEEK || section.generate === GenerateMode.EACH_MONTH);
       if (needsDates) {
         if (!section.start_date) {
           errors.push({ section: sectionPath, field: 'dates', message: 'Start date is required for date-based generation' });
@@ -592,6 +599,7 @@ const SectionEditor: React.FC<{
           >
             <SelectItem value={GenerateMode.ONCE}>Once - Single instance</SelectItem>
             <SelectItem value={GenerateMode.EACH_DAY}>Each Day - Daily repetition</SelectItem>
+            <SelectItem value={GenerateMode.EACH_WEEK}>Each Week - Weekly repetition</SelectItem>
             <SelectItem value={GenerateMode.EACH_MONTH}>Each Month - Monthly repetition</SelectItem>
             <SelectItem value={GenerateMode.COUNT}>Count - Specified number of instances</SelectItem>
           </Select>
@@ -611,7 +619,7 @@ const SectionEditor: React.FC<{
           </div>
         )}
 
-        {(section.generate === GenerateMode.EACH_DAY || section.generate === GenerateMode.EACH_MONTH) && (
+        {(section.generate === GenerateMode.EACH_DAY || section.generate === GenerateMode.EACH_WEEK || section.generate === GenerateMode.EACH_MONTH) && (
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor={`start-date-${sectionIndex}`}>Start Date</Label>
@@ -1026,8 +1034,13 @@ const CountersEditor: React.FC<{
       )}
 
       {Object.keys(counters).length > 0 && (
-        <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-          💡 <strong>Example:</strong> Counter "page_num" with start=1, step=1 produces: 1, 2, 3, 4... for each page
+        <div className="text-xs bg-blue-50 p-2 rounded space-y-1">
+          <div className="text-blue-600">
+            💡 <strong>Example:</strong> Counter "page_num" with start=1, step=1 produces: 1, 2, 3, 4... for each page
+          </div>
+          <div className="text-green-700">
+            ✨ <strong>Auto-navigation:</strong> {'{page_num_prev}'} and {'{page_num_next}'} are automatically available!
+          </div>
         </div>
       )}
     </div>
@@ -1084,11 +1097,31 @@ const InstructionLegend: React.FC = () => {
                   <li><code className="bg-gray-100 px-1 rounded">{`{month}`}</code> - Month number (1-12)</li>
                   <li><code className="bg-gray-100 px-1 rounded">{`{month:02d}`}</code> - Zero-padded month (01-12)</li>
                   <li><code className="bg-gray-100 px-1 rounded">{`{month_name}`}</code> - Month name (January)</li>
+                  <li><code className="bg-gray-100 px-1 rounded">{`{week}`}</code> - ISO week number (1-52/53)</li>
                   <li><code className="bg-gray-100 px-1 rounded">{`{date}`}</code> - Full date (2026-01-15)</li>
                   <li><code className="bg-gray-100 px-1 rounded">{`{date_long}`}</code> - Long format (Wednesday, January 15, 2026)</li>
                   <li><code className="bg-gray-100 px-1 rounded">{`{index}`}</code> - Current instance index</li>
                   <li><code className="bg-gray-100 px-1 rounded">{`{index_padded}`}</code> - Zero-padded index (001, 002, ...)</li>
                 </ul>
+
+                {/* Navigation Variables Section */}
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded">
+                  <h5 className="font-semibold text-green-800 mb-2">✨ Automatic Navigation Variables</h5>
+                  <p className="text-xs text-green-700 mb-2">
+                    For all counter and date variables, <code>_prev</code> and <code>_next</code> variants are automatically generated:
+                  </p>
+                  <ul className="space-y-1 text-xs text-green-700">
+                    <li><code className="bg-white px-1 rounded">{`{date_prev}`}</code> - Previous day (date - 1 day)</li>
+                    <li><code className="bg-white px-1 rounded">{`{date_next}`}</code> - Next day (date + 1 day)</li>
+                    <li><code className="bg-white px-1 rounded">{`{month_prev}`}</code>, <code className="bg-white px-1 rounded">{`{month_next}`}</code> - Previous/next month (wraps at year boundary)</li>
+                    <li><code className="bg-white px-1 rounded">{`{week_prev}`}</code>, <code className="bg-white px-1 rounded">{`{week_next}`}</code> - Previous/next week number</li>
+                    <li><code className="bg-white px-1 rounded">{`{year_prev}`}</code>, <code className="bg-white px-1 rounded">{`{year_next}`}</code> - Previous/next year</li>
+                    <li><code className="bg-white px-1 rounded">{`{counter_prev}`}</code>, <code className="bg-white px-1 rounded">{`{counter_next}`}</code> - For any counter variable</li>
+                  </ul>
+                  <p className="text-xs text-amber-700 mt-2">
+                    ⚠️ Boundary behavior: <code>_prev</code> variables are empty on first page of section, <code>_next</code> are empty on last page of section. When a navigation variable is empty, any link using it is skipped entirely (e.g., <code>month:{`{month_prev}`}</code> creates no link on first month).
+                  </p>
+                </div>
               </div>
 
               <div className="md:col-span-2">

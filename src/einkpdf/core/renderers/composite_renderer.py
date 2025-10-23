@@ -294,6 +294,14 @@ class CompositeRenderer(BaseWidgetRenderer):
                     logger.warning(f"link_list '{widget.id}': bind expression error: {e}")
                     destination = f"item_{actual_index}"
 
+            # Skip creating link if destination is empty or malformed
+            # Following CLAUDE.md Rule #3: Explicit behavior - empty destinations are skipped
+            # This allows users to create link_list with some empty entries without errors
+            # Also catches malformed destinations like "month:" when navigation variable is empty
+            if not destination or not destination.strip() or destination.endswith(':'):
+                logger.debug(f"link_list '{widget.id}': Skipping item {i} with empty/malformed destination '{destination}'")
+                continue
+
             # Create position for this link
             position = Position(
                 x=x,

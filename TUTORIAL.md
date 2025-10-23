@@ -51,7 +51,7 @@ The magic happens when you **define your PDF structure**. This tells the system:
 
 1. **Single Page** - Create one page (like a cover or index)
 2. **Repeated Pages** - Create multiple copies with numbers (like 10 note pages)
-3. **Date-Based Pages** - Create pages for specific dates (daily, weekly, or monthly)
+3. **Date-Based Pages** - Create pages for specific dates (daily, weekly, or monthly intervals)
 
 **Example Plan:**
 ```
@@ -293,7 +293,7 @@ This section provides a complete reference for all available variables and forma
 - `{year}` - Full year: 2026
 - `{month}` - Month number: 1, 2... 12
 - `{day}` - Day number: 1, 2... 31
-- `{week}` - Week number in year: 1, 2... 52
+- `{week}` - ISO week number in year: 1, 2... 52 (or 53)
 
 **Formatted Date Components (with padding):**
 - `{month:02d}` - Padded month: 01, 02... 12
@@ -310,6 +310,64 @@ This section provides a complete reference for all available variables and forma
 **For Section Information:**
 - `{section_name}` - Name of current plan section
 - `{total_pages}` - Total pages in this section
+
+### Automatic Navigation Variables (✨ New!)
+
+**The system automatically creates "previous" and "next" versions of certain variables** to make navigation links easier. You don't need to configure these - they're created automatically!
+
+**For Date Variables:**
+When you use `{date}`, `{year}`, `{month}`, or `{week}`, the system automatically provides:
+- `{date_prev}` - Previous day (yesterday)
+- `{date_next}` - Next day (tomorrow)
+- `{year_prev}` - Previous year
+- `{year_next}` - Next year
+- `{month_prev}` - Previous month (wraps to 12 at year boundary)
+- `{month_next}` - Next month (wraps to 1 at year boundary)
+- `{week_prev}` - Previous week number
+- `{week_next}` - Next week number
+
+**Example:**
+If today's date is January 15, 2026 (week 3):
+- `{date}` = 2026-01-15
+- `{date_prev}` = 2026-01-14 (automatically created!)
+- `{date_next}` = 2026-01-16 (automatically created!)
+- `{week}` = 3
+- `{week_prev}` = 2 (automatically created!)
+- `{week_next}` = 4 (automatically created!)
+
+**For Counter Variables:**
+When you create a counter variable (explained in the Advanced section), the system automatically creates `_prev` and `_next` versions.
+
+**Example:**
+If you create a counter called `week` starting at 1:
+- `{week}` = 1, 2, 3, 4...
+- `{week_prev}` = (empty on first page), 1, 2, 3... (automatically created!)
+- `{week_next}` = 2, 3, 4, 5... (empty on last page) (automatically created!)
+
+**Why This Is Useful:**
+Instead of writing complex math formulas for navigation, you can simply use these automatic variables:
+
+**In a link widget:**
+```
+Previous Week: week:{week_prev}
+Next Week: week:{week_next}
+```
+
+The system handles all the math automatically - you just use the `_prev` and `_next` versions!
+
+**Boundary Behavior:**
+- `_prev` variables are **empty on the first page of a section** (no "previous" before section starts)
+- `_next` variables are **empty on the last page of a section** (no "next" after section ends)
+- For date-based sections: boundaries are based on the date range you configure
+- **When navigation variable is empty, the entire link is skipped** (won't create broken links)
+
+**Example:** If you generate months October-December:
+- October page: `{month_prev}` is empty (first month in section)
+  - Link destination `"month:{month_prev}"` → **no link created** (skipped)
+- November page: `{month_prev}` = 10, `{month_next}` = 12
+  - Link destination `"month:{month_prev}"` → `"month:10"` ✓
+- December page: `{month_next}` is empty (last month in section)
+  - Link destination `"month:{month_next}"` → **no link created** (skipped)
 
 ### Format Specifier Syntax
 
@@ -602,7 +660,13 @@ Total: 12 + 48 + 336 = 396 pages
 
 ### Setting Up Custom Variables
 
-When creating a plan section, you can add custom variables:
+When creating a plan section, you can add two types of custom variables:
+
+**1. Counter Variables (For Sequential Numbers)**
+Use these for any value that changes from page to page:
+- Project numbers, meeting numbers, chapter numbers
+- Week numbers, page numbers, item counts
+- Any sequential value you want to track
 
 **Configuration:**
 - Variable name: `project_id` (must be unique within this hierarchy)
@@ -613,6 +677,31 @@ When creating a plan section, you can add custom variables:
 - Start at different numbers: `chapter` starts at 0
 - Skip numbers: Step by 5 (5, 10, 15, 20...)
 - Count backwards: Step by -1 (10, 9, 8, 7...)
+
+**✨ Automatic Navigation Variables:**
+When you create a counter, the system automatically creates `_prev` and `_next` versions!
+
+**Example:**
+If you create a counter called `week` (start: 1, step: 1):
+- First page: `{week}` = 1, `{week_prev}` = (empty), `{week_next}` = 2
+- Second page: `{week}` = 2, `{week_prev}` = 1, `{week_next}` = 3
+- Third page: `{week}` = 3, `{week_prev}` = 2, `{week_next}` = 4
+
+**Use these for navigation links:**
+```
+Link to previous: week:{week_prev}
+Link to next: week:{week_next}
+```
+
+No math needed - the system calculates previous and next values automatically!
+
+**2. Context Variables (For Fixed Text)**
+Use these for values that stay the same across all pages in a section:
+- Project names, book titles, category labels
+- Author names, course codes, fixed IDs
+- Any constant text you need
+
+**Important:** Context variables do NOT get `_prev`/`_next` versions because they don't change. If you need a value to increment, use a **counter variable** instead.
 
 ### Navigation with Nested Structures
 
@@ -745,7 +834,9 @@ Your PDF structure configuration tells the system:
 
 **3. Date-Based Pages** - Create pages for specific dates
 - Good for: Daily pages, weekly pages, monthly pages
+- Options: Each Day, Each Week (ISO weeks), Each Month
 - Example: "Make daily pages from January 1 to December 31"
+- Example: "Make weekly pages from January 1 to March 31"
 
 ### Setting Up Your First Structure
 
@@ -801,19 +892,25 @@ Most planners have multiple sections. Here's a simple structure configuration:
 - Date range: January 1 - December 31
 - Result: 12 pages (one per month)
 
-**Section 3: Daily Pages**
+**Section 3: Weekly Planning**
+- Type: Each week
+- Page design: Weekly goals and tasks
+- Date range: January 1 - December 31
+- Result: ~52 pages (one per ISO week)
+
+**Section 4: Daily Pages**
 - Type: Each day
 - Page design: Daily planner (the one you made!)
 - Date range: January 1 - December 31
 - Result: 365 pages (one per day)
 
-**Section 4: Notes**
+**Section 5: Notes**
 - Type: Multiple copies
 - Page design: Blank note page
 - Count: 50
 - Result: 50 numbered note pages
 
-**Total: 428 pages automatically generated!**
+**Total: 480 pages automatically generated!**
 
 ### Structure Settings You Should Know
 
@@ -966,25 +1063,47 @@ Link templates are instructions for where to go. They use the same variables as 
 
 **Common Link Patterns:**
 
-**Daily Navigation:**
+**Daily Navigation (Using Automatic Navigation Variables ✨):**
 ```
-Previous Day: day({date} - 1 day)
-Next Day: day({date} + 1 day)
-This Month: month({year}-{month:02d})
+Previous Day: day:{date_prev}
+Next Day: day:{date_next}
+This Month: month:{year}-{month:02d}
+```
+
+**Why use `{date_prev}` instead of date math?**
+- Simpler: `day:{date_prev}` instead of `day({date} - 1 day)`
+- Safer: Automatically handles boundaries (empty on first page)
+- Clearer: Easier to read and understand
+
+**Weekly Navigation:**
+```
+Previous Week: week:{week_prev}
+Next Week: week:{week_next}
+Current Week: week:{week}
 ```
 
 **Monthly Navigation:**
 ```
 Previous Month: month({year}-{month:02d} - 1 month)
 Next Month: month({year}-{month:02d} + 1 month)
-This Year: year({year})
+This Year: year:{year}
+Previous Year: year:{year_prev}
+Next Year: year:{year_next}
 ```
 
 **Section Navigation:**
 ```
-Notes Section: notes({index})
+Notes Section: notes:{index}
 Back to Index: index:main
-Today's Page: day({today})
+Today's Page: day:{today}
+```
+
+**Counter Navigation (For Custom Counters):**
+If you created a counter called `week`:
+```
+Previous Week: week:{week_prev}
+Next Week: week:{week_next}
+Current Week: week:{week}
 ```
 
 ### Creating Anchor Points
@@ -1104,12 +1223,12 @@ For each page type, ensure you have:
 **Add to your daily page design (Step 1):**
 1. **Next Day Link:**
    - Text: "Tomorrow →"
-   - Template: `day({date} + 1 day)`
+   - Destination: `day:{date_next}` ✨ (uses automatic navigation variable!)
    - Position: Bottom right
 
 2. **Previous Day Link:**
    - Text: "← Yesterday"
-   - Template: `day({date} - 1 day)`
+   - Destination: `day:{date_prev}` ✨ (uses automatic navigation variable!)
    - Position: Bottom left
 
 3. **Anchor:**
@@ -1120,6 +1239,8 @@ For each page type, ensure you have:
    - Configure structure for 3-5 daily pages (Step 2)
    - Generate the PDF (Step 3)
    - Check that links work between consecutive days
+   - Notice: First page has no "Yesterday" link (automatically skipped!)
+   - Notice: Last page has no "Tomorrow" link (automatically skipped!)
 
 ### Advanced Navigation Ideas
 

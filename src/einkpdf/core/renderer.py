@@ -154,7 +154,7 @@ class DeterministicPDFRenderer:
             if deterministic:
                 pdf_canvas.setTitle(self.template.metadata.name)
                 pdf_canvas.setSubject(self.template.metadata.description)
-                pdf_canvas.setCreator("E-ink PDF Templates v0.5.0")
+                pdf_canvas.setCreator("E-ink PDF Templates v0.5.5")
                 pdf_canvas.setAuthor(self.template.metadata.author or "Unknown")
                 # Note: ReportLab Canvas doesn't support setCreationDate directly
                 # Creation date will be handled by pikepdf post-processor for deterministic builds
@@ -183,17 +183,17 @@ class DeterministicPDFRenderer:
             # Store violations for later reporting (from constraint enforcer)
             self.violations = self.enforcer.violations.copy()
 
-            # Add widget rendering errors to violations (following CLAUDE.md rule #4: explicit errors)
+            # Check for widget rendering errors and fail fast with clear messages
+            # Following CLAUDE.md Rule #4: Fail fast with meaningful exceptions
             widget_errors = self.renderer_registry.get_widget_errors()
-            for widget_id, widget_type, error_msg in widget_errors:
-                from .profiles import ConstraintViolation
-                violation = ConstraintViolation(
-                    constraint_type=f"widget_{widget_type}",
-                    original_value=widget_id,
-                    fixed_value="skipped",
-                    description=f"Widget '{widget_id}' ({widget_type}) failed to render: {error_msg}"
-                )
-                self.violations.append(violation)
+            if widget_errors:
+                # Build clear error message listing all failed widgets
+                error_lines = [f"Widget rendering failed:"]
+                for widget_id, widget_type, error_msg in widget_errors:
+                    error_lines.append(f"  • Widget '{widget_id}' ({widget_type}): {error_msg}")
+
+                # Fail immediately - widget errors are not auto-fixable like constraints
+                raise RenderingError("\n".join(error_lines))
             
             # Pass 3: Post-process named destinations (from anchor widgets)
             base_pdf = buffer.getvalue()
@@ -249,6 +249,15 @@ class DeterministicPDFRenderer:
             # Create automatic page bookmark for navigation
             page_bookmark_name = f"Page_{page_num}"
             pdf_canvas.bookmarkPage(page_bookmark_name)
+            # ReportLab's bookmarkHorizontal APIs reference default PageN names; ensure both exist
+            default_page_bookmark = f"Page{page_num}"
+            if default_page_bookmark != page_bookmark_name:
+                pdf_canvas.bookmarkPage(default_page_bookmark)
+            try:
+                if hasattr(pdf_canvas, 'addNamedDestination'):
+                    pdf_canvas.addNamedDestination(default_page_bookmark)
+            except Exception:
+                pass
             
             # Get widgets for this page (may be empty)
             widgets = widgets_by_page.get(page_num, [])
@@ -422,6 +431,14 @@ class DeterministicPDFRenderer:
                 try:
                     if hasattr(pdf_canvas, 'addNamedDestination'):
                         pdf_canvas.addNamedDestination(name)
+                except Exception:
+                    pass
+
+                # Anchor widgets produce no drawing commands; add a harmless literal so
+                # ReportLab finalizes otherwise-empty pages (prevents unresolved PageN refs).
+                try:
+                    if hasattr(pdf_canvas, 'addLiteral') and not pdf_canvas._code:
+                        pdf_canvas.addLiteral(' ')
                 except Exception:
                     pass
         else:

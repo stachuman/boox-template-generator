@@ -20,8 +20,6 @@ const ProjectEditor: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'masters' | 'plan' | 'preview' | 'sharing'>('masters');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewPage, setPreviewPage] = useState<number>(1);
-  const [totalPages] = useState<number>(1);
   const [compileWarnings] = useState<string[]>([]);
   const [profiles, setProfiles] = useState<DeviceProfile[]>([]);
   const [profilesLoading, setProfilesLoading] = useState<boolean>(false);
@@ -275,21 +273,6 @@ const ProjectEditor: React.FC = () => {
     loadProfiles();
   }, []);
 
-  // Auto-update iframe page when preview URL is available
-  useEffect(() => {
-    if (project && previewUrl) {
-      // Clean up previous blob URL to prevent memory leaks
-      URL.revokeObjectURL(previewUrl);
-      createPreviewUrl(project.id).then(url => {
-        setPreviewUrl(url);
-      }).catch(err => {
-        console.error('Failed to update preview URL:', err);
-        setPreviewUrl(null);
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previewPage]);
-
   // If a compiled PDF already exists when loading the project, show it automatically
   useEffect(() => {
     const checkExistingPDF = async () => {
@@ -323,7 +306,7 @@ const ProjectEditor: React.FC = () => {
       }
     };
     maybeLoad();
-  }, [activeTab, project, previewPage]);
+  }, [activeTab, project]);
 
   // Cleanup blob URLs when component unmounts to prevent memory leaks
   useEffect(() => {
@@ -1242,39 +1225,7 @@ const ProjectEditor: React.FC = () => {
                 </ul>
               </div>
             )}
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold">PDF Preview</h3>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 mr-3 text-sm">
-                  <button
-                    onClick={() => setPreviewPage(p => Math.max(1, p - 1))}
-                    disabled={!previewUrl || previewPage <= 1}
-                    className="px-2 py-1 border rounded disabled:opacity-50"
-                    title="Previous page"
-                  >
-                    ◀
-                  </button>
-                  <span>Page</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={totalPages}
-                    value={previewPage}
-                    onChange={(e)=>setPreviewPage(Math.min(Math.max(1, Number(e.target.value)||1), totalPages))}
-                    className="w-16 px-2 py-1 border rounded"
-                  />
-                  <span>of {totalPages}</span>
-                  <button
-                    onClick={() => setPreviewPage(p => Math.min(totalPages, p + 1))}
-                    disabled={!previewUrl || previewPage >= totalPages}
-                    className="px-2 py-1 border rounded disabled:opacity-50"
-                    title="Next page"
-                  >
-                    ▶
-                  </button>
-                </div>
-              </div>
-            </div>
+            <h3 className="font-semibold mb-3">PDF Preview</h3>
 
             {previewUrl ? (
               <div className="overflow-hidden border rounded bg-gray-50 p-2">

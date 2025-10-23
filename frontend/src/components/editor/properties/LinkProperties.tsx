@@ -8,7 +8,9 @@
 import React from 'react';
 import { Widget } from '@/types';
 import SelectInput from './shared/SelectInput';
+import TokenInput from './shared/TokenInput';
 import { normalizeOrientation } from '../widgets/textUtils';
+import { TokenRegistry } from '@/services/tokenRegistry';
 
 interface LinkPropertiesProps {
   widget: Widget;
@@ -17,6 +19,11 @@ interface LinkPropertiesProps {
 
 const LinkProperties: React.FC<LinkPropertiesProps> = ({ widget, onUpdate }) => {
   const properties = widget.properties || {};
+
+  // Get available tokens for autocomplete and validation
+  // TODO: Get section-specific counters and context from project plan
+  // For now, provide base tokens (will be enhanced when section context is available)
+  const availableTokens = TokenRegistry.getAvailableTokens({}, {});
 
   const updateProperty = (key: string, value: any) => {
     onUpdate({
@@ -55,21 +62,14 @@ const LinkProperties: React.FC<LinkPropertiesProps> = ({ widget, onUpdate }) => 
         </p>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-1">
-          Target Destination
-        </label>
-        <input
-          type="text"
-          value={properties.to_dest || ''}
-          onChange={(e) => updateProperty('to_dest', e.target.value)}
-          placeholder="e.g., day({date} + 1 day), notes({index})"
-          className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
-        />
-        <p className="text-xs text-eink-light-gray mt-1">
-          Link template using {'{variables}'} and date math
-        </p>
-      </div>
+      <TokenInput
+        label="Target Destination"
+        value={properties.to_dest || ''}
+        onChange={(value) => updateProperty('to_dest', value)}
+        placeholder="e.g., day:{date_next}, month:{month}"
+        helpText="Destination ID or pattern using {tokens}"
+        availableTokens={availableTokens}
+      />
 
       <SelectInput
         label="Orientation"

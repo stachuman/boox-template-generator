@@ -66,6 +66,10 @@ class LinkRenderer(BaseWidgetRenderer):
 
         to_dest = self._normalize_destination(to_dest)
 
+        # Skip link creation if destination is empty/whitespace after token processing
+        # This handles automatic navigation variables (_prev/_next) that may not exist
+        # Following CLAUDE.md Rule #3: Explicit behavior - widget renders but link is skipped
+
         styling = getattr(widget, 'styling', {}) or {}
 
         # Process tokens in widget content
@@ -106,8 +110,10 @@ class LinkRenderer(BaseWidgetRenderer):
         # Render text content using centralized TextEngine
         self.text_engine.render_text(pdf_canvas, box, content_text, text_options)
 
-        # Create PDF link annotation
-        self._create_pdf_link_annotation(pdf_canvas, box, to_dest)
+        # Create PDF link annotation only if destination is valid
+        # Skip if destination is empty (e.g., {counter_prev} on first page)
+        if to_dest and to_dest.strip():
+            self._create_pdf_link_annotation(pdf_canvas, box, to_dest)
 
     def _render_tap_zone(self, pdf_canvas: canvas.Canvas, widget: Widget, page_num: int, total_pages: int, enforcer=None) -> None:
         """Render an invisible tap zone that creates a link rectangle."""
@@ -137,6 +143,10 @@ class LinkRenderer(BaseWidgetRenderer):
         if to_dest and isinstance(to_dest, str):
             # Named destination
             destination = self._normalize_destination(to_dest)
+            # Check if destination is empty after normalization (e.g., missing _prev/_next token)
+            if not destination or not destination.strip():
+                logger.debug(f"Skipping tap_zone link for '{widget.id}' - destination is empty")
+                destination = None  # Will skip link creation below
         else:
             # Page-based action
             destination = None  # Will be set if we should create a link

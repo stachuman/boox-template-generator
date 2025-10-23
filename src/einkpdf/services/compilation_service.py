@@ -77,8 +77,20 @@ class PlanEnumerator:
                     f"Section '{section.kind}' with EACH_DAY generation requires start_date and end_date"
                 )
 
+            # Pre-calculate total iterations for boundary detection
+            total_iterations = (end_date - start_date).days + 1
+
             for current_date in self._date_range(start_date, end_date):
-                context = self._build_context(section, date_obj=current_date, iteration=iteration, parent_context=parent_context)
+                is_first = (iteration == 0)
+                is_last = (iteration == total_iterations - 1)
+                context = self._build_context(
+                    section,
+                    date_obj=current_date,
+                    iteration=iteration,
+                    is_first=is_first,
+                    is_last=is_last,
+                    parent_context=parent_context
+                )
                 yield context, section.nested or []
                 iteration += 1
 
@@ -91,8 +103,22 @@ class PlanEnumerator:
                     f"Section '{section.kind}' with EACH_WEEK generation requires start_date and end_date"
                 )
 
-            for iso_week, week_start in self._week_range(start_date, end_date):
-                context = self._build_context(section, date_obj=week_start, iso_week=iso_week, iteration=iteration, parent_context=parent_context)
+            # Pre-collect weeks to determine total count for boundary detection
+            weeks = list(self._week_range(start_date, end_date))
+            total_iterations = len(weeks)
+
+            for iso_week, week_start in weeks:
+                is_first = (iteration == 0)
+                is_last = (iteration == total_iterations - 1)
+                context = self._build_context(
+                    section,
+                    date_obj=week_start,
+                    iso_week=iso_week,
+                    iteration=iteration,
+                    is_first=is_first,
+                    is_last=is_last,
+                    parent_context=parent_context
+                )
                 yield context, section.nested or []
                 iteration += 1
 
@@ -105,9 +131,22 @@ class PlanEnumerator:
                     f"Section '{section.kind}' with EACH_MONTH generation requires start_date and end_date"
                 )
 
-            for year, month in self._month_range(start_date, end_date):
+            # Pre-collect months to determine total count for boundary detection
+            months = list(self._month_range(start_date, end_date))
+            total_iterations = len(months)
+
+            for year, month in months:
                 month_date = date(year, month, 1)
-                context = self._build_context(section, date_obj=month_date, iteration=iteration, parent_context=parent_context)
+                is_first = (iteration == 0)
+                is_last = (iteration == total_iterations - 1)
+                context = self._build_context(
+                    section,
+                    date_obj=month_date,
+                    iteration=iteration,
+                    is_first=is_first,
+                    is_last=is_last,
+                    parent_context=parent_context
+                )
                 yield context, section.nested or []
                 iteration += 1
         else:
@@ -121,6 +160,8 @@ class PlanEnumerator:
         total: Optional[int] = None,
         iso_week: Optional[str] = None,
         iteration: int = 0,
+        is_first: bool = False,
+        is_last: bool = False,
         parent_context: Optional[BindingContext] = None
     ) -> BindingContext:
         """Build binding context for template substitution."""
@@ -154,6 +195,47 @@ class PlanEnumerator:
                 context.weekday = date_obj.strftime("%A")
             context.day = date_obj.day
             context.day_padded = f"{date_obj.day:02d}"
+
+            # Automatic navigation variables: date, year, month, and week
+            # Following CLAUDE.md Rule #4: Fail fast with meaningful exceptions
+            # Following CLAUDE.md Rule #3: Explicit behavior - all navigation vars together for consistency
+            # Boundary-aware: _prev empty at first page, _next empty at last page
+            try:
+                # Calculate current week number
+                iso_calendar = date_obj.isocalendar()
+                week_num = iso_calendar[1]  # Week number (1-52/53)
+                context.custom['week'] = week_num
+
+                # Calculate navigation dates
+                date_prev = date_obj - timedelta(days=1)
+                date_next = date_obj + timedelta(days=1)
+
+                # Add date navigation (empty at section boundaries)
+                context.custom['date_prev'] = '' if is_first else date_prev.isoformat()
+                context.custom['date_next'] = '' if is_last else date_next.isoformat()
+
+                # Add year navigation (empty at section boundaries)
+                context.custom['year_prev'] = '' if is_first else date_obj.year - 1
+                context.custom['year_next'] = '' if is_last else date_obj.year + 1
+
+                # Add month navigation (empty at section boundaries, wrapping at year boundaries)
+                month_prev = 12 if date_obj.month == 1 else date_obj.month - 1
+                month_next = 1 if date_obj.month == 12 else date_obj.month + 1
+                context.custom['month_prev'] = '' if is_first else month_prev
+                context.custom['month_next'] = '' if is_last else month_next
+
+                # Add week navigation (empty at section boundaries)
+                week_prev = date_prev.isocalendar()[1]
+                week_next = date_next.isocalendar()[1]
+                context.custom['week_prev'] = '' if is_first else week_prev
+                context.custom['week_next'] = '' if is_last else week_next
+
+            except Exception as e:
+                # Following CLAUDE.md Rule #4: Meaningful error messages
+                logger.warning(
+                    f"Failed to generate navigation variables for date {date_obj.isoformat()}: {e}. "
+                    f"Navigation tokens (date_prev, date_next, month_prev, month_next, week, week_prev, week_next) will not be available."
+                )
 
         # Sequence context
         if index is not None:
@@ -191,6 +273,29 @@ class PlanEnumerator:
                     context.custom[counter_name] = int(counter_value)
                 else:
                     context.custom[counter_name] = counter_value
+
+                # Automatic navigation: Add _prev and _next variants for sequential navigation
+                # Following CLAUDE.md Rule #3: Explicit behavior - only add if within bounds
+                prev_value = counter_value - step
+                if prev_value >= start:
+                    # Store as same type (int or float)
+                    if prev_value == int(prev_value):
+                        context.custom[f'{counter_name}_prev'] = int(prev_value)
+                    else:
+                        context.custom[f'{counter_name}_prev'] = prev_value
+                # If prev_value < start, key doesn't exist - token replacement will return ""
+
+                # For _next, we need to know the bounds (end value)
+                # Check if this is the last iteration by checking total
+                if total is not None and iteration < total - 1:
+                    next_value = counter_value + step
+                    # Store as same type (int or float)
+                    if next_value == int(next_value):
+                        context.custom[f'{counter_name}_next'] = int(next_value)
+                    else:
+                        context.custom[f'{counter_name}_next'] = next_value
+                # If at end, key doesn't exist - token replacement will return ""
+
             except (ValueError, TypeError, KeyError) as e:
                 # Skip invalid counters, log warning
                 logger.warning(f"Invalid counter '{counter_name}' in section: {e}")
@@ -1217,6 +1322,13 @@ class CompilationService:
             # Apply token substitution to both label and destination
             label_resolved = binding_resolver._substitute_tokens(label, context)
             dest_resolved = binding_resolver._substitute_tokens(destination, context)
+
+            # Skip link if destination is empty or malformed after token substitution
+            # Following CLAUDE.md Rule #3: Explicit behavior - empty navigation variables skip entire link
+            # Example: "month:{month_prev}" becomes "month:" when month_prev is empty -> skip link
+            if not dest_resolved or not dest_resolved.strip() or dest_resolved.endswith(':'):
+                logger.debug(f"[compilation] link_list: Skipping link {i} with empty/malformed destination '{dest_resolved}' (original: '{destination}')")
+                continue
 
             # For vertical orientations, also swap cell dimensions
             # Each cell's width/height are in the swapped space, so we need to swap them back

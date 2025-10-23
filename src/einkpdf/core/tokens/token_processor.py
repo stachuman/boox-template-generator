@@ -240,14 +240,22 @@ class TokenProcessor:
 
     @staticmethod
     def _replace_tokens(text: str, values: Dict[str, Any]) -> str:
-        """Replace tokens in text using optional format specifiers."""
+        """
+        Replace tokens in text using optional format specifiers.
+
+        Following CLAUDE.md Rule #3: Explicit behavior - missing tokens return empty string.
+        This supports automatic navigation variables (_prev/_next) that may not exist
+        at boundaries (e.g., {counter_prev} on first page).
+        """
 
         def repl(match: re.Match) -> str:
             token_name = match.group(1)
             format_spec = match.group(2)
 
+            # Missing token or None value → empty string
+            # This allows {counter_prev} to gracefully disappear when not available
             if token_name not in values or values[token_name] is None:
-                return match.group(0)
+                return ""
 
             value = values[token_name]
 
@@ -256,7 +264,8 @@ class TokenProcessor:
                 try:
                     return format(value, fmt)
                 except Exception:
-                    return match.group(0)
+                    # Format specifier failed → return empty string (fail gracefully)
+                    return ""
 
             return str(value)
 
