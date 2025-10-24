@@ -24,6 +24,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
   const showMonthName = calendarProps.show_month_name !== false;
   const showYear = calendarProps.show_year !== false;
   const showGridLines = calendarProps.show_grid_lines !== false;
+  const showWeekNumbers = calendarProps.week_numbers === true;
   const weekStartDay = calendarProps.first_day_of_week || 'monday'; // European default
   const cellMinSize = Math.max(20, calendarProps.cell_min_size || 44);
   const calendarFontSize = Math.max(6, (calendarStyling.size || 10));
@@ -402,8 +403,9 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
       const weekdayHeight = showWeekdays ? calendarFontSize * 1.5 : 0;
       const availableHeight = gridHeight - headerHeight - weekdayHeight;
 
+      const weekColWidth = showWeekNumbers ? calendarFontSize * 2.2 : 0;
       const cellHeight = Math.max(cellMinSize, availableHeight / weeksToShow);
-      const cellWidth = widget.position.width / 7;
+      const cellWidth = (widget.position.width - weekColWidth) / 7;
 
       const weekdays = weekdayNames;
 
@@ -442,7 +444,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
             key={i}
             className={`absolute flex items-start justify-start ${isClickable && isCurrentMonth ? 'cursor-pointer hover:bg-blue-50' : ''}`}
             style={{
-              left: col * cellWidth,
+              left: weekColWidth + col * cellWidth,
               top: headerHeight + weekdayHeight + row * cellHeight,
               width: cellWidth,
               height: cellHeight,
@@ -459,6 +461,60 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
             </div>
           </div>
         );
+      }
+
+      // Generate week number cells
+      const weekCells = [];
+      if (showWeekNumbers) {
+        for (let weekRow = 0; weekRow < weeksToShow; weekRow++) {
+          // Calculate first day in this week row
+          const firstDayInRow = weekRow * 7 - firstDayOfWeek + 1;
+          let weekDate: Date;
+
+          if (firstDayInRow < 1) {
+            // Previous month
+            weekDate = new Date(year, month - 1, daysInPreviousMonth + firstDayInRow);
+          } else if (firstDayInRow > daysInMonth) {
+            // Next month
+            weekDate = new Date(year, month + 1, firstDayInRow - daysInMonth);
+          } else {
+            // Current month
+            weekDate = new Date(year, month, firstDayInRow);
+          }
+
+          // Get ISO week number
+          const getISOWeek = (date: Date): number => {
+            const target = new Date(date.valueOf());
+            const dayNr = (date.getDay() + 6) % 7;
+            target.setDate(target.getDate() - dayNr + 3);
+            const firstThursday = target.valueOf();
+            target.setMonth(0, 1);
+            if (target.getDay() !== 4) {
+              target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+            }
+            return 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
+          };
+
+          const weekNum = getISOWeek(weekDate);
+
+          weekCells.push(
+            <div
+              key={`week-${weekRow}`}
+              className="absolute flex items-center justify-center text-xs"
+              style={{
+                left: 0,
+                top: headerHeight + weekdayHeight + weekRow * cellHeight,
+                width: weekColWidth,
+                height: cellHeight,
+                fontSize: calendarFontSize * 0.8,
+                color: calendarStyling.color || '#000000',
+                borderRight: showGridLines ? '1px solid #ccc' : 'none'
+              }}
+            >
+              {weekNum}
+            </div>
+          );
+        }
       }
 
       return (
@@ -488,7 +544,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
 
           {/* Weekday Headers */}
           {showWeekdays && (
-            <div className="flex">
+            <div className="flex" style={{ marginLeft: weekColWidth }}>
               {weekdays.map((day, index) => (
                 <div
                   key={index}
@@ -508,6 +564,9 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
 
           {/* Calendar cells */}
           {cells}
+
+          {/* Week number cells */}
+          {weekCells}
 
           {/* Warning overlay for small widgets */}
           {isWidgetTooSmall && (

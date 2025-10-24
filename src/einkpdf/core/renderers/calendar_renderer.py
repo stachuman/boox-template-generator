@@ -579,6 +579,15 @@ class CalendarRenderer(BaseWidgetRenderer):
                 # Render week number using TextEngine
                 self.text_engine.render_text(pdf_canvas, wn_box, wn_text, wn_text_options)
 
+                # Create clickable link for week number if link_strategy is template
+                # Following CLAUDE.md Rule #3: Explicit behavior - only create links when template strategy is used
+                if link_strategy == 'template':
+                    self._create_calendar_week_link(
+                        pdf_canvas, widget, week_num, first_date,
+                        cal_pos['x'], row_bottom_y, week_col_width, cell_height,
+                        props, enforcer
+                    )
+
     def _render_weekly_calendar(self, pdf_canvas: canvas.Canvas, widget: Widget,
                               config: Dict[str, Any], cal_pos: Dict[str, float],
                               text_options, page_num: int, total_pages: int, enforcer=None) -> None:
@@ -1172,6 +1181,70 @@ class CalendarRenderer(BaseWidgetRenderer):
                 if self.strict_mode:
                     raise
                 # In non-strict mode, enforcer tracks violations
+
+    def _create_calendar_week_link(self, pdf_canvas: canvas.Canvas, widget: Widget,
+                                   week_num: int, week_date: date,
+                                   cell_x: float, cell_y: float,
+                                   cell_width: float, cell_height: float,
+                                   props: Dict[str, Any], enforcer=None) -> None:
+        """
+        Create PDF link annotation for calendar week number cells.
+
+        Following CLAUDE.md Rule #1: No dummy implementations - complete link functionality.
+        Following CLAUDE.md Rule #3: Explicit behavior - skip malformed destinations.
+
+        Args:
+            pdf_canvas: ReportLab canvas to draw on
+            widget: Widget being rendered
+            week_num: ISO week number (1-52/53)
+            week_date: First date in the week (for year context)
+            cell_x, cell_y: Bottom-left corner of week number cell
+            cell_width, cell_height: Dimensions of week number cell
+            props: Widget properties (for link_template)
+            enforcer: Optional constraint enforcer
+        """
+        # Get link template with default
+        link_template = props.get('link_template', 'week:{week}')
+
+        # Format destination using week number and date context
+        try:
+            destination = link_template.format(
+                week=week_num,
+                year=week_date.year,
+                month=week_date.month,
+                date=week_date.isoformat()
+            )
+        except (KeyError, ValueError) as e:
+            logger.warning(f"Calendar week link template error: {e}, using default")
+            destination = f"week:{week_num}"
+
+        # Following CLAUDE.md Rule #3: Skip malformed destinations (empty or ending with ':')
+        # This matches the boundary-aware navigation behavior where empty variables
+        # create malformed destinations like "week:" which should be skipped
+        if not destination or not destination.strip() or destination.endswith(':'):
+            logger.debug(f"Skipping week number link with empty/malformed destination '{destination}'")
+            return
+
+        # Define link rectangle (entire week number cell is clickable)
+        link_rect = (cell_x, cell_y, cell_x + cell_width, cell_y + cell_height)
+
+        # Create PDF link annotation
+        try:
+            pdf_canvas.linkRect("", destination, link_rect, relative=0)
+            logger.debug(f"Created calendar week link to '{destination}' at {link_rect}")
+        except Exception as e:
+            # Following CLAUDE.md Rule #4: Fail fast with meaningful exceptions
+            if self.strict_mode:
+                raise RenderingError(f"Failed to create calendar week link: {e}")
+            logger.warning(f"Failed to create calendar week link to '{destination}': {e}")
+
+        # Log touch target validation
+        if enforcer:
+            try:
+                _ = enforcer.check_touch_target_size(cell_width, cell_height)
+            except Exception:
+                if self.strict_mode:
+                    raise
 
     def validate_calendar_properties(self, widget: Widget) -> None:
         """

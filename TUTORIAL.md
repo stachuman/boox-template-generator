@@ -422,11 +422,35 @@ When using the Calendar widget, additional variables are available:
 - `{year}` - Year for the calendar
 - `{month}` - Month number (1-12)
 - `{month_name}` - Full month name
+- `{week}` - ISO week number (1-52/53)
 
 **Calendar Configuration:**
 - Use `{year}` and `{month}` to set which month to display
 - Calendar automatically shows all days in that month
-- Can include week numbers if configured
+
+**Week Numbers:**
+
+Monthly calendars can display ISO week numbers (1-52/53) in a left column with automatic clickable links.
+
+To enable week numbers:
+1. Open the calendar widget properties
+2. Check "Show Week Numbers" (only available for monthly calendars)
+3. Week numbers appear in the left column
+4. When using "Named Destinations" link strategy with template like `week:{week}`, week numbers become clickable links
+
+**How Week Number Links Work:**
+- `link_strategy='none'` → Week numbers displayed but not clickable
+- `link_strategy='named_destinations'` → Week numbers link to destinations based on `link_template`
+  - Default template: `week:{week}` creates links like `week:42`, `week:43`
+  - Custom template: `week:{year}-W{week}` creates links like `week:2025-W42`
+- `link_strategy='sequential_pages'` → Week numbers not clickable (only date cells link)
+
+**Example Use Case:**
+
+If you have a monthly overview calendar on one page and weekly detail pages:
+1. Monthly calendar: Enable "Show Week Numbers" with link strategy "Named Destinations"
+2. Weekly pages: Use `each_week` generation mode with anchors like `week:{week}`
+3. Clicking week number 42 in the calendar navigates to the detailed page for week 42
 
 ### Best Practices for Variables
 

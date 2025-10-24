@@ -148,6 +148,15 @@ const CalendarProperties: React.FC<CalendarPropertiesProps> = ({ widget, onUpdat
             />
           </div>
 
+          {calendarType === 'monthly' && (
+            <CheckboxInput
+              label="Show Week Numbers"
+              checked={properties.week_numbers === true}
+              onChange={(checked) => updateProperty('week_numbers', checked)}
+              helpText="Display ISO week numbers with automatic links (when using template link strategy)"
+            />
+          )}
+
           <SelectInput
             label="First Day of Week"
             value={properties.first_day_of_week || 'monday'}
