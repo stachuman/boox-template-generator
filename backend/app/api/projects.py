@@ -76,6 +76,11 @@ class UpdateMasterRequest(BaseModel):
     description: Optional[str] = None
 
 
+class DuplicateMasterRequest(BaseModel):
+    target_project_id: Optional[str] = Field(None, description="Target project ID (defaults to same project)")
+    new_name: Optional[str] = Field(None, min_length=1, max_length=100, description="Name for duplicated master (defaults to '{original_name} (copy)')")
+
+
 class UpdatePlanRequest(BaseModel):
     plan_data: Dict[str, Any] = Field(..., description="Plan configuration data")
 
@@ -301,6 +306,47 @@ async def remove_master(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Master '{master_name}' not found")
+    return project
+
+
+@router.post("/{project_id}/masters/{master_name}/duplicate", response_model=Project)
+async def duplicate_master(
+    project_id: str,
+    master_name: str,
+    request: DuplicateMasterRequest,
+    current_user: User = Depends(get_current_user),
+) -> Project:
+    """
+    Duplicate a master template within same project or to another project.
+
+    Following CLAUDE.md Rule #1: No dummy implementations - complete functionality.
+    Following CLAUDE.md Rule #3: Explicit behavior - regenerates all widget IDs to avoid conflicts.
+
+    - Same-project duplication: Omit target_project_id or set to same as source
+    - Cross-project duplication: Set target_project_id to different project (must be owned by same user)
+    - Auto-naming: Defaults to "{original_name} (copy)" with counter for multiple copies
+    - Widget ID regeneration: All widget IDs are regenerated to prevent conflicts
+    """
+    service = _get_user_project_service(current_user)
+    _get_project_or_404(service, project_id)
+
+    # If target_project_id specified, verify user owns that project too
+    if request.target_project_id and request.target_project_id != project_id:
+        _get_project_or_404(service, request.target_project_id)
+
+    try:
+        project = service.duplicate_master(
+            source_project_id=project_id,
+            source_master_name=master_name,
+            target_project_id=request.target_project_id,
+            new_name=request.new_name
+        )
+    except ProjectServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Master '{master_name}' not found")
+
     return project
 
 

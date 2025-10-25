@@ -268,6 +268,22 @@ export class APIClient {
     return response.data;
   }
 
+  static async duplicateMaster(
+    projectId: string,
+    masterName: string,
+    targetProjectId?: string,
+    newName?: string
+  ): Promise<Project> {
+    const response: AxiosResponse<Project> = await apiClient.post(
+      `/projects/${projectId}/masters/${encodeURIComponent(masterName)}/duplicate`,
+      {
+        target_project_id: targetProjectId,
+        new_name: newName
+      }
+    );
+    return response.data;
+  }
+
   // Plans
   static async shareProject(projectId: string, request: MakeProjectPublicRequest): Promise<Project> {
     const response: AxiosResponse<Project> = await apiClient.post(`/projects/${projectId}/share`, request);

@@ -505,6 +505,72 @@ const ProjectEditor: React.FC = () => {
     }
   };
 
+  const handleRenameMaster = async (masterName: string) => {
+    if (!project) return;
+
+    // Prompt for new name
+    const newName = prompt(`Rename master "${masterName}" to:`, masterName);
+
+    // User cancelled
+    if (newName === null) return;
+
+    // User entered same name
+    if (newName.trim() === masterName) return;
+
+    // User entered empty name
+    if (!newName.trim()) {
+      alert('Master name cannot be empty');
+      return;
+    }
+
+    // Validate name format (only letters, numbers, spaces, hyphens, underscores)
+    if (!/^[a-zA-Z0-9\s\-_]+$/.test(newName)) {
+      alert('Master name can only contain letters, numbers, spaces, hyphens, and underscores');
+      return;
+    }
+
+    try {
+      const updatedProject = await APIClient.updateMaster(project.id, masterName, { new_name: newName.trim() });
+      setProject(updatedProject);
+      updateProjectList(updatedProject.id, { metadata: updatedProject.metadata, masters: updatedProject.masters, plan: updatedProject.plan });
+    } catch (err: any) {
+      console.error('Failed to rename master:', err);
+      alert(`Failed to rename master: ${err.response?.data?.detail || err.message}`);
+    }
+  };
+
+  const handleDuplicateMaster = async (masterName: string) => {
+    if (!project) return;
+
+    // Prompt for new name
+    const defaultName = `${masterName} - copy`;
+    const newName = prompt(`Enter name for duplicated master:`, defaultName);
+
+    // User cancelled
+    if (newName === null) return;
+
+    // User entered empty name
+    if (!newName.trim()) {
+      alert('Master name cannot be empty');
+      return;
+    }
+
+    // Validate name format (only letters, numbers, spaces, hyphens, underscores)
+    if (!/^[a-zA-Z0-9\s\-_]+$/.test(newName)) {
+      alert('Master name can only contain letters, numbers, spaces, hyphens, and underscores');
+      return;
+    }
+
+    try {
+      const updatedProject = await APIClient.duplicateMaster(project.id, masterName, undefined, newName.trim());
+      setProject(updatedProject);
+      updateProjectList(updatedProject.id, { metadata: updatedProject.metadata, masters: updatedProject.masters, plan: updatedProject.plan });
+    } catch (err: any) {
+      console.error('Failed to duplicate master:', err);
+      alert(`Failed to duplicate master: ${err.response?.data?.detail || err.message}`);
+    }
+  };
+
   const handleDeleteMaster = async (masterName: string) => {
     if (!project || !confirm(`Are you sure you want to delete master "${masterName}"?`)) return;
 
@@ -982,16 +1048,38 @@ const ProjectEditor: React.FC = () => {
                         {master.widgets.length} widgets
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteMaster(master.name);
-                      }}
-                      className="text-eink-light-gray hover:text-red-600 transition-colors p-1"
-                      title="Delete master"
-                    >
-                      ×
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRenameMaster(master.name);
+                        }}
+                        className="text-eink-light-gray hover:text-eink-blue transition-colors px-2 py-1 text-sm"
+                        title="Rename master"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDuplicateMaster(master.name);
+                        }}
+                        className="text-eink-light-gray hover:text-eink-blue transition-colors px-2 py-1 text-sm"
+                        title="Duplicate master"
+                      >
+                        📋
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteMaster(master.name);
+                        }}
+                        className="text-eink-light-gray hover:text-red-600 transition-colors p-1"
+                        title="Delete master"
+                      >
+                        ×
+                      </button>
+                    </div>
                   </div>
 
                   <div className="text-sm text-eink-dark-gray">

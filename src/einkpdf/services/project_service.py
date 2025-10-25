@@ -607,10 +607,17 @@ class ProjectService:
                 raise ProjectServiceError(f"Invalid template YAML: {e}")
 
         # Update name if provided
+        # Following CLAUDE.md Rule #1: No dummy implementations - update all plan sections that reference this master
         if new_name is not None and new_name != master_name:
             # Check for duplicate names
             if any(m.name == new_name for m in project.masters if m != master):
                 raise ProjectServiceError(f"Master name '{new_name}' already exists in project")
+
+            # Update all plan sections that reference the old master name
+            for section in project.plan.sections:
+                if section.master == master_name:
+                    section.master = new_name
+
             master.name = new_name
 
         # Update description if provided
@@ -646,6 +653,141 @@ class ProjectService:
             raise ProjectServiceError(f"Failed to persist master YAML: {e}")
 
         return project
+
+    def duplicate_master(self, source_project_id: str, source_master_name: str,
+                        target_project_id: Optional[str] = None,
+                        new_name: Optional[str] = None) -> Optional[Project]:
+        """
+        Duplicate a master template within same project or to another project.
+
+        Following CLAUDE.md Rule #1: No dummy implementations - complete functionality.
+        Following CLAUDE.md Rule #3: Explicit behavior - regenerate all widget IDs to avoid conflicts.
+
+        Args:
+            source_project_id: Source project ID
+            source_master_name: Master name to duplicate
+            target_project_id: Target project ID (defaults to source_project_id for same-project duplication)
+            new_name: Name for duplicated master (defaults to "{original_name} (copy)")
+
+        Returns:
+            Updated target project if successful, None if source project not found
+
+        Raises:
+            ProjectServiceError: If duplication fails (master not found, name conflict, etc.)
+        """
+        # Default to same-project duplication
+        if target_project_id is None:
+            target_project_id = source_project_id
+
+        # Load source project and verify master exists
+        source_project = self.get_project(source_project_id)
+        if not source_project:
+            raise ProjectServiceError(f"Source project '{source_project_id}' not found")
+
+        source_master = next(
+            (m for m in source_project.masters if m.name == source_master_name),
+            None
+        )
+        if not source_master:
+            raise ProjectServiceError(f"Master '{source_master_name}' not found in source project")
+
+        # Load target project (may be same as source)
+        target_project = self.get_project(target_project_id)
+        if not target_project:
+            raise ProjectServiceError(f"Target project '{target_project_id}' not found")
+
+        # Read master YAML file from source
+        source_masters_dir = self._get_project_dir(source_project_id) / "masters"
+        source_yaml_path = source_masters_dir / f"{self._safe_name(source_master_name)}.yaml"
+
+        if not source_yaml_path.exists():
+            raise ProjectServiceError(f"Master YAML file not found: {source_yaml_path}")
+
+        try:
+            with open(source_yaml_path, 'r', encoding='utf-8') as f:
+                template_yaml = f.read()
+        except OSError as e:
+            raise ProjectServiceError(f"Failed to read master YAML: {e}")
+
+        # Parse template to regenerate widget IDs
+        try:
+            template = parse_yaml_template(template_yaml)
+        except (TemplateParseError, SchemaValidationError) as e:
+            raise ProjectServiceError(f"Invalid template YAML in source master: {e}")
+
+        # Generate new widget IDs to avoid conflicts
+        # Following CLAUDE.md Rule #3: Explicit behavior - always regenerate IDs
+        import time
+        import random
+        timestamp = str(int(time.time() * 1000))
+        random_suffix = ''.join(random.choices('abcdefghijklmnopqrstuvwxyz0123456789', k=8))
+
+        widgets = []
+        for i, widget_data in enumerate(template.widgets):
+            if isinstance(widget_data, dict):
+                widget = Widget.model_validate(widget_data)
+            else:
+                widget = widget_data
+
+            # Generate new unique ID
+            new_id = f"widget_{timestamp}_{random_suffix}_{i}"
+            widget_dict = widget.model_dump()
+            widget_dict['id'] = new_id
+            widgets.append(Widget.model_validate(widget_dict))
+
+        # Generate new master name if not provided
+        # Following CLAUDE.md Rule #3: Explicit behavior - use only allowed characters (letters, numbers, spaces, hyphens, underscores)
+        if new_name is None:
+            new_name = f"{source_master_name} - copy"
+            # Handle multiple copies: "Master - copy", "Master - copy 2", etc.
+            counter = 2
+            while any(m.name == new_name for m in target_project.masters):
+                new_name = f"{source_master_name} - copy {counter}"
+                counter += 1
+        else:
+            # Check for name conflicts in target project
+            if any(m.name == new_name for m in target_project.masters):
+                raise ProjectServiceError(f"Master name '{new_name}' already exists in target project")
+
+        # Create new master with regenerated widgets
+        now = datetime.now(timezone.utc).isoformat()
+        new_master = Master(
+            name=new_name,
+            description=source_master.description,
+            widgets=widgets,
+            created_at=now,
+            updated_at=now
+        )
+
+        # Add to target project
+        target_project.masters.append(new_master)
+        target_project.metadata.updated_at = now
+
+        # Save target project
+        self._save_project(target_project)
+
+        # Generate new YAML with updated widget IDs
+        template.widgets = widgets
+        updated_yaml = yaml.safe_dump(
+            convert_enums_for_serialization(template.model_dump()),
+            sort_keys=False,
+            allow_unicode=True
+        )
+
+        # Save master YAML to target project
+        target_masters_dir = self._get_project_dir(target_project_id) / "masters"
+        target_yaml_path = target_masters_dir / f"{self._safe_name(new_name)}.yaml"
+
+        try:
+            with open(target_yaml_path, "w", encoding="utf-8") as f:
+                f.write(updated_yaml)
+        except OSError as e:
+            raise ProjectServiceError(f"Failed to save duplicated master YAML: {e}")
+
+        # Update index
+        self._refresh_index_entry(target_project)
+
+        return target_project
 
     def remove_master(self, project_id: str, master_name: str) -> Optional[Project]:
         """

@@ -228,6 +228,8 @@ class PDFJobService:
             output_path.write_bytes(pdf_bytes)
 
             # If this job is associated with a project, move PDF to project directory for preview
+            # Following CLAUDE.md Rule #3: Explicit behavior - project PDFs are permanent, not temporary job files
+            moved_to_project = False
             if job.project_id:
                 try:
                     from ..workspaces import get_workspace_manager
@@ -249,16 +251,20 @@ class PDFJobService:
                         output_path.unlink()
                         logger.debug(f"Removed source PDF file from jobs directory after move")
 
-                    # Update output_path to point to project location
-                    output_path = project_pdf_path
-                    logger.info(f"Moved PDF for job {job_id} to project {job.project_id} at {project_pdf_path}")
+                    moved_to_project = True
+                    logger.info(f"Moved PDF for job {job_id} to permanent project storage at {project_pdf_path}")
                 except Exception as e:
                     # Non-fatal - job still succeeds even if move fails
                     logger.warning(f"Failed to move PDF to project directory: {e}")
                     # output_path remains at jobs directory if move fails
 
             # Update job record
-            job.output_path = str(output_path)
+            # Following CLAUDE.md Rule #3: Don't track project PDFs in output_path to prevent cleanup deletion
+            # Project PDFs are permanent storage managed by ProjectService, not temporary job files
+            if moved_to_project:
+                job.output_path = None  # Clear path - PDF now owned by project, not job cleanup
+            else:
+                job.output_path = str(output_path)  # Keep path for temporary jobs directory cleanup
             job.size_bytes = len(pdf_bytes)
             job.page_count = page_count
             job.status = "completed"
