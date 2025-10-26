@@ -11,6 +11,7 @@ import { Widget } from '@/types';
 // Import all widget components
 import TableWidget from './TableWidget';
 import CalendarWidget from './CalendarWidget';
+import DayListWidget from './DayListWidget';
 import LineWidget from './LineWidget';
 import DotGridWidget from './DotGridWidget';
 import TextWidget from './TextWidget';
@@ -30,6 +31,7 @@ export const widgetRegistry: Record<string, WidgetComponent> = {
   // Complex widgets
   table: TableWidget,
   calendar: CalendarWidget,
+  day_list: DayListWidget,
   link_list: LinkListWidget,
 
   // Line and grid widgets
@@ -73,6 +75,7 @@ export const getSupportedWidgetTypes = (): string[] => {
 export {
   TableWidget,
   CalendarWidget,
+  DayListWidget,
   LineWidget,
   DotGridWidget,
   TextWidget,

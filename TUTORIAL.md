@@ -452,6 +452,117 @@ If you have a monthly overview calendar on one page and weekly detail pages:
 2. Weekly pages: Use `each_week` generation mode with anchors like `week:{week}`
 3. Clicking week number 42 in the calendar navigates to the detailed page for week 42
 
+### Day List Widget
+
+The **Day List** widget creates a vertical list of days in a month with space for notes beside each day. Unlike the calendar widget (which shows a grid layout for navigating dates), the day list is designed for note-taking and daily planning within a single month.
+
+**When to Use Day List vs Calendar:**
+
+- **Use Calendar Widget** when you need:
+  - Grid view of an entire month
+  - Visual date navigation (clicking on dates)
+  - Week numbers and monthly overview
+  - Multiple months or custom date ranges
+
+- **Use Day List Widget** when you need:
+  - Linear list of days with writing space
+  - More room for daily notes
+  - Vertical scrolling format
+  - Simple monthly page layout
+
+**Key Properties:**
+
+**Display Options:**
+- `start_date`: First day of the month (e.g., `{year}-{month}-01`)
+- `show_day_numbers`: Show day numbers (1, 2, 3... 31)
+- `show_weekday_names`: Show weekday names (Monday, Tuesday, etc.)
+- `weekday_format`: Name format - `'short'` (Mon), `'narrow'` (M), or `'full'` (Monday)
+- `first_day_of_week`: Start week on `'monday'` (Europe) or `'sunday'` (US)
+
+**Layout Options:**
+- `row_height`: Height in points for each day row (default: 20)
+- `show_notes_lines`: Display horizontal lines for writing notes
+- `notes_line_count`: Number of lines per day (default: 1)
+- `orientation`: Text orientation - `'horizontal'`, `'vertical_cw'`, or `'vertical_ccw'`
+
+**Weekend Highlighting:**
+- `highlight_weekends`: Add background color to weekend rows
+- `weekend_color`: Background color for weekends (default: `'#F0F0F0'`)
+
+**Navigation Links:**
+- `link_strategy`: How day rows link to pages
+  - `'no_links'`: No clickable links
+  - `'named_destinations'`: Link to anchors using template
+  - `'sequential_pages'`: Link to consecutive page numbers
+- `link_template`: Template for named destinations (e.g., `'day:{date}'`)
+- `first_page_number`: Starting page for sequential links
+
+**Localization:**
+
+Weekday and month names use the **global locale** setting from your project's compilation plan (not per-widget). The locale is set at the project level in Step 2 when defining your PDF structure.
+
+**Example Use Cases:**
+
+**1. Monthly Note-Taking Page:**
+```
+Widget: Day List
+- start_date: {year}-{month}-01
+- row_height: 25
+- show_notes_lines: true
+- notes_line_count: 2
+- link_strategy: no_links
+
+Use case: One page per month showing all days with space for brief notes
+```
+
+**2. Monthly Index with Links to Daily Pages:**
+```
+Widget: Day List
+- start_date: {year}-{month}-01
+- row_height: 20
+- show_notes_lines: false
+- link_strategy: named_destinations
+- link_template: day:{date}
+
+Use case: Monthly overview where clicking any day jumps to that day's detailed page
+Structure: Combine with daily pages that have anchors like `day:{date}`
+```
+
+**3. Vertical Monthly Planner:**
+```
+Widget: Day List
+- start_date: 2026-01-01
+- row_height: 30
+- show_notes_lines: true
+- notes_line_count: 3
+- highlight_weekends: true
+- weekend_color: #F5F5F5
+
+Use case: Full-page monthly view with plenty of space for daily tasks
+```
+
+**Layout Tips:**
+
+The day list automatically calculates column widths:
+- Day numbers: 30 points (if enabled)
+- Weekday names: 80 points (if enabled)
+- Notes area: Remaining width
+
+**For a widget that is 400 points wide:**
+- With both day numbers and weekday names: 290 points for notes
+- With only day numbers: 370 points for notes
+- With only weekday names: 320 points for notes
+- With neither: 400 points for notes (just lines)
+
+**Number of Days That Fit:**
+
+The widget will automatically stop rendering days if they would exceed the widget height:
+- Row height 20pt: ~26 days fit in 520pt height
+- Row height 25pt: ~20 days fit in 520pt height
+- Row height 30pt: ~17 days fit in 520pt height
+
+**Tip:** For months with 31 days, ensure your widget height is at least `row_height × 31`.
+
 ### Best Practices for Variables
 
 **1. Use Padding for Sorting:**

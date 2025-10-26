@@ -19,7 +19,30 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
   const calendarProps = widget.properties || {};
   const calendarStyling = widget.styling || {};
   const calendarType = calendarProps.calendar_type || 'monthly';
-  const startDate = calendarProps.start_date ? new Date(calendarProps.start_date) : new Date();
+
+  // Handle token-based dates in UI preview by using sample data
+  const parseDateSafely = (dateStr: string): Date => {
+    if (!dateStr) {
+      return new Date();
+    }
+
+    // Check if date contains tokens (e.g., {year}, {month})
+    if (dateStr.includes('{') && dateStr.includes('}')) {
+      // Use current date as preview sample
+      return new Date();
+    }
+
+    const parsed = new Date(dateStr);
+    // Check if date is valid
+    if (isNaN(parsed.getTime())) {
+      // Fallback to current date for preview
+      return new Date();
+    }
+
+    return parsed;
+  };
+
+  const startDate = parseDateSafely(calendarProps.start_date || '');
   const showWeekdays = calendarProps.show_weekdays !== false;
   const showMonthName = calendarProps.show_month_name !== false;
   const showYear = calendarProps.show_year !== false;
@@ -602,7 +625,7 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
       >
         <div className="text-center text-xs text-gray-500">
           Custom Range Calendar<br />
-          {startDate.toLocaleDateString(locale)} - {calendarProps.end_date ? new Date(calendarProps.end_date).toLocaleDateString(locale) : 'Open'}
+          {startDate.toLocaleDateString(locale)} - {calendarProps.end_date ? parseDateSafely(calendarProps.end_date).toLocaleDateString(locale) : 'Open'}
         </div>
       </div>
     );

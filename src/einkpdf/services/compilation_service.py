@@ -1653,7 +1653,8 @@ class CompilationService:
             "version": "1.0",
             "author": project.metadata.author,
             "created": project.metadata.created_at,
-            "profile": project.metadata.device_profile
+            "profile": project.metadata.device_profile,
+            "locale": getattr(project.plan, 'locale', 'en') or 'en'
         }
 
     def _default_canvas(self, device_profile_name: str) -> Dict[str, Any]:

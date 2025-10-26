@@ -12,7 +12,7 @@ import clsx from 'clsx';
 
 interface WidgetType {
   id: string; // Unique identifier for React keys
-  type: 'text_block' | 'checkbox' | 'divider' | 'vertical_line' | 'lines' | 'dot_grid' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box' | 'table';
+  type: 'text_block' | 'checkbox' | 'divider' | 'vertical_line' | 'lines' | 'dot_grid' | 'anchor' | 'internal_link' | 'calendar' | 'day_list' | 'tap_zone' | 'image' | 'link_list' | 'box' | 'table';
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   description: string;
@@ -205,7 +205,41 @@ const WIDGET_TYPES: WidgetType[] = [
       }
     }
   },
- 
+
+  {
+    id: 'day_list',
+    type: 'day_list',
+    label: 'Day List',
+    icon: AlignJustify,
+    description: 'Vertical monthly day list with notes space',
+    defaultProps: {
+      content: '',  // Day list generates its own content
+      position: { width: 320, height: 400 },  // ~20 days at 20px row height
+      styling: {
+        font: 'Helvetica',
+        size: 10,
+        color: '#000000'
+      },
+      properties: {
+        start_date: '{year}-{month}-01',  // Token for first day of current month
+        row_height: 20,
+        show_day_numbers: true,
+        show_weekday_names: true,
+        weekday_format: 'short',
+        show_notes_lines: true,
+        notes_line_count: 1,
+        highlight_weekends: false,
+        weekend_color: '#F0F0F0',
+        first_day_of_week: 'monday',
+        link_strategy: 'no_links',
+        orientation: 'horizontal',
+        show_month_header: false,
+        show_year_in_header: false,
+        month_name_format: 'long'
+      }
+    }
+  },
+
   {
     id: 'box',
     type: 'box',

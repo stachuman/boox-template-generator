@@ -61,7 +61,7 @@ const BasePropertyPanel: React.FC<BasePropertyPanelProps> = ({
 
   const hasTextStyling = [
     'text_block', 'checkbox', 'internal_link',
-    'calendar', 'link_list', 'table'
+    'calendar', 'day_list', 'link_list', 'table'
   ].includes(widget.type);
 
   const textAlignOptions = [
@@ -150,8 +150,8 @@ const BasePropertyPanel: React.FC<BasePropertyPanelProps> = ({
                   label="Size"
                   value={widget.styling?.size || 12}
                   onChange={(value) => updateStyling('size', value)}
-                  min={widget.type === 'calendar' ? 6 : 8}
-                  max={widget.type === 'calendar' ? 24 : 72}
+                  min={widget.type === 'calendar' || widget.type === 'day_list' ? 6 : 8}
+                  max={widget.type === 'calendar' || widget.type === 'day_list' ? 24 : 72}
                   unit="pt"
                 />
               </div>

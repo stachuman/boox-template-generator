@@ -31,7 +31,7 @@ from ..validation.yaml_validator import ValidationError
 from .postprocess import add_navigation_to_pdf
 from .tokens import TokenProcessor, RenderingTokenContext
 from .renderers.text import TextEngine, TextRenderingOptions
-from .renderers import WidgetRendererRegistry, ShapeRenderer, FormRenderer, ImageRenderer, TextRenderer, TableRenderer, LinkRenderer, CompositeRenderer, CalendarRenderer
+from .renderers import WidgetRendererRegistry, ShapeRenderer, FormRenderer, ImageRenderer, TextRenderer, TableRenderer, LinkRenderer, CompositeRenderer, CalendarRenderer, DayListRenderer
 
 
 class RenderingError(Exception):
@@ -109,6 +109,7 @@ class DeterministicPDFRenderer:
         self.renderer_registry.register_renderer('link_list', CompositeRenderer)
 
         self.renderer_registry.register_renderer('calendar', CalendarRenderer)
+        self.renderer_registry.register_renderer('day_list', DayListRenderer)
 
     def get_page_size(self) -> Tuple[float, float]:
         """
@@ -154,7 +155,7 @@ class DeterministicPDFRenderer:
             if deterministic:
                 pdf_canvas.setTitle(self.template.metadata.name)
                 pdf_canvas.setSubject(self.template.metadata.description)
-                pdf_canvas.setCreator("E-ink PDF Templates v0.5.7")
+                pdf_canvas.setCreator("E-ink PDF Templates v0.6.0")
                 pdf_canvas.setAuthor(self.template.metadata.author or "Unknown")
                 # Note: ReportLab Canvas doesn't support setCreationDate directly
                 # Creation date will be handled by pikepdf post-processor for deterministic builds
@@ -399,10 +400,13 @@ class DeterministicPDFRenderer:
         # Render based on widget type
         # First, try using the registry for supported widget types
         if self.renderer_registry.is_supported(widget.type):
+            # Get locale from template metadata (global setting)
+            locale = getattr(self.template.metadata, 'locale', 'en') or 'en'
             self.renderer_registry.render_widget(
                 pdf_canvas, widget, self.converter, self.strict_mode,
                 page_num=page_num, total_pages=self._total_pages,
-                enforcer=self.enforcer, profile=self.enforcer.profile
+                enforcer=self.enforcer, profile=self.enforcer.profile,
+                locale=locale
             )
         elif widget.type == "anchor":
             # Define a named destination immediately so ReportLab resolves links.

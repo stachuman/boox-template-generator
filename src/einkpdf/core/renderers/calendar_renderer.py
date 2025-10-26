@@ -49,6 +49,7 @@ class CalendarRenderer(BaseWidgetRenderer):
         page_num = kwargs.get('page_num', 1)
         total_pages = kwargs.get('total_pages', 1)
         enforcer = kwargs.get('enforcer')
+        locale = kwargs.get('locale', 'en')  # Global locale from template metadata
 
         # Process properties and styling
         props = getattr(widget, 'properties', {}) or {}
@@ -68,18 +69,18 @@ class CalendarRenderer(BaseWidgetRenderer):
         calendar_type = config['calendar_type']
         if calendar_type == 'monthly':
             self._render_monthly_calendar(pdf_canvas, widget, config, cal_pos, text_options,
-                                        page_num, total_pages, enforcer)
+                                        page_num, total_pages, enforcer, locale)
         elif calendar_type == 'weekly':
             if config.get('layout_orientation') == 'vertical':
                 self._render_weekly_calendar_vertical(pdf_canvas, widget, config, cal_pos,
-                                                    text_options, page_num, total_pages, enforcer)
+                                                    text_options, page_num, total_pages, enforcer, locale)
             else:
                 self._render_weekly_calendar(pdf_canvas, widget, config, cal_pos,
-                                           text_options, page_num, total_pages, enforcer)
+                                           text_options, page_num, total_pages, enforcer, locale)
         else:
             # Simplified preview for custom_range
             self._render_calendar_preview(pdf_canvas, widget, config, cal_pos,
-                                        text_options, page_num, total_pages, enforcer)
+                                        text_options, page_num, total_pages, enforcer, locale)
 
     def _parse_calendar_config(self, props: Dict[str, Any], widget_id: str, page_num: int = 1, total_pages: int = 1) -> Dict[str, Any]:
         """Parse and validate calendar configuration properties."""
@@ -259,7 +260,7 @@ class CalendarRenderer(BaseWidgetRenderer):
 
     def _render_monthly_calendar(self, pdf_canvas: canvas.Canvas, widget: Widget,
                                 config: Dict[str, Any], cal_pos: Dict[str, float],
-                                text_options, page_num: int, total_pages: int, enforcer=None) -> None:
+                                text_options, page_num: int, total_pages: int, enforcer=None, locale: str = 'en') -> None:
         """Render monthly calendar layout using TextEngine for all text."""
         start_date = config['start_date']
         show_weekdays = config['show_weekdays']
@@ -358,7 +359,6 @@ class CalendarRenderer(BaseWidgetRenderer):
 
         # Month and year header (locale aware) using TextEngine
         if show_header:
-            locale = str(props.get('locale', 'en')).lower()
             month_names = get_month_names(locale, short=(month_name_format != 'long'))
 
             # Build header text based on what to show
@@ -408,8 +408,6 @@ class CalendarRenderer(BaseWidgetRenderer):
 
         # Weekday headers using TextEngine
         if show_weekdays:
-            locale = str(props.get('locale', 'en')).lower()
-
             # Convert first_day_of_week to string format expected by get_weekday_names
             start_day = 'monday' if first_day_of_week == 0 else 'sunday'
             weekdays = get_weekday_names(locale, style=day_label_style, start=start_day)
@@ -590,7 +588,7 @@ class CalendarRenderer(BaseWidgetRenderer):
 
     def _render_weekly_calendar(self, pdf_canvas: canvas.Canvas, widget: Widget,
                               config: Dict[str, Any], cal_pos: Dict[str, float],
-                              text_options, page_num: int, total_pages: int, enforcer=None) -> None:
+                              text_options, page_num: int, total_pages: int, enforcer=None, locale: str = 'en') -> None:
         """Render weekly calendar in horizontal layout using TextEngine."""
         props = getattr(widget, 'properties', {}) or {}
 
@@ -609,7 +607,7 @@ class CalendarRenderer(BaseWidgetRenderer):
         start_of_week = start_date - timedelta(days=week_offset)
         week_days = [start_of_week + timedelta(days=i) for i in range(7)]
 
-        locale = str(props.get('locale', 'en')).lower()
+        # locale passed as parameter from global template metadata
         month_name_format = props.get('month_name_format', 'long')
         day_label_style = props.get('weekday_label_style', 'short')
 
@@ -825,7 +823,7 @@ class CalendarRenderer(BaseWidgetRenderer):
 
     def _render_weekly_calendar_vertical(self, pdf_canvas: canvas.Canvas, widget: Widget,
                                        config: Dict[str, Any], cal_pos: Dict[str, float],
-                                       text_options, page_num: int, total_pages: int, enforcer=None) -> None:
+                                       text_options, page_num: int, total_pages: int, enforcer=None, locale: str = 'en') -> None:
         """Render weekly calendar in vertical layout using TextEngine."""
         props = getattr(widget, 'properties', {}) or {}
 
@@ -844,7 +842,7 @@ class CalendarRenderer(BaseWidgetRenderer):
         start_of_week = start_date - timedelta(days=week_offset)
         week_days = [start_of_week + timedelta(days=i) for i in range(7)]
 
-        locale = str(props.get('locale', 'en')).lower()
+        # locale passed as parameter from global template metadata
         month_name_format = props.get('month_name_format', 'long')
         day_label_style = props.get('weekday_label_style', 'short')
 
@@ -1064,7 +1062,7 @@ class CalendarRenderer(BaseWidgetRenderer):
 
     def _render_calendar_preview(self, pdf_canvas: canvas.Canvas, widget: Widget,
                                 config: Dict[str, Any], cal_pos: Dict[str, float],
-                                text_options, page_num: int, total_pages: int, enforcer=None) -> None:
+                                text_options, page_num: int, total_pages: int, enforcer=None, locale: str = 'en') -> None:
         """Render simplified calendar preview for custom range calendars."""
         props = getattr(widget, 'properties', {}) or {}
         start_date = config['start_date']
@@ -1104,7 +1102,7 @@ class CalendarRenderer(BaseWidgetRenderer):
                                  date_obj: date, cell_x: float, cell_y: float,
                                  cell_width: float, cell_height: float,
                                  link_strategy: str, raw_link_strategy: Optional[str],
-                                 props: Dict[str, Any], enforcer=None) -> None:
+                                 props: Dict[str, Any], enforcer=None, locale: str = 'en') -> None:
         """Create PDF link annotation for calendar date cells."""
         # Define link rectangle (entire cell is clickable)
         link_rect = (cell_x, cell_y, cell_x + cell_width, cell_y + cell_height)
@@ -1186,7 +1184,7 @@ class CalendarRenderer(BaseWidgetRenderer):
                                    week_num: int, week_date: date,
                                    cell_x: float, cell_y: float,
                                    cell_width: float, cell_height: float,
-                                   props: Dict[str, Any], enforcer=None) -> None:
+                                   props: Dict[str, Any], enforcer=None, locale: str = 'en') -> None:
         """
         Create PDF link annotation for calendar week number cells.
 

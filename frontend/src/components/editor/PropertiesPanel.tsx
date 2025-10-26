@@ -20,6 +20,7 @@ import TapZoneProperties from './properties/TapZoneProperties';
 import BoxProperties from './properties/BoxProperties';
 import ImageProperties from './properties/ImageProperties';
 import CalendarProperties from './properties/CalendarProperties';
+import DayListProperties from './properties/DayListProperties';
 import LinkListProperties from './properties/LinkListProperties';
 
 const PropertiesPanel: React.FC = () => {
@@ -134,6 +135,14 @@ const PropertiesPanel: React.FC = () => {
       case 'calendar':
         return (
           <CalendarProperties
+            widget={selectedWidget}
+            onUpdate={handleUpdate}
+          />
+        );
+
+      case 'day_list':
+        return (
+          <DayListProperties
             widget={selectedWidget}
             onUpdate={handleUpdate}
           />

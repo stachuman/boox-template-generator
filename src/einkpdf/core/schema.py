@@ -112,6 +112,7 @@ class TemplateMetadata(BaseModel):
     author: str = Field("", max_length=100)
     created: str = Field(..., description="ISO 8601 timestamp")
     profile: str = Field(..., min_length=1, description="Required device profile name")
+    locale: str = Field("en", min_length=2, max_length=10, description="Locale for localized content (weekday/month names)")
 
 
 class Canvas(BaseModel):

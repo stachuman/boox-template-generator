@@ -15,6 +15,7 @@ from .table_renderer import TableRenderer
 from .link_renderer import LinkRenderer
 from .composite_renderer import CompositeRenderer
 from .calendar_renderer import CalendarRenderer
+from .day_list_renderer import DayListRenderer
 
 __all__ = [
     'BaseWidgetRenderer',
@@ -27,5 +28,6 @@ __all__ = [
     'TableRenderer',
     'LinkRenderer',
     'CompositeRenderer',
-    'CalendarRenderer'
+    'CalendarRenderer',
+    'DayListRenderer'
 ]
