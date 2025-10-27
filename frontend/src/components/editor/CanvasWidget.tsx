@@ -30,9 +30,9 @@ const CanvasWidget: React.FC<CanvasWidgetProps> = ({
   onContextMenu,
   readOnly = false
 }) => {
-  const { updateWidget, selectedIds, currentTemplate } = useEditorStore() as any;
-  const snapEnabled = false; // TODO: get from settings
-  const gridSize = 10; // TODO: get from settings
+  const { updateWidget, selectedIds, currentTemplate, snapEnabled: globalSnapEnabled } = useEditorStore() as any;
+  const snapEnabled = globalSnapEnabled && (currentTemplate?.canvas?.snap_enabled !== false);
+  const gridSize = currentTemplate?.canvas?.grid_size || 10;
 
   // Check if this widget is the anchor (first selected widget used for alignment/equalize)
   const isAnchor = isSelected && selectedIds && selectedIds.length > 1 && selectedIds[0] === widget.id;

@@ -12,6 +12,8 @@ import { Widget, DragItem } from '@/types';
 import CanvasWidget from './CanvasWidget';
 import GridOverlay from './GridOverlay';
 import ContextMenu from './ContextMenu';
+import DragOverlay from './DragOverlay';
+import { smartSnap } from '@/lib/snapping';
 
 interface CanvasProps {
   readOnly?: boolean;
@@ -38,6 +40,7 @@ const Canvas: React.FC<CanvasProps> = ({ readOnly = false }) => {
     toggleSelectWidget,
     clearSelection,
     getWidgetsForCurrentPage,
+    setDragInfo,
   } = useEditorStore() as any;
 
   const generateWidgetId = useCallback((): string => {
@@ -49,21 +52,7 @@ const Canvas: React.FC<CanvasProps> = ({ readOnly = false }) => {
     return Math.round(value / gridSize) * gridSize;
   }, [snapEnabled]);
 
-  const getCanvasPosition = useCallback((clientX: number, clientY: number, element?: Element | null) => {
-    const targetElement = element || canvasRef.current;
-    if (!targetElement) return { x: 0, y: 0 };
-    
-    const rect = targetElement.getBoundingClientRect();
-    const x = (clientX - rect.left) / zoom;
-    const y = (clientY - rect.top) / zoom;
-    
-    return {
-      x: snapToGrid(Math.max(0, x)),
-      y: snapToGrid(Math.max(0, y))
-    };
-  }, [zoom, snapToGrid]);
-
-  // Raw (non-snapped) canvas coordinates for precise pointer tracking
+  // Canvas coordinates for precise pointer tracking
   const getCanvasPositionRaw = useCallback((clientX: number, clientY: number, element?: Element | null) => {
     const targetElement = element || canvasRef.current;
     if (!targetElement) return { x: 0, y: 0 };
@@ -82,10 +71,29 @@ const Canvas: React.FC<CanvasProps> = ({ readOnly = false }) => {
     hover: (item: DragItem, monitor) => {
       const clientOffset = monitor.getClientOffset();
       if (!clientOffset) return;
-      const canvasPosition = getCanvasPosition(clientOffset.x, clientOffset.y);
-      // item.widget may be undefined for new
+
+      // Get widget dimensions
       const width = item.isNew ? (item.defaultProps?.position.width || 100) : (item.widget?.position.width || 100);
       const height = item.isNew ? (item.defaultProps?.position.height || 30) : (item.widget?.position.height || 30);
+
+      // Calculate widget position based on drag type
+      let widgetX: number, widgetY: number;
+
+      if (item.isNew) {
+        // NEW widget from palette: cursor position = widget position
+        const canvasPosition = getCanvasPositionRaw(clientOffset.x, clientOffset.y);
+        widgetX = canvasPosition.x;
+        widgetY = canvasPosition.y;
+      } else if (item.widget) {
+        // EXISTING widget: original position + mouse delta
+        const offset = monitor.getDifferenceFromInitialOffset();
+        if (!offset) return;
+
+        widgetX = item.widget.position.x + (offset.x / zoom);
+        widgetY = item.widget.position.y + (offset.y / zoom);
+      } else {
+        return;
+      }
 
       // Filter out all moving widgets (single or group)
       const movingIds = item.selectedWidgets
@@ -122,116 +130,114 @@ const Canvas: React.FC<CanvasProps> = ({ readOnly = false }) => {
         return best;
       };
 
-      const left = canvasPosition.x;
-      const right = canvasPosition.x + width;
-      const hCenter = canvasPosition.x + width / 2;
-      const top = canvasPosition.y;
-      const bottom = canvasPosition.y + height;
-      const vCenter = canvasPosition.y + height / 2;
+      const left = widgetX;
+      const right = widgetX + width;
+      const hCenter = widgetX + width / 2;
+      const top = widgetY;
+      const bottom = widgetY + height;
+      const vCenter = widgetY + height / 2;
 
       let vGuide: number | null = null;
       let hGuide: number | null = null;
+      let snappedX = widgetX;
+      let snappedY = widgetY;
 
-      const nl = trySnap(left, xTargets);
-      if (nl !== left) vGuide = nl; else {
-        const nr = trySnap(right, xTargets);
-        if (nr !== right) vGuide = nr; else {
-          const nc = trySnap(hCenter, xCenterTargets);
-          if (nc !== hCenter) vGuide = nc;
+      // Apply real-time snapping if enabled
+      if (snapEnabled) {
+        const nl = trySnap(left, xTargets);
+        if (nl !== left) {
+          vGuide = nl;
+          snappedX = nl;
+        } else {
+          const nr = trySnap(right, xTargets);
+          if (nr !== right) {
+            vGuide = nr;
+            snappedX = nr - width;
+          } else {
+            const nc = trySnap(hCenter, xCenterTargets);
+            if (nc !== hCenter) {
+              vGuide = nc;
+              snappedX = nc - width / 2;
+            }
+          }
         }
-      }
 
-      const nt = trySnap(top, yTargets);
-      if (nt !== top) hGuide = nt; else {
-        const nb = trySnap(bottom, yTargets);
-        if (nb !== bottom) hGuide = nb; else {
-          const ncy = trySnap(vCenter, yCenterTargets);
-          if (ncy !== vCenter) hGuide = ncy;
+        const nt = trySnap(top, yTargets);
+        if (nt !== top) {
+          hGuide = nt;
+          snappedY = nt;
+        } else {
+          const nb = trySnap(bottom, yTargets);
+          if (nb !== bottom) {
+            hGuide = nb;
+            snappedY = nb - height;
+          } else {
+            const ncy = trySnap(vCenter, yCenterTargets);
+            if (ncy !== vCenter) {
+              hGuide = ncy;
+              snappedY = ncy - height / 2;
+            }
+          }
+        }
+
+        // Apply grid snapping if not snapped to widget
+        if (!vGuide) {
+          const gridSize = currentTemplate?.canvas?.grid_size || 10;
+          snappedX = snapToGrid(snappedX, gridSize);
+        }
+        if (!hGuide) {
+          const gridSize = currentTemplate?.canvas?.grid_size || 10;
+          snappedY = snapToGrid(snappedY, gridSize);
         }
       }
 
       setGuideV(vGuide);
       setGuideH(hGuide);
+
+      // Update drag info with SNAPPED widget position for overlay
+      setDragInfo({
+        x: snappedX,
+        y: snappedY,
+        width,
+        height,
+        cursorX: clientOffset.x,
+        cursorY: clientOffset.y,
+      });
     },
     drop: (item: DragItem, monitor) => {
+      // Clear drag info and guides when drop completes
+      setDragInfo(null);
+      setGuideV(null);
+      setGuideH(null);
+
       if (!currentTemplate) return;
 
       const clientOffset = monitor.getClientOffset();
       if (!clientOffset) return;
 
-      const canvasPosition = getCanvasPosition(clientOffset.x, clientOffset.y);
+      // Use RAW position (no auto-snapping) so we can apply smart snapping logic
+      const canvasPosition = getCanvasPositionRaw(clientOffset.x, clientOffset.y);
 
-      // Helper: snap to nearby widget edges/centers
-      const snapToWidgets = (pos: { x: number; y: number; width: number; height: number }, movingId?: string, movingIds?: string[]) => {
-        const TOL = 6 / zoom; // tolerance in points (scaled)
-        const excludeIds = movingIds || (movingId ? [movingId] : []);
-        const widgets = getWidgetsForCurrentPage().filter((w: Widget) => !excludeIds.includes(w.id));
-        if (widgets.length === 0) return pos;
+      // Get canvas dimensions and margins for smart snapping
+      const canvasWidth = currentTemplate.canvas.dimensions.width;
+      const canvasHeight = currentTemplate.canvas.dimensions.height;
+      const canvasMargins = currentTemplate.canvas.dimensions.margins || [0, 0, 0, 0];
+      const gridSize = currentTemplate.canvas.grid_size || 10;
 
-        const left = pos.x;
-        const right = pos.x + pos.width;
-        const hCenter = pos.x + pos.width / 2;
-        const top = pos.y;
-        const bottom = pos.y + pos.height;
-        const vCenter = pos.y + pos.height / 2;
-
-        let snappedX = pos.x;
-        let snappedY = pos.y;
-
-        // Collect candidate edges
-        const xTargets: number[] = [];
-        const xCenterTargets: number[] = [];
-        const yTargets: number[] = [];
-        const yCenterTargets: number[] = [];
-        widgets.forEach((w: Widget) => {
-          const wx = w.position.x;
-          const wy = w.position.y;
-          const ww = w.position.width;
-          const wh = w.position.height;
-          xTargets.push(wx, wx + ww);
-          xCenterTargets.push(wx + ww / 2);
-          yTargets.push(wy, wy + wh);
-          yCenterTargets.push(wy + wh / 2);
+      // Helper: apply smart multi-level snapping
+      const applySmartSnap = (pos: { x: number; y: number; width: number; height: number }, excludeIds: string[] = []) => {
+        const result = smartSnap(pos, {
+          snapEnabled,
+          gridSize,
+          snapTolerance: 6 / zoom,
+          canvasWidth,
+          canvasHeight,
+          safeMargins: canvasMargins,
+          excludeWidgetIds: excludeIds,
+          allWidgets: getWidgetsForCurrentPage(),
         });
 
-        // Snap X (left/right/center)
-        const trySnap = (val: number, targets: number[]) => {
-          let best = val;
-          let minDelta = Number.MAX_VALUE;
-          targets.forEach(t => {
-            const d = Math.abs(t - val);
-            if (d < minDelta && d <= TOL) {
-              minDelta = d;
-              best = t;
-            }
-          });
-          return best;
-        };
-
-        const newLeft = trySnap(left, xTargets);
-        if (newLeft !== left) snappedX = newLeft;
-        else {
-          const newRight = trySnap(right, xTargets);
-          if (newRight !== right) snappedX = newRight - pos.width;
-          else {
-            const newCenter = trySnap(hCenter, xCenterTargets);
-            if (newCenter !== hCenter) snappedX = newCenter - pos.width / 2;
-          }
-        }
-
-        // Snap Y (top/bottom/center)
-        const newTop = trySnap(top, yTargets);
-        if (newTop !== top) snappedY = newTop;
-        else {
-          const newBottom = trySnap(bottom, yTargets);
-          if (newBottom !== bottom) snappedY = newBottom - pos.height;
-          else {
-            const newCenterY = trySnap(vCenter, yCenterTargets);
-            if (newCenterY !== vCenter) snappedY = newCenterY - pos.height / 2;
-          }
-        }
-
-        return { ...pos, x: Math.round(snappedX), y: Math.round(snappedY) };
+        return { ...pos, x: Math.round(result.x), y: Math.round(result.y) };
       };
 
       if (item.isNew && item.widgetType) {
@@ -252,7 +258,7 @@ const Canvas: React.FC<CanvasProps> = ({ readOnly = false }) => {
         };
 
         // Snap to existing widgets if any
-        const snapped = snapToWidgets({ ...newWidget.position }, newWidget.id);
+        const snapped = applySmartSnap({ ...newWidget.position }, [newWidget.id]);
         addWidget({ ...newWidget, position: snapped });
       } else if (!item.isNew && item.widget) {
         // Move existing widget(s) using delta movement for smooth repositioning
@@ -275,9 +281,8 @@ const Canvas: React.FC<CanvasProps> = ({ readOnly = false }) => {
               // Only snap the main dragged widget to guides, others follow
               if (item.widget && w.id === item.widget.id) {
                 const movingIds = item.selectedWidgets!.map((sw: Widget) => sw.id);
-                const snapped = snapToWidgets(
+                const snapped = applySmartSnap(
                   { ...updatedPosition, width: w.position.width, height: w.position.height },
-                  w.id,
                   movingIds
                 );
                 // Calculate snap adjustment
@@ -304,7 +309,7 @@ const Canvas: React.FC<CanvasProps> = ({ readOnly = false }) => {
               x: snapToGrid(item.widget.position.x + offset.x / zoom),
               y: snapToGrid(item.widget.position.y + offset.y / zoom)
             };
-            const snapped = snapToWidgets({ ...updatedPosition, width: item.widget.position.width, height: item.widget.position.height }, item.widget.id);
+            const snapped = applySmartSnap({ ...updatedPosition, width: item.widget.position.width, height: item.widget.position.height }, [item.widget.id]);
             updateWidget(item.widget.id, { position: snapped });
           } else {
             // Fallback to drop position
@@ -313,7 +318,7 @@ const Canvas: React.FC<CanvasProps> = ({ readOnly = false }) => {
               x: canvasPosition.x,
               y: canvasPosition.y
             };
-            const snapped = snapToWidgets({ ...updatedPosition, width: item.widget.position.width, height: item.widget.position.height }, item.widget.id);
+            const snapped = applySmartSnap({ ...updatedPosition, width: item.widget.position.width, height: item.widget.position.height }, [item.widget.id]);
             updateWidget(item.widget.id, { position: snapped });
           }
         }
@@ -553,6 +558,7 @@ const Canvas: React.FC<CanvasProps> = ({ readOnly = false }) => {
       {/* Canvas */}
       <div
         id="canvas-inner"
+        data-canvas="true"
         ref={(node) => {
           if (canvasRef) {
             (canvasRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
@@ -664,6 +670,9 @@ const Canvas: React.FC<CanvasProps> = ({ readOnly = false }) => {
           })()}
         />
       )}
+
+      {/* Drag Overlay - Shows coordinates during drag */}
+      <DragOverlay />
     </div>
   );
 };

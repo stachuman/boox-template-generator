@@ -47,7 +47,7 @@ const DayListWidget: React.FC<DayListWidgetProps> = ({ widget }) => {
   const weekdayFormat = props.weekday_format || 'short';
   const rowHeight = Math.max(10, props.row_height || 20);
   const showNotesLines = props.show_notes_lines !== false;
-  const notesLineCount = Math.max(0, parseInt(props.notes_line_count || '1'));
+  const notesLineCount = Math.max(0, parseInt(String(props.notes_line_count || '1')));
   const highlightWeekends = props.highlight_weekends === true;
   const weekendColor = props.weekend_color || '#F0F0F0';
   const firstDayOfWeek = props.first_day_of_week || 'monday';
@@ -101,9 +101,6 @@ const DayListWidget: React.FC<DayListWidgetProps> = ({ widget }) => {
     headerParts.push(year.toString());
   }
   const headerText = headerParts.join(' ');
-
-  // Calculate available height for day rows
-  const availableHeight = widget.position.height - headerHeight;
 
   // Render each day
   const dayRows = [];

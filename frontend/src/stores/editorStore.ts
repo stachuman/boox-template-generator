@@ -67,6 +67,17 @@ const getPageDimensions = (profile: DeviceProfile): { width: number; height: num
   };
 };
 
+// Drag overlay info
+export interface DragInfo {
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  cursorX?: number;
+  cursorY?: number;
+  isResizing?: boolean;
+}
+
 interface EditorStore extends EditorState {
   // Actions
   setSelectedWidget: (widget: Widget | null) => void;
@@ -75,8 +86,11 @@ interface EditorStore extends EditorState {
   setActiveProfile: (profile: DeviceProfile | null) => void;
   setCurrentTemplate: (template: Template | null) => void;
   setIsDragging: (isDragging: boolean) => void;
+  setDragInfo: (info: DragInfo | null) => void;
+  dragInfo: DragInfo | null;
   setShowGrid: (showGrid: boolean) => void;
   setSnapEnabled: (snapEnabled: boolean) => void;
+  setGridSize: (gridSize: number) => void;
   setZoom: (zoom: number) => void;
   // Wheel behavior
   wheelMode: 'scroll' | 'zoom';
@@ -178,6 +192,7 @@ export const useEditorStore = create<EditorStore>()(
       activeProfile: null,
       currentTemplate: createDefaultTemplate(),
       isDragging: false,
+      dragInfo: null,
       showGrid: true,
       snapEnabled: true,
       zoom: 1,
@@ -238,11 +253,41 @@ export const useEditorStore = create<EditorStore>()(
       },
       setCurrentTemplate: (template) => set({ currentTemplate: template }),
       setIsDragging: (isDragging) => set({ isDragging }),
+      setDragInfo: (dragInfo) => set({ dragInfo }),
       setShowGrid: (showGrid) => set({ showGrid }),
       setShowWidgetPalette: (show) => set({ showWidgetPalette: show }),
       setShowPagesPanel: (show) => set({ showPagesPanel: show }),
       setShowRightPanel: (show) => set({ showRightPanel: show }),
       setSnapEnabled: (snapEnabled) => set({ snapEnabled }),
+      setGridSize: (gridSize) => {
+        const { currentTemplate } = get();
+
+        // Fail fast if no template (CLAUDE.md Rule #4)
+        if (!currentTemplate) {
+          console.error('setGridSize: Cannot set grid size - no template loaded');
+          return;
+        }
+
+        // Validate input (CLAUDE.md Rule #3)
+        if (typeof gridSize !== 'number' || !isFinite(gridSize)) {
+          console.error('setGridSize: Invalid grid size - must be a finite number', gridSize);
+          return;
+        }
+
+        // Grid size constraints: minimum 1pt, maximum 100pt for usability
+        const MIN_GRID_SIZE = 1;
+        const MAX_GRID_SIZE = 100;
+        const clampedSize = Math.max(MIN_GRID_SIZE, Math.min(MAX_GRID_SIZE, Math.round(gridSize)));
+
+        const updated = {
+          ...currentTemplate,
+          canvas: {
+            ...currentTemplate.canvas,
+            grid_size: clampedSize
+          }
+        };
+        set({ currentTemplate: updated });
+      },
       setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(3, zoom)) }),
       setWheelMode: (mode) => set({ wheelMode: mode }),
       setCanvasContainerSize: (size) => set({ canvasContainerSize: size }),
@@ -632,6 +677,7 @@ export const useEditorStore = create<EditorStore>()(
           selectedIds: [],
           currentTemplate: createDefaultTemplate(),
           isDragging: false,
+          dragInfo: null,
           showGrid: true,
           snapEnabled: true,
           zoom: 1,

@@ -5,7 +5,7 @@ import {
   AlignLeft, AlignCenter, AlignRight,
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
   AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter,
-  ArrowLeftRight, ArrowUpDown
+  ArrowLeftRight, ArrowUpDown, Magnet
 } from 'lucide-react';
 import { useEditorStore } from '@/stores/editorStore';
 import { Project, ProjectMaster, Template, Canvas, AddMasterRequest, UpdateMasterRequest, DeviceProfile, Widget } from '@/types';
@@ -49,11 +49,22 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
   const [showRescaleDialog, setShowRescaleDialog] = useState(false);
   const [deviceProfile, setDeviceProfile] = useState<DeviceProfile | null>(null);
 
-  // Get editor state for alignment tools
-  const { selectedIds, alignSelected, distributeSelected, equalizeSizeSelected } = useEditorStore();
+  // Get editor state for alignment tools and grid/snap controls
+  const { selectedIds, alignSelected, distributeSelected, equalizeSizeSelected, snapEnabled, setSnapEnabled, setGridSize } = useEditorStore((state) => ({
+    selectedIds: state.selectedIds,
+    alignSelected: state.alignSelected,
+    distributeSelected: state.distributeSelected,
+    equalizeSizeSelected: state.equalizeSizeSelected,
+    snapEnabled: state.snapEnabled,
+    setSnapEnabled: state.setSnapEnabled,
+    setGridSize: state.setGridSize,
+  }));
 
   // Check if there are unsaved changes
   const hasUnsavedChanges = !readOnly && yamlContent !== initialYamlContent;
+
+  // Default grid size: 10pt is standard for e-ink devices (balances precision vs usability)
+  const DEFAULT_GRID_SIZE = 10;
 
   // Get localStorage key for drafts
   const getDraftKey = () => {
@@ -582,10 +593,10 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
                   }
                   navigate(`/projects/${project.id}?tab=masters`);
                 }}
-                className="text-eink-dark-gray hover:text-eink-black transition-colors"
+                className="p-2 rounded text-eink-dark-gray hover:bg-eink-pale-gray hover:text-eink-black transition-colors"
                 title="Back to Projects"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4" />
               </button>
 
               <div className="w-px h-6 bg-eink-pale-gray" />
@@ -618,21 +629,57 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
             </button>
           </div>
 
-          {/* Grid Toggle - only in visual mode */}
+          {/* Grid & Snap Controls - only in visual mode */}
           {viewMode === 'visual' && (
             <>
               <div className="w-px h-6 bg-eink-pale-gray" />
+
+              {/* Grid Toggle */}
               <button
                 onClick={() => setShowGrid(!showGrid)}
                 className={`p-2 rounded transition-colors ${
                   showGrid
-                    ? 'bg-eink-black text-eink-white'
+                    ? 'bg-eink-black text-white'
                     : 'text-eink-gray hover:bg-eink-pale-gray'
                 }`}
                 title={showGrid ? 'Hide Grid' : 'Show Grid'}
               >
                 <Grid className="w-4 h-4" />
               </button>
+
+              {/* Snap Toggle */}
+              <button
+                onClick={() => setSnapEnabled(!snapEnabled)}
+                className={`p-2 rounded transition-colors ${
+                  snapEnabled
+                    ? 'bg-eink-black text-white'
+                    : 'text-eink-gray hover:bg-eink-pale-gray'
+                }`}
+                title={snapEnabled ? 'Disable Snapping' : 'Enable Snapping'}
+              >
+                <Magnet className="w-4 h-4" />
+              </button>
+
+              {/* Grid Size Input */}
+              <div className="flex items-center gap-1">
+                <label className="text-xs text-eink-gray">Grid:</label>
+                <input
+                  type="number"
+                  value={currentTemplate?.canvas?.grid_size ?? DEFAULT_GRID_SIZE}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value, 10);
+                    // Validate: must be valid number >= 1 (setGridSize will clamp to max)
+                    if (!isNaN(value) && value >= 1) {
+                      setGridSize(value);
+                    }
+                  }}
+                  className="w-14 px-1 py-1 text-xs border border-eink-light-gray rounded"
+                  min="1"
+                  max="100"
+                  title="Grid Size (points)"
+                />
+                <span className="text-xs text-eink-light-gray">pt</span>
+              </div>
 
               {/* Zoom controls (design canvas) */}
               <div className="flex items-center space-x-1 ml-1">
@@ -744,7 +791,7 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
               <button
                 onClick={() => setShowRescaleDialog(true)}
                 disabled={!currentTemplate?.widgets?.length || !deviceProfile}
-                className="flex items-center gap-2 px-4 py-2 border border-eink-light-gray text-eink-dark-gray rounded-lg hover:bg-eink-pale-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-4 py-2 text-sm border border-eink-light-gray text-eink-dark-gray rounded-lg hover:bg-eink-pale-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title={
                   !currentTemplate?.widgets?.length
                     ? `No widgets to rescale (widgets: ${currentTemplate?.widgets?.length || 0})`
@@ -753,7 +800,7 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
                     : "Rescale all widgets to fit current canvas dimensions"
                 }
               >
-                <Maximize2 className="w-5 h-5" />
+                <Maximize2 className="w-4 h-4" />
                 Rescale Widgets
               </button>
 
@@ -762,17 +809,17 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
                 <button
                   onClick={handleExportPNG}
                   disabled={exportingPNG}
-                  className="flex items-center gap-2 px-4 py-2 border border-eink-light-gray text-eink-dark-gray rounded-lg hover:bg-eink-pale-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-4 py-2 text-sm border border-eink-light-gray text-eink-dark-gray rounded-lg hover:bg-eink-pale-gray transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Export master as PNG template for e-ink devices"
                 >
                   {exportingPNG ? (
                     <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                       Exporting...
                     </>
                   ) : (
                     <>
-                      <Download className="w-5 h-5" />
+                      <Download className="w-4 h-4" />
                       Export PNG
                     </>
                   )}
@@ -783,7 +830,7 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
               <button
                 onClick={handleSave}
                 disabled={saving || !masterNameValue.trim()}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   saveSuccess
                     ? 'bg-green-600 text-white'
                     : hasUnsavedChanges
@@ -793,14 +840,14 @@ const MasterEditor: React.FC<MasterEditorProps> = ({
               >
                 {saveSuccess ? (
                   <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     Saved!
                   </>
                 ) : (
                   <>
-                    <Save className="w-5 h-5" />
+                    <Save className="w-4 h-4" />
                     {saving ? 'Saving...' : hasUnsavedChanges ? 'Save Changes *' : (isNewMaster ? 'Create Master' : 'Save')}
                   </>
                 )}

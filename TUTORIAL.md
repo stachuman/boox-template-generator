@@ -208,16 +208,32 @@ Weather Box: [Empty square for weather sketch]
 
 ### Positioning Your Elements
 
-The page editor works like arranging furniture in a room:
+The page editor works like arranging furniture in a room, with professional design tools to help you align everything precisely:
 
 1. **Drag and Drop** - Move elements around the page
+   - **Real-time coordinates** - See X/Y position as you drag
+   - **Smart snapping** - Widgets automatically snap to:
+     - Other widgets' edges and centers
+     - Canvas boundaries and margins
+     - Grid lines (configurable spacing)
+   - **Visual guides** - Blue lines show what you're aligning to
+
 2. **Resize** - Make boxes bigger or smaller by dragging corners
-3. **Align** - Line up elements to look neat
+   - Width and height shown in real-time
+   - Same snapping behavior for precise sizing
+
+3. **Editor Controls** (in the toolbar)
+   - **Grid button** - Show/hide grid overlay
+   - **Snap button** (magnet icon) - Enable/disable smart snapping
+   - **Grid size** - Adjust grid spacing (1-100pt)
+   - **Zoom controls** - Zoom in/out for precise positioning
 
 **Layout Tips:**
+- **Use snapping** - Align elements to each other and the grid for a professional look
+- **Check coordinates** - The X/Y display helps you position elements exactly where you want
+- **Adjust grid size** - Smaller grid (5-10pt) for precision, larger (20-30pt) for quick layouts
 - Leave white space - don't cram everything together
-- Align elements in rows and columns
-- Make writing areas big enough for actual use
+- Make writing areas big enough for actual use (remember: stylus writing, not typing)
 
 ### Testing Your Page Design
 

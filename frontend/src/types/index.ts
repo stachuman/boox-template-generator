@@ -107,7 +107,7 @@ export interface WidgetProperties {
   calendar_type?: 'monthly' | 'weekly' | 'custom_range';
   start_date?: string;        // ISO 8601 format (YYYY-MM-DD)
   end_date?: string;          // ISO 8601 format (YYYY-MM-DD), optional for monthly/weekly
-  link_strategy?: 'sequential_pages' | 'no_links';
+  link_strategy?: 'sequential_pages' | 'no_links' | 'named_destinations';
   first_page_number?: number; // Required when link_strategy = 'sequential_pages'
   pages_per_date?: number;    // Required when link_strategy = 'sequential_pages'
   show_weekdays?: boolean;
@@ -116,6 +116,19 @@ export interface WidgetProperties {
   show_grid_lines?: boolean;
   first_day_of_week?: 'sunday' | 'monday'; // Calendar locale: Sunday (US) or Monday (Europe)
   layout_orientation?: 'horizontal' | 'vertical'; // Weekly calendar layout: horizontal (columns) or vertical (rows)
+
+  // Day list widget properties (extends calendar properties for dates)
+  show_day_numbers?: boolean;
+  show_weekday_names?: boolean;
+  weekday_format?: 'short' | 'narrow' | 'full';
+  show_notes_lines?: boolean;
+  notes_line_count?: number;
+  highlight_weekends?: boolean;
+  weekend_color?: string;
+  orientation?: 'horizontal' | 'vertical_cw' | 'vertical_ccw';
+  show_month_header?: boolean;
+  show_year_in_header?: boolean;
+  month_name_format?: 'long' | 'short';
 
   // Table widget properties
   rows?: number;                      // Number of data rows (1-100)
@@ -135,7 +148,7 @@ export interface WidgetProperties {
   column_aligns?: string[];           // Per-column alignment overrides
   text_wrap?: boolean;                // Wrap text in cells
   max_lines?: number;                 // Max lines per cell
-  link_template?: string;             // Link pattern for cells (use {row}, {col}, {value}); empty = no links
+  link_template?: string;             // Link pattern (table: {row},{col},{value}; day_list: {date},{year},{month},{day})
   link_columns?: number[];            // Which columns are linkable (0-based internally, displayed as 1-based)
 
   [key: string]: any;
@@ -143,7 +156,7 @@ export interface WidgetProperties {
 
 export interface Widget {
   id: string;
-  type: 'text_block' | 'checkbox' | 'divider' | 'vertical_line' | 'lines' | 'dot_grid' | 'anchor' | 'internal_link' | 'calendar' | 'tap_zone' | 'image' | 'link_list' | 'box' | 'table';
+  type: 'text_block' | 'checkbox' | 'divider' | 'vertical_line' | 'lines' | 'dot_grid' | 'anchor' | 'internal_link' | 'calendar' | 'day_list' | 'tap_zone' | 'image' | 'link_list' | 'box' | 'table';
   page?: number; // Optional - auto-assigned during compilation for multi-page documents
   content?: string;
   position: Position;

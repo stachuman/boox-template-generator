@@ -11,7 +11,7 @@ import {
   AlignLeft, AlignCenter, AlignRight,
   AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd,
   AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter,
-  ArrowLeftRight, ArrowUpDown
+  ArrowLeftRight, ArrowUpDown, Magnet
 } from 'lucide-react';
 import clsx from 'clsx';
 import { DeviceProfile, Template } from '@/types';
@@ -83,7 +83,21 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onEqualizeH,
 }) => {
   const [showMetadataEditor, setShowMetadataEditor] = useState(false);
-  const { zoom, setZoom, wheelMode, setWheelMode, canvasContainerSize, canvasScrollContainer } = useEditorStore() as any;
+  const { zoom, setZoom, wheelMode, setWheelMode, canvasContainerSize, canvasScrollContainer, snapEnabled, setSnapEnabled, setGridSize } = useEditorStore((state) => ({
+    zoom: state.zoom,
+    setZoom: state.setZoom,
+    wheelMode: state.wheelMode,
+    setWheelMode: state.setWheelMode,
+    canvasContainerSize: state.canvasContainerSize,
+    canvasScrollContainer: state.canvasScrollContainer,
+    snapEnabled: state.snapEnabled,
+    setSnapEnabled: state.setSnapEnabled,
+    setGridSize: state.setGridSize,
+  }));
+
+  // Default grid size: 10pt is standard for e-ink devices (balances precision vs usability)
+  const DEFAULT_GRID_SIZE = 10;
+  const gridSize = currentTemplate?.canvas?.grid_size ?? DEFAULT_GRID_SIZE;
 
   const centerCanvas = () => {
     if (!canvasScrollContainer) return;
@@ -253,18 +267,54 @@ const Toolbar: React.FC<ToolbarProps> = ({
           </>
         )}
 
-        <button
-          onClick={onToggleGrid}
-          className={clsx(
-            'p-2 rounded transition-colors',
-            showGrid
-              ? 'bg-eink-black text-eink-white'
-              : 'text-eink-gray hover:bg-eink-pale-gray'
-          )}
-          title={showGrid ? 'Hide Grid' : 'Show Grid'}
-        >
-          <Grid className="w-4 h-4" />
-        </button>
+        {/* Grid & Snap Controls */}
+        <div className="flex items-center space-x-1">
+          <button
+            onClick={onToggleGrid}
+            className={clsx(
+              'p-2 rounded transition-colors',
+              showGrid
+                ? 'bg-eink-black text-eink-white'
+                : 'text-eink-gray hover:bg-eink-pale-gray'
+            )}
+            title={showGrid ? 'Hide Grid' : 'Show Grid'}
+          >
+            <Grid className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => setSnapEnabled(!snapEnabled)}
+            className={clsx(
+              'p-2 rounded transition-colors',
+              snapEnabled
+                ? 'bg-eink-black text-eink-white'
+                : 'text-eink-gray hover:bg-eink-pale-gray'
+            )}
+            title={snapEnabled ? 'Disable Snapping' : 'Enable Snapping'}
+          >
+            <Magnet className="w-4 h-4" />
+          </button>
+
+          <div className="flex items-center space-x-1">
+            <label className="text-xs text-eink-gray">Grid:</label>
+            <input
+              type="number"
+              value={gridSize}
+              onChange={(e) => {
+                const value = parseInt(e.target.value, 10);
+                // Validate: must be valid number >= 1 (setGridSize will clamp to max)
+                if (!isNaN(value) && value >= 1) {
+                  setGridSize(value);
+                }
+              }}
+              className="w-14 px-1 py-1 text-xs border rounded"
+              min="1"
+              max="100"
+              title="Grid Size (points)"
+            />
+            <span className="text-xs text-eink-light-gray">pt</span>
+          </div>
+        </div>
 
         {/* Zoom controls */}
         <div className="flex items-center space-x-1 ml-1">

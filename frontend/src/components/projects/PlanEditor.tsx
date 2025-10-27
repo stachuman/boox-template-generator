@@ -385,6 +385,13 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
               >
                 <SelectItem value="en">English (en)</SelectItem>
                 <SelectItem value="pl">Polski (pl)</SelectItem>
+                <SelectItem value="de">Deutsch (de)</SelectItem>
+                <SelectItem value="fr">Français (fr)</SelectItem>
+                <SelectItem value="es">Español (es)</SelectItem>
+                <SelectItem value="it">Italiano (it)</SelectItem>
+                <SelectItem value="uk">Українська (uk)</SelectItem>
+                <SelectItem value="ja">日本語 (ja)</SelectItem>
+                <SelectItem value="zh">中文 (zh)</SelectItem>
               </Select>
               <p className="text-xs text-gray-500 mt-1">Affects month/weekday names and label tokens</p>
             </div>
