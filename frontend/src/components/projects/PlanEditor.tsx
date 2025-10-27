@@ -588,12 +588,23 @@ const SectionEditor: React.FC<{
               placeholder="Select master template"
               className={validationErrors.some(e => e.field === 'master') ? 'border-red-300' : ''}
             >
+              {/* Following CLAUDE.md Rule #3: Show invalid master references instead of hiding them */}
+              {section.master && !availableMasters.find(m => m.name === section.master) && (
+                <SelectItem key={`invalid-${section.master}`} value={section.master}>
+                  ⚠️ {section.master} (DELETED - select new master)
+                </SelectItem>
+              )}
               {availableMasters.map(master => (
                 <SelectItem key={master.name} value={master.name}>
                   {master.name} - {master.description}
                 </SelectItem>
               ))}
             </Select>
+            {section.master && !availableMasters.find(m => m.name === section.master) && (
+              <div className="text-xs text-red-600 mt-1">
+                ⚠️ Master "{section.master}" no longer exists. Select a new master or delete this section.
+              </div>
+            )}
           </div>
         </div>
 

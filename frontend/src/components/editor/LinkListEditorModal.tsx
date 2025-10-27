@@ -27,12 +27,17 @@ const LinkListEditorModal: React.FC<LinkListEditorModalProps> = ({
   const [draftDestinations, setDraftDestinations] = useState<string[]>([]);
 
   // Initialize draft state when modal opens
+  // CLAUDE.md Rule #3: No default fallbacks - only reset on open, not on prop changes
+  // CLAUDE.md Rule #2: Simple code - track previous isOpen to detect open transition
+  const [prevIsOpen, setPrevIsOpen] = useState(false);
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpen) {
+      // Modal just opened - initialize draft from props
       setDraftLabels([...labels]);
       setDraftDestinations([...destinations]);
     }
-  }, [isOpen, labels, destinations]);
+    setPrevIsOpen(isOpen);
+  }, [isOpen]); // Only depend on isOpen, not labels/destinations
 
   const handleLabelChange = (index: number, value: string) => {
     const newLabels = [...draftLabels];

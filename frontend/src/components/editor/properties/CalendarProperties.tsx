@@ -122,14 +122,11 @@ const CalendarProperties: React.FC<CalendarPropertiesProps> = ({ widget, onUpdat
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <CheckboxInput
-              label="Show Year"
-              checked={properties.show_year !== false}
-              onChange={(checked) => updateProperty('show_year', checked)}
-            />
-            <div></div>
-          </div>
+          <CheckboxInput
+            label="Show Year"
+            checked={properties.show_year !== false}
+            onChange={(checked) => updateProperty('show_year', checked)}
+          />
 
           <div className="grid grid-cols-2 gap-3">
             <CheckboxInput
@@ -184,6 +181,22 @@ const CalendarProperties: React.FC<CalendarPropertiesProps> = ({ widget, onUpdat
               helpText="Force specific number of weeks (4-6) for consistent height. Leave empty for auto."
             />
           )}
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Highlight Date
+            </label>
+            <input
+              type="text"
+              value={properties.highlight_date || ''}
+              onChange={(e) => updateProperty('highlight_date', e.target.value)}
+              placeholder="{date} for current date, or YYYY-MM-DD"
+              className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
+            />
+            <div className="text-xs text-eink-gray mt-1">
+              Use {'{date}'} to highlight current page's date, or specific date like 2025-01-15
+            </div>
+          </div>
         </div>
       </div>
 

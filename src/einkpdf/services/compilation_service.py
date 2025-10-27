@@ -225,10 +225,55 @@ class PlanEnumerator:
                 context.custom['month_next'] = '' if is_last else month_next
 
                 # Add week navigation (empty at section boundaries)
-                week_prev = date_prev.isocalendar()[1]
-                week_next = date_next.isocalendar()[1]
-                context.custom['week_prev'] = '' if is_first else week_prev
-                context.custom['week_next'] = '' if is_last else week_next
+                # Calculate based on CURRENT week number, not adjacent dates
+                # (CLAUDE.md Rule #2: Fix overcomplicated code - simple arithmetic instead of date calculations)
+                # (CLAUDE.md Rule #4: Fail fast - validate week number boundaries properly)
+                week_prev = week_num - 1
+                week_next = week_num + 1
+
+                # CLAUDE.md Rule #3: No default fallbacks without confirmation
+                # Properly check if previous/next week exists in the actual year
+                def has_week_53(year: int) -> bool:
+                    """Check if ISO year has 53 weeks (not assumption, actual calculation)."""
+                    # ISO 8601: Year has 53 weeks if Dec 31 is in week 53
+                    last_day = date(year, 12, 31)
+                    return last_day.isocalendar()[1] == 53
+
+                current_year = date_obj.year
+
+                # Validate week_prev
+                if is_first:
+                    # Section boundary: don't navigate outside section
+                    context.custom['week_prev'] = ''
+                elif week_prev < 1:
+                    # Week 0 doesn't exist - would need to go to previous year's last week
+                    # Check if previous year has week 53
+                    prev_year = current_year - 1
+                    if has_week_53(prev_year):
+                        # Previous year has week 53
+                        context.custom['week_prev'] = ''  # Empty to avoid cross-year complexity
+                    else:
+                        # Previous year ends at week 52
+                        context.custom['week_prev'] = ''  # Empty to avoid cross-year complexity
+                else:
+                    # Week exists in current year
+                    context.custom['week_prev'] = week_prev
+
+                # Validate week_next
+                if is_last:
+                    # Section boundary: don't navigate outside section
+                    context.custom['week_next'] = ''
+                elif week_next > 53:
+                    # Beyond week 53 - would need to go to next year's week 1
+                    context.custom['week_next'] = ''  # Empty to avoid cross-year complexity
+                else:
+                    # Check if week_next actually exists in current year
+                    if week_next == 53 and not has_week_53(current_year):
+                        # Week 53 doesn't exist in this year
+                        context.custom['week_next'] = ''
+                    else:
+                        # Week exists in current year
+                        context.custom['week_next'] = week_next
 
             except Exception as e:
                 # Following CLAUDE.md Rule #4: Meaningful error messages

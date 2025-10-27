@@ -814,11 +814,29 @@ class ProjectService:
         if len(project.masters) == original_count:
             raise ProjectServiceError(f"Master '{master_name}' not found in project")
 
-        # Remove any plan sections that reference this master
-        project.plan.sections = [
-            section for section in project.plan.sections
-            if section.master != master_name
-        ]
+        # Remove any plan sections that reference this master (including nested sections)
+        # Following CLAUDE.md Rule #1: Complete implementation - recursively clean up nested sections
+        def remove_sections_with_master(sections: List[PlanSection], master_name: str) -> List[PlanSection]:
+            """
+            Recursively filter out sections (including nested) that reference the deleted master.
+
+            Following CLAUDE.md Rule #3: No silent fallbacks - completely remove invalid references.
+            """
+            result = []
+            for section in sections:
+                # Skip section if it references the deleted master
+                if section.master == master_name:
+                    continue
+
+                # If section has nested sections, recursively clean them up
+                if section.nested:
+                    cleaned_nested = remove_sections_with_master(section.nested, master_name)
+                    section.nested = cleaned_nested if cleaned_nested else None
+
+                result.append(section)
+            return result
+
+        project.plan.sections = remove_sections_with_master(project.plan.sections, master_name)
 
         # Update plan order to remove references to removed sections
         updated_order = []
