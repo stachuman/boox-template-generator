@@ -309,11 +309,14 @@ export class APIClient {
   }
 
   // Compiled PDF availability check (HEAD)
+  // Following CLAUDE.md Rule #3: Check actual file existence, log errors for debugging
   static async hasCompiledPDF(projectId: string): Promise<boolean> {
     try {
       const res = await apiClient.head(`/projects/${projectId}/pdf`);
       return res.status >= 200 && res.status < 300;
-    } catch (_e) {
+    } catch (e: any) {
+      // Log error for debugging (auth issues, network errors, etc.)
+      console.debug('hasCompiledPDF check failed:', e.response?.status || e.message);
       return false;
     }
   }

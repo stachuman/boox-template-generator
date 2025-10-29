@@ -32,7 +32,10 @@ const ProjectEditor: React.FC = () => {
   const [creatingPDF, setCreatingPDF] = useState<boolean>(false);
   const [jobInProgress, setJobInProgress] = useState<boolean>(false);
   const [currentPDFJobId, setCurrentPDFJobId] = useState<string | null>(null);
-  const [completedPDFJobId, setCompletedPDFJobId] = useState<string | null>(null);
+  // Keep job ID for localStorage persistence and debugging (not used for UI logic)
+  const [_completedPDFJobId, setCompletedPDFJobId] = useState<string | null>(null);
+  // Following CLAUDE.md Rule #3: Track ACTUAL PDF existence, not just job state
+  const [pdfExists, setPdfExists] = useState<boolean>(false);
 
   const storageAvailable = typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
   const getActiveJobKey = () => (projectId ? `einkpdf:pdfjob:active:${projectId}` : null);
@@ -77,6 +80,9 @@ const ProjectEditor: React.FC = () => {
 
   useEffect(() => {
     if (!projectId) return;
+
+    // Following CLAUDE.md Rule #3: Clear stale error state on project load
+    setError(null);
 
     loadProject();
 
@@ -170,8 +176,8 @@ const ProjectEditor: React.FC = () => {
       // Job exists but has failed/cancelled status - clear it
       persistActiveJob(null);
     } catch (err: any) {
+      // Following CLAUDE.md Rule #3: Don't show errors for stale job state - PDF existence is what matters
       // Only clear localStorage for permanent failures (404 = job doesn't exist)
-      // Keep it for transient errors (network, 500, timeout, auth) so state isn't lost
       const is404 = err.status === 404 ||
                     err.response?.status === 404 ||
                     err.message?.includes('404') ||
@@ -181,9 +187,9 @@ const ProjectEditor: React.FC = () => {
         console.warn('Active PDF job not found (404), clearing storage:', storedJobId);
         persistActiveJob(null);
       } else {
-        // Transient error - keep localStorage intact, log error for visibility
-        console.error('Failed to restore active PDF job (keeping localStorage):', err);
-        setError('Failed to check PDF job status. Your PDF may still be available - try refreshing the page.');
+        // Likely stale job from previous session - clear it to avoid repeated errors
+        console.warn('Failed to restore active PDF job (clearing stale localStorage):', err);
+        persistActiveJob(null);
       }
     }
 
@@ -224,8 +230,8 @@ const ProjectEditor: React.FC = () => {
       // Job exists but has failed/cancelled status - clear it
       persistCompletedJob(null);
     } catch (err: any) {
+      // Following CLAUDE.md Rule #3: Don't show errors for stale job state - PDF existence is what matters
       // Only clear localStorage for permanent failures (404 = job doesn't exist)
-      // Keep it for transient errors (network, 500, timeout, auth) so state isn't lost
       const is404 = err.status === 404 ||
                     err.response?.status === 404 ||
                     err.message?.includes('404') ||
@@ -235,9 +241,9 @@ const ProjectEditor: React.FC = () => {
         console.warn('Completed PDF job not found (404), clearing storage:', storedJobId);
         persistCompletedJob(null);
       } else {
-        // Transient error - keep localStorage intact, log error for visibility
-        console.error('Failed to restore completed PDF job (keeping localStorage):', err);
-        setError('Failed to check PDF job status. Your PDF may still be available - try refreshing the page.');
+        // Likely stale job from previous session - clear it to avoid repeated errors
+        console.warn('Failed to restore completed PDF job (clearing stale localStorage):', err);
+        persistCompletedJob(null);
       }
     }
 
@@ -274,10 +280,12 @@ const ProjectEditor: React.FC = () => {
   }, []);
 
   // If a compiled PDF already exists when loading the project, show it automatically
+  // Following CLAUDE.md Rule #3: Check ACTUAL file existence, not just job records
   useEffect(() => {
     const checkExistingPDF = async () => {
       if (!project) return;
       const exists = await APIClient.hasCompiledPDF(project.id);
+      setPdfExists(exists); // Track actual PDF existence
       if (exists) {
         try {
           const url = await createPreviewUrl(project.id);
@@ -296,6 +304,7 @@ const ProjectEditor: React.FC = () => {
     const maybeLoad = async () => {
       if (activeTab !== 'preview' || !project) return;
       const exists = await APIClient.hasCompiledPDF(project.id);
+      setPdfExists(exists); // Track actual PDF existence
       if (exists) {
         try {
           const url = await createPreviewUrl(project.id);
@@ -357,6 +366,7 @@ const ProjectEditor: React.FC = () => {
     // IMPORTANT: Clear old job first to force component remount
     setCurrentPDFJobId(null);
     setCompletedPDFJobId(null);
+    // Don't clear pdfExists yet - old PDF still exists until new one replaces it
     persistCompletedJob(null);
 
     try {
@@ -384,16 +394,33 @@ const ProjectEditor: React.FC = () => {
     }
   };
 
+  // Following CLAUDE.md Rule #3: Check actual PDF existence, not job state
   const handleDownloadReadyPDF = async () => {
-    if (!completedPDFJobId || !project) return;
+    if (!project) {
+      setError('Project not loaded');
+      return;
+    }
+
+    // Verify PDF actually exists before attempting download
+    try {
+      const exists = await APIClient.hasCompiledPDF(project.id);
+      if (!exists) {
+        setError('PDF not found. It may have been deleted.');
+        setPdfExists(false);
+        return;
+      }
+    } catch (err: any) {
+      console.error('Failed to check PDF existence:', err);
+      // Continue with download attempt - hasCompiledPDF might have transient error
+    }
 
     try {
-      // Download from project endpoint (PDF was moved there after job completed)
+      // Download from project endpoint (PDF is stored by project ID)
       const blob = await APIClient.downloadProjectPDF(project.id);
       const filename = `${project.metadata.name.replace(/[^a-zA-Z0-9\-_\s]/g, '').trim()}.pdf`;
       downloadBlob(blob, filename);
     } catch (err: any) {
-      // Only clear completed job if PDF is permanently gone (404)
+      // Only clear PDF existence state if PDF is permanently gone (404)
       // Keep it for transient download errors (network, auth, server errors)
       const is404 = err.status === 404 ||
                     err.response?.status === 404 ||
@@ -402,11 +429,12 @@ const ProjectEditor: React.FC = () => {
 
       if (is404) {
         setError('PDF not found. It may have been deleted or expired.');
+        setPdfExists(false);
         persistCompletedJob(null);
         setCompletedPDFJobId(null);
       } else {
         setError(err.message || 'Failed to download PDF. Please try again.');
-        // Keep completed job state - PDF still exists, download just failed
+        // Keep PDF existence state - PDF still exists, download just failed
       }
     }
   };
@@ -895,9 +923,9 @@ const ProjectEditor: React.FC = () => {
                 </div>
               </div>
 
-              {/* Step 3: PDF Generated */}
+              {/* Step 3: PDF Generated - Following CLAUDE.md Rule #3: Check actual file existence */}
               <div className="flex items-start gap-2">
-                {completedPDFJobId ? (
+                {pdfExists ? (
                   <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
@@ -907,11 +935,11 @@ const ProjectEditor: React.FC = () => {
                   </svg>
                 )}
                 <div>
-                  <div className={`font-medium ${completedPDFJobId ? 'text-green-900' : 'text-gray-600'}`}>
+                  <div className={`font-medium ${pdfExists ? 'text-green-900' : 'text-gray-600'}`}>
                     PDF Generated
                   </div>
                   <div className="text-xs text-gray-600">
-                    {completedPDFJobId ? 'Ready for download' : 'Not yet created'}
+                    {pdfExists ? 'Ready for download' : 'Not yet created'}
                   </div>
                 </div>
               </div>
@@ -1243,13 +1271,14 @@ const ProjectEditor: React.FC = () => {
                     </>
                   )}
                 </button>
-                {completedPDFJobId && (
+                {/* Following CLAUDE.md Rule #3: Show download when PDF actually exists, not just when job completed */}
+                {pdfExists && (
                   <button
                     onClick={handleDownloadReadyPDF}
                     className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                   >
                     <Download className="w-5 h-5" />
-                    Download Ready PDF
+                    Download PDF
                   </button>
                 )}
               </div>
@@ -1267,6 +1296,7 @@ const ProjectEditor: React.FC = () => {
                   setCompletedPDFJobId(job.id);
                   setCurrentPDFJobId(job.id);
                   setJobInProgress(false);
+                  setPdfExists(true); // PDF now exists on disk
                   persistActiveJob(null);
                   persistCompletedJob(job.id);
 
