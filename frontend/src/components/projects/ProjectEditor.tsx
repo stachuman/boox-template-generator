@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, RefreshCw, Edit2, Check, X } from 'lucide-react';
+import { ArrowLeft, Plus, Download, RefreshCw, Edit2, Check, X, Eye } from 'lucide-react';
 import { Project, Plan, DeviceProfile } from '@/types';
 import { useProjectStore } from '@/stores/projectStore';
 import { APIClient, downloadBlob } from '@/services/api';
@@ -394,7 +394,44 @@ const ProjectEditor: React.FC = () => {
     }
   };
 
-  // Following CLAUDE.md Rule #3: Check actual PDF existence, not job state
+  // Following CLAUDE.md Rule #5: Better solution for e-ink - open PDF directly
+  // Following CLAUDE.md Rule #3: Proper authentication handling
+  const handleOpenPDF = async () => {
+    if (!project) {
+      setError('Project not loaded');
+      return;
+    }
+
+    try {
+      // Download PDF with authentication (inline mode for viewing)
+      const blob = await APIClient.downloadProjectPDF(project.id, true);
+
+      // Create object URL from authenticated blob
+      const url = URL.createObjectURL(blob);
+
+      // Open in new tab - works reliably on all devices including e-ink
+      window.open(url, '_blank');
+
+      // Clean up object URL after some time (blob is already loaded in new tab)
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
+    } catch (err: any) {
+      const is404 = err.status === 404 ||
+                    err.response?.status === 404 ||
+                    err.message?.includes('404') ||
+                    err.message?.includes('Not Found');
+
+      if (is404) {
+        setError('PDF not found. It may have been deleted.');
+        setPdfExists(false);
+      } else {
+        setError(err.message || 'Failed to open PDF. Please try again.');
+      }
+    }
+  };
+
+  // Following CLAUDE.md Rule #3: Download with proper fallback for devices where it works
   const handleDownloadReadyPDF = async () => {
     if (!project) {
       setError('Project not loaded');
@@ -433,7 +470,8 @@ const ProjectEditor: React.FC = () => {
         persistCompletedJob(null);
         setCompletedPDFJobId(null);
       } else {
-        setError(err.message || 'Failed to download PDF. Please try again.');
+        // Following CLAUDE.md Rule #3: Explicit error with fallback suggestion
+        setError('Download failed. Try "Open PDF" button or use browser\'s download feature.');
         // Keep PDF existence state - PDF still exists, download just failed
       }
     }
@@ -1271,15 +1309,26 @@ const ProjectEditor: React.FC = () => {
                     </>
                   )}
                 </button>
-                {/* Following CLAUDE.md Rule #3: Show download when PDF actually exists, not just when job completed */}
+                {/* Following CLAUDE.md Rule #5: Better UX for e-ink devices - open + download */}
                 {pdfExists && (
-                  <button
-                    onClick={handleDownloadReadyPDF}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <Download className="w-5 h-5" />
-                    Download PDF
-                  </button>
+                  <>
+                    <button
+                      onClick={handleOpenPDF}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      title="Open PDF in new tab (recommended for e-ink devices)"
+                    >
+                      <Eye className="w-5 h-5" />
+                      Open PDF
+                    </button>
+                    <button
+                      onClick={handleDownloadReadyPDF}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      title="Download PDF file"
+                    >
+                      <Download className="w-5 h-5" />
+                      Download
+                    </button>
+                  </>
                 )}
               </div>
             </div>

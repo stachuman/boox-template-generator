@@ -131,6 +131,13 @@ const DayListProperties: React.FC<DayListPropertiesProps> = ({ widget, onUpdate 
             />
           </div>
 
+          <CheckboxInput
+            label="Show Week Numbers"
+            checked={properties.show_week_numbers === true}
+            onChange={(checked) => updateProperty('show_week_numbers', checked)}
+            helpText="Display ISO week numbers with automatic links (when using named destinations strategy)"
+          />
+
           <SelectInput
             label="Weekday Format"
             value={properties.weekday_format || 'short'}
@@ -238,21 +245,41 @@ const DayListProperties: React.FC<DayListPropertiesProps> = ({ widget, onUpdate 
           />
 
           {showLinkTemplate && (
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Link Template
-              </label>
-              <input
-                type="text"
-                value={properties.link_template || 'day:{date}'}
-                onChange={(e) => updateProperty('link_template', e.target.value)}
-                placeholder="day:{date}"
-                className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
-              />
-              <div className="text-xs text-eink-gray mt-1">
-                Template for named destination. Available tokens: {'{date}'}, {'{year}'}, {'{month}'}, {'{day}'}
+            <>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Day Link Template
+                </label>
+                <input
+                  type="text"
+                  value={properties.link_template || 'day:{date}'}
+                  onChange={(e) => updateProperty('link_template', e.target.value)}
+                  placeholder="day:{date}"
+                  className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
+                />
+                <div className="text-xs text-eink-gray mt-1">
+                  Template for day row links. Tokens: {'{date}'}, {'{year}'}, {'{month}'}, {'{day}'}
+                </div>
               </div>
-            </div>
+
+              {properties.show_week_numbers === true && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Week Link Template
+                  </label>
+                  <input
+                    type="text"
+                    value={properties.week_link_template || 'week:{week}'}
+                    onChange={(e) => updateProperty('week_link_template', e.target.value)}
+                    placeholder="week:{week}"
+                    className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
+                  />
+                  <div className="text-xs text-eink-gray mt-1">
+                    Template for week number links. Tokens: {'{week}'}, {'{year}'}, {'{month}'}, {'{date}'}
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {showFirstPageNumber && (

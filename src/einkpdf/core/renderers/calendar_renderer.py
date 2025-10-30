@@ -344,7 +344,8 @@ class CalendarRenderer(BaseWidgetRenderer):
 
         # Calculate cell dimensions (7 columns for days of week) to FIT bounds
         available_height = max(0.0, available_height)
-        week_col_width = (font_size * 2.2) if week_numbers else 0.0
+        # Following CLAUDE.md Rule #3: Week numbers are max 3 chars ("W53"), need ~2.0 for readability
+        week_col_width = (font_size * 2.0) if week_numbers else 0.0
         cell_width = (calendar_width - week_col_width) / 7
         cell_height = available_height / actual_weeks if actual_weeks > 0 else 0.0
 

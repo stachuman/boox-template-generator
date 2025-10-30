@@ -44,6 +44,7 @@ const DayListWidget: React.FC<DayListWidgetProps> = ({ widget }) => {
   const startDate = parseDateSafely(props.start_date || '');
   const showDayNumbers = props.show_day_numbers !== false;
   const showWeekdayNames = props.show_weekday_names !== false;
+  const showWeekNumbers = props.show_week_numbers === true;
   const weekdayFormat = props.weekday_format || 'short';
   const rowHeight = Math.max(10, props.row_height || 20);
   const showNotesLines = props.show_notes_lines !== false;
@@ -73,6 +74,8 @@ const DayListWidget: React.FC<DayListWidgetProps> = ({ widget }) => {
   const fontCSS = getFontCSS(styling.font);
 
   // Column widths (matching backend logic) - adapt weekday width to format
+  // Following CLAUDE.md Rule #3: Week numbers are max 3 chars ("W53"), need ~2.0 for readability
+  const weekColWidth = showWeekNumbers ? fontSize * 2.0 : 0;
   const dayNumWidth = showDayNumbers ? 30 : 0;
   let weekdayWidth = 0;
   if (showWeekdayNames) {
@@ -103,16 +106,39 @@ const DayListWidget: React.FC<DayListWidgetProps> = ({ widget }) => {
   const headerText = headerParts.join(' ');
 
   // Render each day
+  // Following CLAUDE.md Rule #3: Track week changes to show week number only when it changes
   const dayRows = [];
+  let prevWeekNum: number | null = null;
+
   for (let day = 1; day <= daysInMonth; day++) {
     const currentDate = new Date(year, month, day);
     const weekdayIndex = (currentDate.getDay() - (firstDayOffset === 0 ? 1 : 0) + 7) % 7;
     const isWeekend = weekdayIndex >= 5; // Saturday and Sunday
 
+    // Calculate ISO week number
+    const getISOWeek = (date: Date): number => {
+      const target = new Date(date.valueOf());
+      const dayNr = (date.getDay() + 6) % 7;
+      target.setDate(target.getDate() - dayNr + 3);
+      const firstThursday = target.valueOf();
+      target.setMonth(0, 1);
+      if (target.getDay() !== 4) {
+        target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+      }
+      return 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
+    };
+    const weekNum = getISOWeek(currentDate);
+    const showThisWeek = showWeekNumbers && (prevWeekNum === null || weekNum !== prevWeekNum);
+
     // Check if row would exceed available height (accounting for header)
     const rowY = headerHeight + (day - 1) * rowHeight;
     if (rowY + rowHeight > widget.position.height) {
       break; // Stop rendering if exceeds height
+    }
+
+    // Update previous week number
+    if (showWeekNumbers) {
+      prevWeekNum = weekNum;
     }
 
     dayRows.push(
@@ -132,6 +158,19 @@ const DayListWidget: React.FC<DayListWidgetProps> = ({ widget }) => {
           paddingTop: '2px'
         }}
       >
+        {/* Week number - only show when week changes */}
+        {showWeekNumbers && (
+          <div
+            style={{
+              width: weekColWidth,
+              textAlign: 'center',
+              paddingRight: '4px'
+            }}
+          >
+            {showThisWeek ? `W${weekNum}` : ''}
+          </div>
+        )}
+
         {/* Day number */}
         {showDayNumbers && (
           <div
