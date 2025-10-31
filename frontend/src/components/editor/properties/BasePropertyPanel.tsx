@@ -92,85 +92,81 @@ const BasePropertyPanel: React.FC<BasePropertyPanelProps> = ({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4 space-y-6">
-        {/* Position */}
-        <div>
-          <h4 className="font-medium mb-3">Position & Size</h4>
-          <div className="grid grid-cols-2 gap-3">
-            <NumberInput
-              label="X"
-              value={widget.position.x}
-              onChange={(value) => updatePosition('x', value)}
-              unit="pt"
-            />
-            <NumberInput
-              label="Y"
-              value={widget.position.y}
-              onChange={(value) => updatePosition('y', value)}
-              unit="pt"
-            />
-            <NumberInput
-              label="Width"
-              value={widget.position.width}
-              onChange={(value) => updatePosition('width', value)}
-              min={1}
-              unit="pt"
-            />
-            <NumberInput
-              label="Height"
-              value={widget.position.height}
-              onChange={(value) => updatePosition('height', value)}
-              min={1}
-              unit="pt"
-            />
-          </div>
+      <div className="flex-1 overflow-auto p-4 space-y-3">
+        {/* Position & Size */}
+        <div className="grid grid-cols-2 gap-3">
+          <NumberInput
+            label="X"
+            value={widget.position.x}
+            onChange={(value) => updatePosition('x', value)}
+            unit="pt"
+            helpText="Horizontal position"
+          />
+          <NumberInput
+            label="Y"
+            value={widget.position.y}
+            onChange={(value) => updatePosition('y', value)}
+            unit="pt"
+            helpText="Vertical position"
+          />
+          <NumberInput
+            label="Width"
+            value={widget.position.width}
+            onChange={(value) => updatePosition('width', value)}
+            min={1}
+            unit="pt"
+          />
+          <NumberInput
+            label="Height"
+            value={widget.position.height}
+            onChange={(value) => updatePosition('height', value)}
+            min={1}
+            unit="pt"
+          />
         </div>
 
         {/* Background Color */}
         <ColorPicker
-          label="Background Color"
+          label="Background"
           value={widget.background_color || ''}
           onChange={(value) => onUpdate({ background_color: value })}
           defaultValue="transparent"
-          helpText="Widget background color (transparent if empty)"
+          helpText="Widget background (transparent if empty)"
         />
 
-        {/* Text Styling */}
+        {/* Text Styling - Standard order: font, size, color, alignment */}
         {hasTextStyling && (
-          <div>
-            <h4 className="font-medium mb-3">Text Styling</h4>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <FontSelector
-                  label="Font"
-                  value={widget.styling?.font || 'Helvetica'}
-                  onChange={(value) => updateStyling('font', value)}
-                />
-                <NumberInput
-                  label="Size"
-                  value={widget.styling?.size || 12}
-                  onChange={(value) => updateStyling('size', value)}
-                  min={widget.type === 'calendar' || widget.type === 'day_list' ? 6 : 8}
-                  max={widget.type === 'calendar' || widget.type === 'day_list' ? 24 : 72}
-                  unit="pt"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <ColorPicker
-                  label="Text Color"
-                  value={widget.styling?.color || '#000000'}
-                  onChange={(value) => updateStyling('color', value)}
-                />
-                <SelectInput
-                  label="Alignment"
-                  value={widget.styling?.text_align || 'left'}
-                  onChange={(value) => updateStyling('text_align', value)}
-                  options={textAlignOptions}
-                />
-              </div>
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <FontSelector
+                label="Font"
+                value={widget.styling?.font || 'Helvetica'}
+                onChange={(value) => updateStyling('font', value)}
+              />
+              <NumberInput
+                label="Size"
+                value={widget.styling?.size || 12}
+                onChange={(value) => updateStyling('size', value)}
+                min={widget.type === 'calendar' || widget.type === 'day_list' ? 6 : 8}
+                max={widget.type === 'calendar' || widget.type === 'day_list' ? 24 : 72}
+                unit="pt"
+              />
             </div>
-          </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <ColorPicker
+                label="Color"
+                value={widget.styling?.color || '#000000'}
+                onChange={(value) => updateStyling('color', value)}
+              />
+              <SelectInput
+                label="Alignment"
+                value={widget.styling?.text_align || 'left'}
+                onChange={(value) => updateStyling('text_align', value)}
+                options={textAlignOptions}
+              />
+            </div>
+          </>
         )}
 
         {/* Content Input */}

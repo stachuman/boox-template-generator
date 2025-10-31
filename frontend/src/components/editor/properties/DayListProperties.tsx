@@ -10,6 +10,7 @@ import { Widget } from '@/types';
 import SelectInput from './shared/SelectInput';
 import NumberInput from './shared/NumberInput';
 import CheckboxInput from './shared/CheckboxInput';
+import ColorPicker from './shared/ColorPicker';
 
 interface DayListPropertiesProps {
   widget: Widget;
@@ -57,9 +58,9 @@ const DayListProperties: React.FC<DayListPropertiesProps> = ({ widget, onUpdate 
 
   return (
     <div className="space-y-6">
-      {/* Date Settings */}
+      {/* Date & Layout - Core structural properties */}
       <div>
-        <h4 className="font-medium mb-3">Date Settings</h4>
+        <h4 className="font-medium mb-3">Date & Layout</h4>
         <div className="space-y-3">
           <div>
             <label className="block text-sm font-medium mb-1">
@@ -73,22 +74,47 @@ const DayListProperties: React.FC<DayListPropertiesProps> = ({ widget, onUpdate 
               className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
             />
             <div className="text-xs text-eink-gray mt-1">
-              First day of month (YYYY-MM-DD) or tokens like {'{year}-{month}-01'}
+              First day (YYYY-MM-DD) or tokens like {'{year}-{month}-01'}
             </div>
           </div>
 
+          <NumberInput
+            label="Row Height"
+            value={properties.row_height || 20}
+            onChange={(value) => updateProperty('row_height', value)}
+            min={10}
+            max={100}
+            unit="pt"
+            helpText="Height of each day row"
+          />
+
+          <SelectInput
+            label="Orientation"
+            value={properties.orientation || 'horizontal'}
+            onChange={(value) => updateProperty('orientation', value)}
+            options={orientationOptions}
+            helpText="Text direction for rotated displays"
+          />
+
+          <SelectInput
+            label="First Day of Week"
+            value={properties.first_day_of_week || 'monday'}
+            onChange={(value) => updateProperty('first_day_of_week', value)}
+            options={firstDayOptions}
+          />
         </div>
       </div>
 
-      {/* Header Options */}
+      {/* Display - All visual properties */}
       <div>
-        <h4 className="font-medium mb-3">Header Options</h4>
+        <h4 className="font-medium mb-3">Display</h4>
         <div className="space-y-3">
+          {/* Month Header */}
           <CheckboxInput
             label="Show Month Header"
             checked={properties.show_month_header === true}
             onChange={(checked) => updateProperty('show_month_header', checked)}
-            helpText="Display month name at top of widget"
+            helpText="Display month name at top"
           />
 
           {properties.show_month_header === true && (
@@ -97,7 +123,6 @@ const DayListProperties: React.FC<DayListPropertiesProps> = ({ widget, onUpdate 
                 label="Show Year in Header"
                 checked={properties.show_year_in_header === true}
                 onChange={(checked) => updateProperty('show_year_in_header', checked)}
-                helpText="Include year in header"
               />
 
               <SelectInput
@@ -105,19 +130,14 @@ const DayListProperties: React.FC<DayListPropertiesProps> = ({ widget, onUpdate 
                 value={properties.month_name_format || 'long'}
                 onChange={(value) => updateProperty('month_name_format', value)}
                 options={[
-                  { value: 'long', label: 'Long (January, February, ...)' },
-                  { value: 'short', label: 'Short (Jan, Feb, ...)' }
+                  { value: 'long', label: 'Long (January)' },
+                  { value: 'short', label: 'Short (Jan)' }
                 ]}
               />
             </>
           )}
-        </div>
-      </div>
 
-      {/* Display Options */}
-      <div>
-        <h4 className="font-medium mb-3">Display Options</h4>
-        <div className="space-y-3">
+          {/* Day Display */}
           <div className="grid grid-cols-2 gap-3">
             <CheckboxInput
               label="Show Day Numbers"
@@ -135,7 +155,7 @@ const DayListProperties: React.FC<DayListPropertiesProps> = ({ widget, onUpdate 
             label="Show Week Numbers"
             checked={properties.show_week_numbers === true}
             onChange={(checked) => updateProperty('show_week_numbers', checked)}
-            helpText="Display ISO week numbers with automatic links (when using named destinations strategy)"
+            helpText="ISO week numbers with auto-links"
           />
 
           <SelectInput
@@ -145,42 +165,12 @@ const DayListProperties: React.FC<DayListPropertiesProps> = ({ widget, onUpdate 
             options={weekdayFormatOptions}
           />
 
-          <SelectInput
-            label="First Day of Week"
-            value={properties.first_day_of_week || 'monday'}
-            onChange={(value) => updateProperty('first_day_of_week', value)}
-            options={firstDayOptions}
-          />
-
-          <NumberInput
-            label="Row Height"
-            value={properties.row_height || 20}
-            onChange={(value) => updateProperty('row_height', value)}
-            min={10}
-            max={100}
-            unit="pt"
-            helpText="Height of each day row"
-          />
-
-          <SelectInput
-            label="Orientation"
-            value={properties.orientation || 'horizontal'}
-            onChange={(value) => updateProperty('orientation', value)}
-            options={orientationOptions}
-            helpText="Text orientation for rotated displays"
-          />
-        </div>
-      </div>
-
-      {/* Notes Configuration */}
-      <div>
-        <h4 className="font-medium mb-3">Notes Configuration</h4>
-        <div className="space-y-3">
+          {/* Notes Lines */}
           <CheckboxInput
             label="Show Notes Lines"
             checked={properties.show_notes_lines !== false}
             onChange={(checked) => updateProperty('show_notes_lines', checked)}
-            helpText="Display horizontal lines for writing notes"
+            helpText="Horizontal lines for writing notes"
           />
 
           {properties.show_notes_lines !== false && (
@@ -190,58 +180,38 @@ const DayListProperties: React.FC<DayListPropertiesProps> = ({ widget, onUpdate 
               onChange={(value) => updateProperty('notes_line_count', value)}
               min={0}
               max={5}
-              helpText="Number of horizontal lines per day"
+              helpText="Lines per day row"
+            />
+          )}
+
+          {/* Weekend Highlighting */}
+          <CheckboxInput
+            label="Highlight Weekends"
+            checked={properties.highlight_weekends === true}
+            onChange={(checked) => updateProperty('highlight_weekends', checked)}
+            helpText="Background color for weekend rows"
+          />
+
+          {properties.highlight_weekends === true && (
+            <ColorPicker
+              label="Weekend Color"
+              value={properties.weekend_color || '#F0F0F0'}
+              onChange={(value) => updateProperty('weekend_color', value)}
             />
           )}
         </div>
       </div>
 
-      {/* Weekend Highlighting */}
+      {/* Navigation */}
       <div>
-        <h4 className="font-medium mb-3">Weekend Highlighting</h4>
-        <div className="space-y-3">
-          <CheckboxInput
-            label="Highlight Weekends"
-            checked={properties.highlight_weekends === true}
-            onChange={(checked) => updateProperty('highlight_weekends', checked)}
-            helpText="Add background color to weekend rows"
-          />
-
-          {properties.highlight_weekends === true && (
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Weekend Color
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={properties.weekend_color || '#F0F0F0'}
-                  onChange={(e) => updateProperty('weekend_color', e.target.value)}
-                  className="h-8 w-16 border border-eink-pale-gray rounded cursor-pointer"
-                />
-                <input
-                  type="text"
-                  value={properties.weekend_color || '#F0F0F0'}
-                  onChange={(e) => updateProperty('weekend_color', e.target.value)}
-                  placeholder="#F0F0F0"
-                  className="flex-1 px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Navigation Links */}
-      <div>
-        <h4 className="font-medium mb-3">Navigation Links</h4>
+        <h4 className="font-medium mb-3">Navigation</h4>
         <div className="space-y-3">
           <SelectInput
             label="Link Strategy"
             value={linkStrategy}
             onChange={(value) => updateProperty('link_strategy', value)}
             options={linkStrategyOptions}
-            helpText="How each day row links to pages"
+            helpText="How day rows link to pages"
           />
 
           {showLinkTemplate && (
@@ -258,7 +228,7 @@ const DayListProperties: React.FC<DayListPropertiesProps> = ({ widget, onUpdate 
                   className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
                 />
                 <div className="text-xs text-eink-gray mt-1">
-                  Template for day row links. Tokens: {'{date}'}, {'{year}'}, {'{month}'}, {'{day}'}
+                  Tokens: {'{date}'}, {'{year}'}, {'{month}'}, {'{day}'}
                 </div>
               </div>
 
@@ -275,7 +245,7 @@ const DayListProperties: React.FC<DayListPropertiesProps> = ({ widget, onUpdate 
                     className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
                   />
                   <div className="text-xs text-eink-gray mt-1">
-                    Template for week number links. Tokens: {'{week}'}, {'{year}'}, {'{month}'}, {'{date}'}
+                    Tokens: {'{week}'}, {'{year}'}, {'{month}'}, {'{date}'}
                   </div>
                 </div>
               )}

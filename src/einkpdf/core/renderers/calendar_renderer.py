@@ -523,7 +523,7 @@ class CalendarRenderer(BaseWidgetRenderer):
                         self._create_calendar_date_link(
                             pdf_canvas, widget, current_date,
                             cell_x, cell_y, cell_width, cell_height,
-                            link_strategy, config.get('raw_link_strategy'), props,
+                            link_strategy, config.get('raw_link_strategy'), config,
                             enforcer
                         )
 
@@ -591,7 +591,7 @@ class CalendarRenderer(BaseWidgetRenderer):
                     self._create_calendar_week_link(
                         pdf_canvas, widget, week_num, first_date,
                         cal_pos['x'], row_bottom_y, week_col_width, cell_height,
-                        props, enforcer
+                        config, enforcer
                     )
 
     def _render_weekly_calendar(self, pdf_canvas: canvas.Canvas, widget: Widget,
@@ -825,7 +825,7 @@ class CalendarRenderer(BaseWidgetRenderer):
                 self._create_calendar_date_link(
                     pdf_canvas, widget, day_date,
                     cell_x, cell_y, cell_width, cell_height,
-                    link_strategy, raw_link_strategy, props,
+                    link_strategy, raw_link_strategy, config,
                     enforcer
                 )
 
@@ -1064,7 +1064,7 @@ class CalendarRenderer(BaseWidgetRenderer):
                 self._create_calendar_date_link(
                     pdf_canvas, widget, day_date,
                     cell_x, cell_y, cell_width, cell_height,
-                    link_strategy, raw_link_strategy, props,
+                    link_strategy, raw_link_strategy, config,
                     enforcer
                 )
 
@@ -1110,8 +1110,12 @@ class CalendarRenderer(BaseWidgetRenderer):
                                  date_obj: date, cell_x: float, cell_y: float,
                                  cell_width: float, cell_height: float,
                                  link_strategy: str, raw_link_strategy: Optional[str],
-                                 props: Dict[str, Any], enforcer=None, locale: str = 'en') -> None:
-        """Create PDF link annotation for calendar date cells."""
+                                 config: Dict[str, Any], enforcer=None, locale: str = 'en') -> None:
+        """
+        Create PDF link annotation for calendar date cells.
+
+        Following CLAUDE.md Rule #3: Use parsed config instead of raw props.
+        """
         # Define link rectangle (entire cell is clickable)
         link_rect = (cell_x, cell_y, cell_x + cell_width, cell_y + cell_height)
 
@@ -1119,10 +1123,12 @@ class CalendarRenderer(BaseWidgetRenderer):
 
         # Comprehensive debugging for link generation
         logger.info(f"Calendar link debug - Widget: {widget.id}, Date: {date_obj}, "
-                   f"UI strategy: {props.get('link_strategy')}, "
                    f"Raw strategy: '{raw_strategy}', Normalized strategy: '{link_strategy}'")
 
         if raw_strategy == 'sequential_pages':
+            # Sequential pages strategy needs first_page_number and pages_per_date
+            # These are not in parsed config, read from widget properties
+            props = getattr(widget, 'properties', {}) or {}
             try:
                 first_page = int(props.get('first_page_number', 1))
                 pages_per_date = max(1, int(props.get('pages_per_date', 1)))
@@ -1148,7 +1154,8 @@ class CalendarRenderer(BaseWidgetRenderer):
 
         elif link_strategy == 'template':
             # Template-based destination using date formatting
-            dest_template = props.get('link_template', 'day:{date}')
+            # Following CLAUDE.md Rule #3: Use parsed config value
+            dest_template = config.get('link_template', 'day:{date}')
             try:
                 destination = dest_template.format(
                     date=date_obj.isoformat(),
@@ -1192,12 +1199,12 @@ class CalendarRenderer(BaseWidgetRenderer):
                                    week_num: int, week_date: date,
                                    cell_x: float, cell_y: float,
                                    cell_width: float, cell_height: float,
-                                   props: Dict[str, Any], enforcer=None, locale: str = 'en') -> None:
+                                   config: Dict[str, Any], enforcer=None, locale: str = 'en') -> None:
         """
         Create PDF link annotation for calendar week number cells.
 
         Following CLAUDE.md Rule #1: No dummy implementations - complete link functionality.
-        Following CLAUDE.md Rule #3: Separate templates for days vs weeks.
+        Following CLAUDE.md Rule #3: Separate templates for days vs weeks, use parsed config.
 
         Args:
             pdf_canvas: ReportLab canvas to draw on
@@ -1206,11 +1213,11 @@ class CalendarRenderer(BaseWidgetRenderer):
             week_date: First date in the week (for year context)
             cell_x, cell_y: Bottom-left corner of week number cell
             cell_width, cell_height: Dimensions of week number cell
-            props: Widget properties (for link templates)
+            config: Parsed calendar configuration (contains link templates)
             enforcer: Optional constraint enforcer
         """
-        # Get week link template (separate from day link template)
-        link_template = props.get('week_link_template', 'week:{week}')
+        # Get week link template from parsed config (separate from day link template)
+        link_template = config.get('week_link_template', 'week:{week}')
 
         # Format destination using week number and date context
         try:

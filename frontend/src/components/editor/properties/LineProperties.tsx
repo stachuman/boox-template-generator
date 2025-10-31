@@ -45,9 +45,9 @@ const LineProperties: React.FC<LinePropertiesProps> = ({ widget, onUpdate }) => 
 
   return (
     <div className="space-y-6">
-      {/* Basic Line Properties */}
+      {/* Line */}
       <div>
-        <h4 className="font-medium mb-3">Line Style</h4>
+        <h4 className="font-medium mb-3">Line</h4>
         <div className="space-y-3">
           <NumberInput
             label="Line Thickness"
@@ -110,18 +110,18 @@ const LineProperties: React.FC<LinePropertiesProps> = ({ widget, onUpdate }) => 
           </div>
 
           <div>
-            <h4 className="font-medium mb-3">Margins & Layout</h4>
+            <h4 className="font-medium mb-3">Spacing</h4>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <NumberInput
-                  label="Left Margin"
+                  label="Margin Left"
                   value={properties.margin_left || 0}
                   onChange={(value) => updateProperty('margin_left', value)}
                   min={0}
                   unit="pt"
                 />
                 <NumberInput
-                  label="Right Margin"
+                  label="Margin Right"
                   value={properties.margin_right || 0}
                   onChange={(value) => updateProperty('margin_right', value)}
                   min={0}
@@ -131,14 +131,14 @@ const LineProperties: React.FC<LinePropertiesProps> = ({ widget, onUpdate }) => 
 
               <div className="grid grid-cols-2 gap-3">
                 <NumberInput
-                  label="Top Padding"
+                  label="Margin Top"
                   value={properties.top_padding || 0}
                   onChange={(value) => updateProperty('top_padding', value)}
                   min={0}
                   unit="pt"
                 />
                 <NumberInput
-                  label="Bottom Padding"
+                  label="Margin Bottom"
                   value={properties.bottom_padding || 0}
                   onChange={(value) => updateProperty('bottom_padding', value)}
                   min={0}

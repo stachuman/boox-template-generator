@@ -1,13 +1,14 @@
 /**
  * Widget palette for drag-and-drop widget creation.
- * 
+ *
  * Provides a palette of available widget types that can be dragged onto the canvas.
+ * Organized into collapsible groups for better discoverability.
  * Follows CLAUDE.md coding standards - no dummy implementations.
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDrag } from 'react-dnd';
-import { Type, Square, Minus, AlignJustify, Anchor, Calendar, MoveVertical, Table, Grid3x3 } from 'lucide-react';
+import { Type, Square, Minus, AlignJustify, Anchor, Calendar, MoveVertical, Table, Grid3x3, ChevronDown, ChevronRight } from 'lucide-react';
 import clsx from 'clsx';
 
 interface WidgetType {
@@ -27,7 +28,13 @@ interface WidgetType {
   };
 }
 
-const WIDGET_TYPES: WidgetType[] = [
+interface WidgetGroup {
+  id: string;
+  label: string;
+  widgets: WidgetType[];
+}
+
+const ALL_WIDGETS: WidgetType[] = [
   {
     id: 'text_block',
     type: 'text_block',
@@ -380,9 +387,74 @@ const WIDGET_TYPES: WidgetType[] = [
   }
 ];
 
+// Organize widgets into logical groups
+const WIDGET_GROUPS: WidgetGroup[] = [
+  {
+    id: 'text',
+    label: 'Text & Typography',
+    widgets: ALL_WIDGETS.filter(w => ['text_block', 'header_text', 'footer_text', 'checkbox'].includes(w.id))
+  },
+  {
+    id: 'interactive',
+    label: 'Interactive Elements',
+    widgets: ALL_WIDGETS.filter(w => ['internal_link', 'anchor', 'link_list', 'tap_zone', 'table'].includes(w.id))
+  },
+  {
+    id: 'calendars',
+    label: 'Calendars & Lists',
+    widgets: ALL_WIDGETS.filter(w => ['calendar', 'day_list'].includes(w.id))
+  },
+  {
+    id: 'shapes',
+    label: 'Shapes & Lines',
+    widgets: ALL_WIDGETS.filter(w => ['box', 'divider', 'vertical_line', 'lines'].includes(w.id))
+  },
+  {
+    id: 'patterns',
+    label: 'Patterns & Grids',
+    widgets: ALL_WIDGETS.filter(w => ['dot_grid'].includes(w.id))
+  },
+  {
+    id: 'media',
+    label: 'Media & Data',
+    widgets: ALL_WIDGETS.filter(w => ['image'].includes(w.id))
+  }
+];
+
 interface DraggableWidgetProps {
   widgetType: WidgetType;
 }
+
+interface CollapsibleGroupProps {
+  group: WidgetGroup;
+  isExpanded: boolean;
+  onToggle: () => void;
+}
+
+const CollapsibleGroup: React.FC<CollapsibleGroupProps> = ({ group, isExpanded, onToggle }) => {
+  return (
+    <div className="mb-3">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-eink-dark-gray hover:bg-eink-pale-gray rounded transition-colors"
+      >
+        <span>{group.label}</span>
+        {isExpanded ? (
+          <ChevronDown className="w-4 h-4" />
+        ) : (
+          <ChevronRight className="w-4 h-4" />
+        )}
+      </button>
+      {isExpanded && (
+        <div className="mt-2 space-y-2 pl-1">
+          {group.widgets.map((widget) => (
+            <DraggableWidget key={widget.id} widgetType={widget} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const DraggableWidget: React.FC<DraggableWidgetProps> = ({ widgetType }) => {
   const [{ isDragging }, drag] = useDrag({
@@ -422,19 +494,60 @@ const DraggableWidget: React.FC<DraggableWidgetProps> = ({ widgetType }) => {
 };
 
 const WidgetPalette: React.FC = () => {
+  // Track which groups are expanded (default: all expanded)
+  // Following CLAUDE.md Rule #3: Persist user preferences explicitly
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('widgetPaletteExpandedGroups');
+      if (saved) {
+        return new Set(JSON.parse(saved));
+      }
+    } catch (e) {
+      // Ignore parsing errors
+    }
+    // Default: all groups expanded
+    return new Set(WIDGET_GROUPS.map(g => g.id));
+  });
+
+  // Save expanded state to localStorage when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('widgetPaletteExpandedGroups', JSON.stringify(Array.from(expandedGroups)));
+    } catch (e) {
+      // Ignore storage errors (quota exceeded, etc.)
+    }
+  }, [expandedGroups]);
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b border-eink-pale-gray">
         <h3 className="font-semibold">Widget Palette</h3>
         <p className="text-sm text-eink-gray">Drag widgets onto the canvas</p>
       </div>
-      
-      <div className="flex-1 overflow-auto p-4 space-y-3">
-        {WIDGET_TYPES.map((widgetType) => (
-          <DraggableWidget key={widgetType.id} widgetType={widgetType} />
+
+      <div className="flex-1 overflow-auto p-4">
+        {WIDGET_GROUPS.map((group) => (
+          <CollapsibleGroup
+            key={group.id}
+            group={group}
+            isExpanded={expandedGroups.has(group.id)}
+            onToggle={() => toggleGroup(group.id)}
+          />
         ))}
       </div>
-      
+
       <div className="p-4 border-t border-eink-pale-gray">
         <div className="text-xs text-eink-light-gray space-y-1">
           <p>• Drag widgets to the canvas</p>

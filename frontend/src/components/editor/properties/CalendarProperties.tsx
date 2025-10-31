@@ -57,59 +57,58 @@ const CalendarProperties: React.FC<CalendarPropertiesProps> = ({ widget, onUpdat
 
   return (
     <div className="space-y-6">
-      {/* Calendar Type */}
+      {/* Calendar Configuration */}
       <div>
-        <h4 className="font-medium mb-3">Calendar Type</h4>
+        <h4 className="font-medium mb-3">Calendar</h4>
         <div className="space-y-3">
           <SelectInput
-            label=""
+            label="Type"
             value={calendarType}
             onChange={(value) => updateProperty('calendar_type', value)}
             options={calendarTypeOptions}
           />
 
-          <div className="grid ">
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Start Date
+            </label>
+            <input
+              type="text"
+              value={properties.start_date || ''}
+              onChange={(e) => updateProperty('start_date', e.target.value)}
+              placeholder="YYYY-MM-DD or {year}-{month_padded}-01"
+              className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
+            />
+            <div className="text-xs text-eink-gray mt-1">
+              Date (YYYY-MM-DD) or tokens like {'{year}-{month_padded}-01'}
+            </div>
+          </div>
+
+          {calendarType === 'custom_range' && (
             <div>
               <label className="block text-sm font-medium mb-1">
-                Start Date
+                End Date
               </label>
               <input
                 type="text"
-                value={properties.start_date || ''}
-                onChange={(e) => updateProperty('start_date', e.target.value)}
-                placeholder="YYYY-MM-DD or {year}-{month_padded}-01"
+                value={properties.end_date || ''}
+                onChange={(e) => updateProperty('end_date', e.target.value)}
+                placeholder="YYYY-MM-DD or {year}-{month_padded}-{day}"
                 className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
               />
               <div className="text-xs text-eink-gray mt-1">
-                Date (YYYY-MM-DD) or tokens like {'{year}-{month_padded}-01'}
+                Date (YYYY-MM-DD) or tokens
               </div>
             </div>
+          )}
 
-            {calendarType === 'custom_range' && (
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  End Date
-                </label>
-                <input
-                  type="text"
-                  value={properties.end_date || ''}
-                  onChange={(e) => updateProperty('end_date', e.target.value)}
-                  placeholder="YYYY-MM-DD or {year}-{month_padded}-{day}"
-                  className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
-                />
-                <div className="text-xs text-eink-gray mt-1">
-                  Date (YYYY-MM-DD) or tokens
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+          <SelectInput
+            label="First Day of Week"
+            value={properties.first_day_of_week || 'monday'}
+            onChange={(value) => updateProperty('first_day_of_week', value)}
+            options={firstDayOptions}
+          />
 
-      {/* Display Options */}
-      <div>
-        <h4 className="font-medium mb-3">Display Options</h4>
-        <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <CheckboxInput
               label="Show Weekdays"
@@ -142,25 +141,29 @@ const CalendarProperties: React.FC<CalendarPropertiesProps> = ({ widget, onUpdat
               min={20}
               max={100}
               unit="pt"
-              helpText="Minimum touch target for e-ink"
+              helpText="Touch target minimum for e-ink"
             />
           </div>
 
           {calendarType === 'monthly' && (
-            <CheckboxInput
-              label="Show Week Numbers"
-              checked={properties.week_numbers === true}
-              onChange={(checked) => updateProperty('week_numbers', checked)}
-              helpText="Display ISO week numbers with automatic links (when using template link strategy)"
-            />
-          )}
+            <>
+              <CheckboxInput
+                label="Show Week Numbers"
+                checked={properties.week_numbers === true}
+                onChange={(checked) => updateProperty('week_numbers', checked)}
+                helpText="ISO week numbers with auto-links"
+              />
 
-          <SelectInput
-            label="First Day of Week"
-            value={properties.first_day_of_week || 'monday'}
-            onChange={(value) => updateProperty('first_day_of_week', value)}
-            options={firstDayOptions}
-          />
+              <NumberInput
+                label="Force Weeks"
+                value={properties.force_weeks || null}
+                onChange={(value) => updateProperty('force_weeks', value || null)}
+                min={4}
+                max={6}
+                helpText="Fix number of weeks (4-6) for consistent height"
+              />
+            </>
+          )}
 
           {calendarType === 'weekly' && (
             <SelectInput
@@ -168,18 +171,7 @@ const CalendarProperties: React.FC<CalendarPropertiesProps> = ({ widget, onUpdat
               value={properties.layout_orientation || 'horizontal'}
               onChange={(value) => updateProperty('layout_orientation', value)}
               options={layoutOrientationOptions}
-              helpText="How weekly calendar is laid out"
-            />
-          )}
-
-          {calendarType === 'monthly' && (
-            <NumberInput
-              label="Force Weeks"
-              value={properties.force_weeks || null}
-              onChange={(value) => updateProperty('force_weeks', value || null)}
-              min={4}
-              max={6}
-              helpText="Force specific number of weeks (4-6) for consistent height. Leave empty for auto."
+              helpText="Calendar orientation"
             />
           )}
 
@@ -195,15 +187,15 @@ const CalendarProperties: React.FC<CalendarPropertiesProps> = ({ widget, onUpdat
               className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
             />
             <div className="text-xs text-eink-gray mt-1">
-              Use {'{date}'} to highlight current page's date, or specific date like 2025-01-15
+              Use {'{date}'} for current page date, or specific like 2025-01-15
             </div>
           </div>
         </div>
       </div>
 
-      {/* Navigation Links */}
+      {/* Navigation */}
       <div>
-        <h4 className="font-medium mb-3">Navigation Links</h4>
+        <h4 className="font-medium mb-3">Navigation</h4>
         <div className="space-y-3">
           <SelectInput
             label="Link Strategy"

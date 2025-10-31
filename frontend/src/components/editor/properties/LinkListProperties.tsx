@@ -53,9 +53,9 @@ const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdat
 
   return (
     <div className="space-y-6">
-      {/* Links Data */}
+      {/* Links */}
       <div>
-        <h4 className="font-medium mb-3">Links Data</h4>
+        <h4 className="font-medium mb-3">Links</h4>
         <button
           onClick={() => setIsEditingContent(true)}
           className="w-full px-4 py-3 border-2 border-eink-blue text-eink-blue rounded-lg hover:bg-eink-blue hover:text-white transition-colors flex items-center justify-center gap-2 font-medium"
@@ -99,6 +99,14 @@ const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdat
       <div>
         <h4 className="font-medium mb-3">Layout</h4>
         <div className="space-y-3">
+          <SelectInput
+            label="Orientation"
+            value={normalizeOrientation(properties.orientation)}
+            onChange={(value) => updateProperty('orientation', value)}
+            options={orientationOptions}
+            helpText="Text direction"
+          />
+
           <div className="grid grid-cols-2 gap-3">
             <NumberInput
               label="Columns"
@@ -106,7 +114,6 @@ const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdat
               onChange={(value) => updateProperty('columns', value)}
               min={1}
               max={25}
-              helpText="Number of columns"
             />
             <NumberInput
               label="Item Height"
@@ -115,13 +122,12 @@ const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdat
               min={12}
               max={100}
               unit="pt"
-              helpText="Height of each item"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <NumberInput
-              label="Horizontal Gap"
+              label="Gap X"
               value={properties.gap_x || 0}
               onChange={(value) => updateProperty('gap_x', value)}
               min={0}
@@ -130,7 +136,7 @@ const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdat
               helpText="Space between columns"
             />
             <NumberInput
-              label="Vertical Gap"
+              label="Gap Y"
               value={properties.gap_y || 6}
               onChange={(value) => updateProperty('gap_y', value)}
               min={0}
@@ -140,23 +146,9 @@ const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdat
             />
           </div>
 
-          <SelectInput
-            label="Orientation"
-            value={normalizeOrientation(properties.orientation)}
-            onChange={(value) => updateProperty('orientation', value)}
-            options={orientationOptions}
-            helpText="Text direction"
-          />
-        </div>
-      </div>
-
-      {/* Highlighting */}
-      <div>
-        
-        <div className="space-y-3">
           <div>
             <label className="block text-sm font-medium mb-1">
-              Highlight Index (Token or Number)
+              Highlight Index
             </label>
             <input
               type="text"
@@ -166,7 +158,7 @@ const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdat
               className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
             />
             <p className="text-xs text-eink-light-gray mt-1">
-              Use a token like <code className="bg-eink-off-white px-1">{'{month}'}</code>, <code className="bg-eink-off-white px-1">{'{index}'}</code> for dynamic highlighting, or a number (1-{labels.length || 1}) for static
+              Token like <code className="bg-eink-off-white px-1">{'{month}'}</code> or number (1-{labels.length || 1})
             </p>
           </div>
 
@@ -175,13 +167,11 @@ const LinkListProperties: React.FC<LinkListPropertiesProps> = ({ widget, onUpdat
               label="Highlight Color"
               value={properties.highlight_color || '#dbeafe'}
               onChange={(value) => updateProperty('highlight_color', value)}
-              helpText="Color for highlighted item"
             />
             <ColorPicker
-              label="Background Color"
+              label="Background"
               value={properties.background_color || 'transparent'}
               onChange={(value) => updateProperty('background_color', value)}
-              helpText="Background for all items"
             />
           </div>
         </div>

@@ -38,9 +38,9 @@ const ImageProperties: React.FC<ImagePropertiesProps> = ({ widget, onUpdate }) =
 
   return (
     <div className="space-y-6">
-      {/* Image Source */}
+      {/* Image */}
       <div>
-        <h4 className="font-medium mb-3">Image Source</h4>
+        <h4 className="font-medium mb-3">Image</h4>
         <div className="space-y-3">
           {/* File Upload - TEMPORARILY DISABLED */}
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
@@ -55,7 +55,6 @@ const ImageProperties: React.FC<ImagePropertiesProps> = ({ widget, onUpdate }) =
             </div>
           </div>
 
-          {/* URL Input */}
           <div>
             <label className="block text-sm font-medium mb-1">
               Image URL
@@ -64,14 +63,12 @@ const ImageProperties: React.FC<ImagePropertiesProps> = ({ widget, onUpdate }) =
               type="text"
               value={properties.image_src || ''}
               onChange={(e) => {
-                //console.log('ImageProperties onChange fired:', e.target.value);
                 const newValue = e.target.value;
                 const newProps: Record<string, any> = { image_src: newValue };
                 if (newValue) {
                   // Clear image_data when entering URL
                   newProps.image_data = null;
                 }
-                //console.log('Calling updateProperty with:', newProps);
                 onUpdate({
                   properties: {
                     ...properties,
@@ -92,14 +89,14 @@ const ImageProperties: React.FC<ImagePropertiesProps> = ({ widget, onUpdate }) =
             value={properties.image_fit || 'fit'}
             onChange={(value) => updateProperty('image_fit', value)}
             options={imageFitOptions}
-            helpText="How image should be sized within the widget area"
+            helpText="How image is sized within widget area"
           />
 
           <CheckboxInput
-            label="Convert to Grayscale in PDF"
+            label="Grayscale"
             checked={properties.convert_to_grayscale || false}
             onChange={(checked) => updateProperty('convert_to_grayscale', checked)}
-            helpText="Render image as grayscale in PDF output (useful for e-ink)"
+            helpText="Render as grayscale in PDF (useful for e-ink)"
           />
 
           <NumberInput
@@ -109,20 +106,14 @@ const ImageProperties: React.FC<ImagePropertiesProps> = ({ widget, onUpdate }) =
             min={0.0}
             max={1.0}
             step={0.05}
-            helpText="Image opacity (1.0=fully opaque, 0.5=50% transparent) - reduces darkness for e-ink"
+            helpText="Image transparency (1.0=opaque, 0.5=50%)"
           />
-        </div>
-      </div>
 
-      {/* Optimization */}
-      <div>
-        <h4 className="font-medium mb-3">Image Optimization</h4>
-        <div className="space-y-3">
           <CheckboxInput
             label="Optimize on Import"
             checked={properties.optimize_on_import || false}
             onChange={(checked) => updateProperty('optimize_on_import', checked)}
-            helpText="Automatically downscale and compress large images"
+            helpText="Downscale and compress large images"
           />
 
           {properties.optimize_on_import && (
@@ -134,14 +125,14 @@ const ImageProperties: React.FC<ImagePropertiesProps> = ({ widget, onUpdate }) =
                 min={100}
                 max={4000}
                 unit="px"
-                helpText="Maximum width or height in pixels"
+                helpText="Maximum width or height"
               />
 
               <CheckboxInput
-                label="Convert to Grayscale"
+                label="Grayscale on Import"
                 checked={properties.grayscale_on_import || false}
                 onChange={(checked) => updateProperty('grayscale_on_import', checked)}
-                helpText="Convert color images to grayscale for e-ink"
+                helpText="Convert to grayscale during optimization"
               />
 
               <NumberInput
@@ -151,7 +142,7 @@ const ImageProperties: React.FC<ImagePropertiesProps> = ({ widget, onUpdate }) =
                 min={0.1}
                 max={1.0}
                 step={0.1}
-                helpText="Compression quality (0.1=low, 1.0=high)"
+                helpText="Compression (0.1=low, 1.0=high)"
               />
             </>
           )}

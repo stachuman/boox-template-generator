@@ -185,9 +185,9 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
 
   return (
     <div className="space-y-6">
-      {/* Table Structure */}
+      {/* Table */}
       <div>
-        <h4 className="font-medium mb-3">Table Structure</h4>
+        <h4 className="font-medium mb-3">Table</h4>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <NumberInput
@@ -196,7 +196,7 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
               onChange={(value) => updateProperty('rows', value)}
               min={1}
               max={100}
-              helpText="Number of data rows"
+              helpText="Data rows (not including header)"
             />
             <NumberInput
               label="Columns"
@@ -204,20 +204,81 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
               onChange={(value) => updateProperty('columns', value)}
               min={1}
               max={100}
-              helpText="Number of columns"
+              helpText="Table columns"
             />
           </div>
 
+          <NumberInput
+            label="Row Height"
+            value={properties.row_height || 24}
+            onChange={(value) => updateProperty('row_height', value)}
+            min={12}
+            max={100}
+            unit="pt"
+            helpText="Height of each row"
+          />
+
           <CheckboxInput
-            label="Has Header Row"
+            label="Header Row"
             checked={properties.has_header !== false}
             onChange={(checked) => updateProperty('has_header', checked)}
-            helpText="Whether first row is a header"
+            helpText="First row is header"
           />
+
+          <button
+            onClick={() => setIsEditingContent(true)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            <Edit3 size={16} />
+            Edit Table Content
+          </button>
+          <p className="text-xs text-eink-light-gray">
+            Tokens like {'{page}'}, {'{date}'} are automatically processed
+          </p>
+
+          <SelectInput
+            label="Border Style"
+            value={properties.border_style || 'all'}
+            onChange={(value) => updateProperty('border_style', value)}
+            options={borderStyleOptions}
+          />
+
+          <div className="grid grid-cols-2 gap-3">
+            <NumberInput
+              label="Cell Padding"
+              value={properties.cell_padding || 4}
+              onChange={(value) => updateProperty('cell_padding', value)}
+              min={0}
+              max={20}
+              unit="pt"
+            />
+            <SelectInput
+              label="Text Alignment"
+              value={properties.text_align || 'left'}
+              onChange={(value) => updateProperty('text_align', value)}
+              options={textAlignOptions}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <CheckboxInput
+              label="Text Wrap"
+              checked={properties.text_wrap !== false}
+              onChange={(checked) => updateProperty('text_wrap', checked)}
+            />
+            <NumberInput
+              label="Max Lines"
+              value={properties.max_lines || 2}
+              onChange={(value) => updateProperty('max_lines', value)}
+              min={1}
+              max={10}
+              helpText="Lines per cell when wrapping"
+            />
+          </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">
-              Column Widths (ratios)
+              Column Widths
             </label>
             <input
               type="text"
@@ -261,85 +322,14 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
                   e.currentTarget.blur(); // Trigger onBlur to save
                 }
               }}
-              placeholder="e.g., 1, 2, 1 (leave empty for equal widths)"
+              placeholder="e.g., 1, 2, 1 (leave empty for equal)"
               className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
             />
             <p className="text-xs text-eink-light-gray mt-1">
-              Relative ratios (e.g., "1, 2, 1" = 25%, 50%, 25%). <strong>Leave empty for equal widths</strong>.
+              Relative ratios (e.g., "1, 2, 1" = 25%, 50%, 25%). Empty = equal widths.
             </p>
           </div>
 
-          <button
-            onClick={() => setIsEditingContent(true)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            <Edit3 size={16} />
-            Edit Table Content
-          </button>
-          <p className="text-xs text-eink-light-gray">
-            Tokens like {'{test1}'}, {'{page}'}, {'{date}'} are automatically processed
-          </p>
-        </div>
-      </div>
-
-      {/* Table Styling */}
-      <div>
-        <h4 className="font-medium mb-3">Table Styling</h4>
-        <div className="space-y-3">
-          <SelectInput
-            label="Border Style"
-            value={properties.border_style || 'all'}
-            onChange={(value) => updateProperty('border_style', value)}
-            options={borderStyleOptions}
-          />
-
-          <div className="grid grid-cols-2 gap-3">
-            <NumberInput
-              label="Cell Padding"
-              value={properties.cell_padding || 4}
-              onChange={(value) => updateProperty('cell_padding', value)}
-              min={0}
-              max={20}
-              unit="pt"
-            />
-            <NumberInput
-              label="Row Height"
-              value={properties.row_height || 24}
-              onChange={(value) => updateProperty('row_height', value)}
-              min={12}
-              max={100}
-              unit="pt"
-            />
-          </div>
-
-          <SelectInput
-            label="Text Alignment"
-            value={properties.text_align || 'left'}
-            onChange={(value) => updateProperty('text_align', value)}
-            options={textAlignOptions}
-          />
-
-          <div className="grid grid-cols-2 gap-3">
-            <CheckboxInput
-              label="Text Wrap"
-              checked={properties.text_wrap !== false}
-              onChange={(checked) => updateProperty('text_wrap', checked)}
-            />
-            <NumberInput
-              label="Max Lines"
-              value={properties.max_lines || 2}
-              onChange={(value) => updateProperty('max_lines', value)}
-              min={1}
-              max={10}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Header & Row Colors */}
-      <div>
-        <h4 className="font-medium mb-3">Header & Row Colors</h4>
-        <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <ColorPicker
               label="Header Background"
@@ -347,7 +337,7 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
               onChange={(value) => updateProperty('header_background', value)}
             />
             <ColorPicker
-              label="Header Text"
+              label="Header Color"
               value={properties.header_color || '#000000'}
               onChange={(value) => updateProperty('header_color', value)}
             />
@@ -357,7 +347,7 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
             label="Zebra Rows"
             checked={properties.zebra_rows || false}
             onChange={(checked) => updateProperty('zebra_rows', checked)}
-            helpText=""
+            helpText="Alternating row backgrounds"
           />
 
           {properties.zebra_rows && (
@@ -377,9 +367,9 @@ const TableProperties: React.FC<TablePropertiesProps> = ({ widget, onUpdate }) =
         </div>
       </div>
 
-      {/* Interactivity */}
+      {/* Links */}
       <div>
-        <h4 className="font-medium mb-3">Interactivity (PDF Links)</h4>
+        <h4 className="font-medium mb-3">Links</h4>
         <div className="space-y-3">
           <div>
             <label className="block text-sm font-medium mb-1">
