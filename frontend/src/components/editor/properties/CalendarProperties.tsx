@@ -53,6 +53,7 @@ const CalendarProperties: React.FC<CalendarPropertiesProps> = ({ widget, onUpdat
   const calendarType = properties.calendar_type || 'monthly';
   const linkStrategy = properties.link_strategy || 'named_destinations';
   const showLinkSettings = linkStrategy === 'sequential_pages';
+  const showLinkTemplate = linkStrategy === 'named_destinations';
 
   return (
     <div className="space-y-6">
@@ -211,6 +212,44 @@ const CalendarProperties: React.FC<CalendarPropertiesProps> = ({ widget, onUpdat
             options={linkStrategyOptions}
             helpText="How calendar dates link to pages"
           />
+
+          {showLinkTemplate && (
+            <>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Day Link Template
+                </label>
+                <input
+                  type="text"
+                  value={properties.link_template || 'day:{date}'}
+                  onChange={(e) => updateProperty('link_template', e.target.value)}
+                  placeholder="day:{date}"
+                  className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
+                />
+                <div className="text-xs text-eink-gray mt-1">
+                  Template for day cell links. Tokens: {'{date}'}, {'{year}'}, {'{month}'}, {'{day}'}
+                </div>
+              </div>
+
+              {properties.week_numbers === true && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Week Link Template
+                  </label>
+                  <input
+                    type="text"
+                    value={properties.week_link_template || 'week:{week}'}
+                    onChange={(e) => updateProperty('week_link_template', e.target.value)}
+                    placeholder="week:{week}"
+                    className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
+                  />
+                  <div className="text-xs text-eink-gray mt-1">
+                    Template for week number links. Tokens: {'{week}'}, {'{year}'}, {'{month}'}, {'{date}'}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
           {showLinkSettings && (
             <div className="grid grid-cols-2 gap-3">

@@ -426,8 +426,9 @@ const CalendarWidget: React.FC<CalendarWidgetProps> = ({ widget }) => {
       const weekdayHeight = showWeekdays ? calendarFontSize * 1.5 : 0;
       const availableHeight = gridHeight - headerHeight - weekdayHeight;
 
-      // Following CLAUDE.md Rule #3: Week numbers are max 3 chars ("W53"), need ~2.0 for readability
-      const weekColWidth = showWeekNumbers ? calendarFontSize * 2.0 : 0;
+      // Following CLAUDE.md Rule #3: Week numbers are max 3 chars ("W53")
+      // Tight spacing for e-ink: 1.8 × fontSize (3 chars × 0.6 per char)
+      const weekColWidth = showWeekNumbers ? calendarFontSize * 1.8 : 0;
       const cellHeight = Math.max(cellMinSize, availableHeight / weeksToShow);
       const cellWidth = (widget.position.width - weekColWidth) / 7;
 

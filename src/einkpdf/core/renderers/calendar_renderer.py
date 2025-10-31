@@ -173,6 +173,12 @@ class CalendarRenderer(BaseWidgetRenderer):
             )
         config['link_strategy'] = normalized_link
 
+        # Following CLAUDE.md Rule #3: Separate templates for different link types (day vs week)
+        # Parse link templates when using template-based strategy
+        if normalized_link == 'template':
+            config['link_template'] = props.get('link_template', 'day:{date}')
+            config['week_link_template'] = props.get('week_link_template', 'week:{week}')
+
         return config
 
     def _parse_start_date(self, date_str: str, widget_id: str, page_num: int = 1, total_pages: int = 1) -> date:
@@ -344,8 +350,9 @@ class CalendarRenderer(BaseWidgetRenderer):
 
         # Calculate cell dimensions (7 columns for days of week) to FIT bounds
         available_height = max(0.0, available_height)
-        # Following CLAUDE.md Rule #3: Week numbers are max 3 chars ("W53"), need ~2.0 for readability
-        week_col_width = (font_size * 2.0) if week_numbers else 0.0
+        # Following CLAUDE.md Rule #3: Week numbers are max 3 chars ("W53")
+        # Tight spacing for e-ink: 1.8 × fontSize (3 chars × 0.6 per char)
+        week_col_width = (font_size * 1.8) if week_numbers else 0.0
         cell_width = (calendar_width - week_col_width) / 7
         cell_height = available_height / actual_weeks if actual_weeks > 0 else 0.0
 
@@ -1190,7 +1197,7 @@ class CalendarRenderer(BaseWidgetRenderer):
         Create PDF link annotation for calendar week number cells.
 
         Following CLAUDE.md Rule #1: No dummy implementations - complete link functionality.
-        Following CLAUDE.md Rule #3: Explicit behavior - skip malformed destinations.
+        Following CLAUDE.md Rule #3: Separate templates for days vs weeks.
 
         Args:
             pdf_canvas: ReportLab canvas to draw on
@@ -1199,11 +1206,11 @@ class CalendarRenderer(BaseWidgetRenderer):
             week_date: First date in the week (for year context)
             cell_x, cell_y: Bottom-left corner of week number cell
             cell_width, cell_height: Dimensions of week number cell
-            props: Widget properties (for link_template)
+            props: Widget properties (for link templates)
             enforcer: Optional constraint enforcer
         """
-        # Get link template with default
-        link_template = props.get('link_template', 'week:{week}')
+        # Get week link template (separate from day link template)
+        link_template = props.get('week_link_template', 'week:{week}')
 
         # Format destination using week number and date context
         try:

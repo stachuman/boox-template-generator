@@ -74,8 +74,9 @@ const DayListWidget: React.FC<DayListWidgetProps> = ({ widget }) => {
   const fontCSS = getFontCSS(styling.font);
 
   // Column widths (matching backend logic) - adapt weekday width to format
-  // Following CLAUDE.md Rule #3: Week numbers are max 3 chars ("W53"), need ~2.0 for readability
-  const weekColWidth = showWeekNumbers ? fontSize * 2.0 : 0;
+  // Following CLAUDE.md Rule #3: Week numbers are max 3 chars ("W53")
+  // Tight spacing for e-ink: 1.8 × fontSize (3 chars × 0.6 per char)
+  const weekColWidth = showWeekNumbers ? fontSize * 1.8 : 0;
   const dayNumWidth = showDayNumbers ? 30 : 0;
   let weekdayWidth = 0;
   if (showWeekdayNames) {
@@ -163,8 +164,7 @@ const DayListWidget: React.FC<DayListWidgetProps> = ({ widget }) => {
           <div
             style={{
               width: weekColWidth,
-              textAlign: 'center',
-              paddingRight: '4px'
+              textAlign: 'center'
             }}
           >
             {showThisWeek ? `W${weekNum}` : ''}

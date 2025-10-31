@@ -235,9 +235,10 @@ class DayListRenderer(BaseWidgetRenderer):
         widget_y = float(pos['y'])
 
         # Column widths - adjust weekday column based on format
-        # Following CLAUDE.md Rule #3: Week numbers are max 3 chars ("W53"), need ~2.0 for readability
+        # Following CLAUDE.md Rule #3: Week numbers are max 3 chars ("W53")
+        # Tight spacing for e-ink: 1.8 × fontSize (3 chars × 0.6 per char)
         show_week_numbers = config['show_week_numbers']
-        week_col_width = (text_options.font_size * 2.0) if show_week_numbers else 0.0
+        week_col_width = (text_options.font_size * 1.8) if show_week_numbers else 0.0
 
         day_num_width = 30.0 if show_day_numbers else 0.0
         if show_weekday_names:
@@ -322,15 +323,15 @@ class DayListRenderer(BaseWidgetRenderer):
 
             # Render week number - only when week changes or first day
             # Following CLAUDE.md Rule #3: Show week number only on change (matches calendar behavior)
+            # Use full column width for text box to prevent cutoff
             if show_week_numbers:
                 show_this_week = (prev_week_num is None) or (week_num != prev_week_num)
                 if show_this_week:
-                    week_padding = 4.0
                     text_top_offset = 2.0
                     week_box = {
                         'x': widget_x,
                         'y': row_y + row_height - font_size - text_top_offset,
-                        'width': week_col_width - week_padding,
+                        'width': week_col_width,  # Use full width, center alignment handles spacing
                         'height': font_size
                     }
                     week_text = f"W{week_num}"
