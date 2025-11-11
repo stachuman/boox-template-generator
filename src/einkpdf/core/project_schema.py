@@ -12,7 +12,7 @@ Follows CLAUDE.md standards - no dummy implementations.
 from datetime import date
 from enum import Enum
 from typing import Dict, List, Optional, Union, Any
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, computed_field
 
 from .schema import Template, Widget
 
@@ -46,6 +46,35 @@ class Master(BaseModel):
         if not v.replace(" ", "").replace("-", "").replace("_", "").isalnum():
             raise ValueError("Master name must contain only letters, numbers, spaces, hyphens, and underscores")
         return v
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def used_variables(self) -> List[str]:
+        """
+        List of all variable names referenced in this master's widgets.
+
+        Extracts both brace-style ({var}) and at-style (@var) variable references
+        from widget content, properties, and styling.
+
+        Returns:
+            Sorted list of unique variable names
+
+        Examples:
+            >>> master = Master(...)  # Contains widgets with {date}, {index:02d}, @title
+            >>> master.used_variables
+            ['date', 'index', 'title']
+
+            >>> master = Master(...)  # Static content, no variables
+            >>> master.used_variables
+            []
+
+        Notes:
+            - This is a computed field (automatically serialized by Pydantic v2)
+            - Performance: Fast for typical masters (5-20 widgets)
+            - Format specifiers are stripped from variable names
+        """
+        from .utils import extract_variables_from_master
+        return extract_variables_from_master(self)
 
 
 class PlanSection(BaseModel):

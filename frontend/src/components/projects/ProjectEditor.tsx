@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Download, RefreshCw, Edit2, Check, X, Eye } from 'lucide-react';
-import { Project, Plan, DeviceProfile } from '@/types';
+import { ArrowLeft, Plus, Download, RefreshCw, Edit2, Check, X, Eye, Trash2 } from 'lucide-react';
+import { Project, Plan, DeviceProfile, Widget } from '@/types';
 import { useProjectStore } from '@/stores/projectStore';
 import { APIClient, downloadBlob } from '@/services/api';
 import PlanEditor from './PlanEditor';
@@ -9,6 +9,31 @@ import PlanPreview from './PlanPreview';
 import CreateMasterModal from './CreateMasterModal';
 import ProjectSharingControls from './ProjectSharingControls';
 import PDFJobStatusComponent from './PDFJobStatus';
+
+/**
+ * Generate a human-readable breakdown of widget types.
+ * Simplifies widget type names for display.
+ */
+function getWidgetTypeBreakdown(widgets: Widget[]): string {
+  if (widgets.length === 0) return 'No widgets';
+
+  const counts: Record<string, number> = {};
+
+  widgets.forEach(w => {
+    // Simplify widget type names for readability
+    const shortType = w.type
+      .replace('_block', '')
+      .replace('_grid', '')
+      .replace('_list', '')
+      .replace('_', ' ');
+    counts[shortType] = (counts[shortType] || 0) + 1;
+  });
+
+  return Object.entries(counts)
+    .sort(([, a], [, b]) => b - a)  // Sort by count descending
+    .map(([type, count]) => `${count} ${type}`)
+    .join(', ');
+}
 
 const ProjectEditor: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -1097,8 +1122,7 @@ const ProjectEditor: React.FC = () => {
               {project.masters.map((master) => (
                 <div
                   key={master.name}
-                  className="bg-white border border-eink-light-gray rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => navigate(`/projects/${project.id}/masters/${encodeURIComponent(master.name)}`)}
+                  className="bg-white border border-eink-light-gray rounded-lg p-4 hover:shadow-lg transition-shadow"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
@@ -1106,44 +1130,49 @@ const ProjectEditor: React.FC = () => {
                         {master.name}
                       </h3>
                       {master.description && (
-                        <p className="text-eink-dark-gray text-sm line-clamp-2">
+                        <p className="text-eink-dark-gray text-sm line-clamp-2 mb-2">
                           {master.description}
                         </p>
                       )}
-                      <div className="text-xs text-eink-dark-gray mt-2">
-                        {master.widgets.length} widgets
+                      <div className="space-y-1 mt-2">
+                        <div className="text-xs text-eink-dark-gray">
+                          📦 {getWidgetTypeBreakdown(master.widgets)}
+                        </div>
+                        {master.used_variables && master.used_variables.length > 0 && (
+                          <div className="text-xs text-eink-dark-gray">
+                            🔗 Uses: {master.used_variables.join(', ')}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRenameMaster(master.name);
-                        }}
+                        onClick={() => navigate(`/projects/${project.id}/masters/${encodeURIComponent(master.name)}`)}
+                        className="text-eink-light-gray hover:text-eink-blue transition-colors px-2 py-1 text-sm"
+                        title="Edit master"
+                      >
+                        📝
+                      </button>
+                      <button
+                        onClick={() => handleRenameMaster(master.name)}
                         className="text-eink-light-gray hover:text-eink-blue transition-colors px-2 py-1 text-sm"
                         title="Rename master"
                       >
                         ✏️
                       </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDuplicateMaster(master.name);
-                        }}
+                        onClick={() => handleDuplicateMaster(master.name)}
                         className="text-eink-light-gray hover:text-eink-blue transition-colors px-2 py-1 text-sm"
                         title="Duplicate master"
                       >
                         📋
                       </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteMaster(master.name);
-                        }}
-                        className="text-eink-light-gray hover:text-red-600 transition-colors p-1"
+                        onClick={() => handleDeleteMaster(master.name)}
+                        className="text-eink-light-gray hover:text-red-600 transition-colors px-2 py-1"
                         title="Delete master"
                       >
-                        ×
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>

@@ -288,6 +288,7 @@ export interface ProjectMaster {
   widgets: Widget[];
   created_at: string;
   updated_at: string;
+  used_variables?: string[];  // Computed property from backend
 }
 
 export enum GenerateMode {
