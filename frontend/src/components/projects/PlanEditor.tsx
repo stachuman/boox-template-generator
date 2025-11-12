@@ -7,7 +7,7 @@ import { Select, SelectItem } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Info, Save, AlertCircle, ChevronRight, ChevronDown } from 'lucide-react';
-import { Project, Plan, PlanSection, CalendarConfig, GenerateMode, ProjectMaster } from '@/types';
+import { Project, Plan, PlanSection, GenerateMode, ProjectMaster } from '@/types';
 
 interface PlanEditorProps {
   project: Project;
@@ -215,6 +215,16 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
       'subpage'
     ]);
 
+    // Widget-local variables (ONLY available within specific widgets)
+    // Following CLAUDE.md Rule #3: Be explicit about widget-specific scope
+    const WIDGET_LOCAL_VARIABLES = new Set([
+      // Table widget: Only in link_template property
+      'row',      // 1-based row number
+      'col',      // 1-based column number
+      'value'     // Cell content
+      // Note: day_list widget reuses global date variables (date, year, month, day, week)
+    ]);
+
     // Collect all variables used in masters
     const mastersWithVariables = project.masters
       .filter(m => m.used_variables && m.used_variables.length > 0)
@@ -247,22 +257,19 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
 
     // Calculate missing variables (used but not provided)
     const missingVariables = Array.from(allUsedVariables).filter(v =>
-      !AUTO_VARIABLES.has(v) && !definedVariables.has(v)
+      !AUTO_VARIABLES.has(v) && !WIDGET_LOCAL_VARIABLES.has(v) && !definedVariables.has(v)
     );
 
     return {
       autoVariables: Array.from(AUTO_VARIABLES).sort(),
+      widgetLocalVariables: Array.from(WIDGET_LOCAL_VARIABLES).sort(),
       mastersWithVariables,
       definedVariables: Array.from(definedVariables).sort(),
       missingVariables: missingVariables.sort(),
       isVariableProvided: (varName: string) =>
-        AUTO_VARIABLES.has(varName) || definedVariables.has(varName)
+        AUTO_VARIABLES.has(varName) || WIDGET_LOCAL_VARIABLES.has(varName) || definedVariables.has(varName)
     };
   }, [project.masters, plan.sections]);
-
-  const handleCalendarChange = (calendar: CalendarConfig) => {
-    setPlan({ ...plan, calendar });
-  };
 
   const handleLocaleChange = (locale: string) => {
     setPlan({ ...plan, locale });
@@ -504,29 +511,29 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
         {/* Right Sidebar - Variable Status */}
         <div className="lg:sticky lg:top-4 lg:self-start">
           <Card>
-            <CardHeader
-              className="cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => setShowVariables(!showVariables)}
-            >
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Variable Status</CardTitle>
-            <div className="flex items-center gap-2">
-              {variableStatus.missingVariables.length > 0 && (
-                <Badge variant="destructive" className="bg-red-600">
-                  {variableStatus.missingVariables.length} missing
-                </Badge>
-              )}
-              {variableStatus.missingVariables.length === 0 && variableStatus.mastersWithVariables.length > 0 && (
-                <Badge variant="default" className="bg-green-600">
-                  All provided
-                </Badge>
-              )}
-              <ChevronDown
-                className={`w-5 h-5 transition-transform ${showVariables ? 'rotate-180' : ''}`}
-              />
-            </div>
-          </div>
-        </CardHeader>
+            <CardHeader>
+              <div
+                className="flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors -m-6 p-6 rounded-t-lg"
+                onClick={() => setShowVariables(!showVariables)}
+              >
+                <CardTitle className="text-lg">Variable Status</CardTitle>
+                <div className="flex items-center gap-2">
+                  {variableStatus.missingVariables.length > 0 && (
+                    <Badge variant="destructive" className="bg-red-600">
+                      {variableStatus.missingVariables.length} missing
+                    </Badge>
+                  )}
+                  {variableStatus.missingVariables.length === 0 && variableStatus.mastersWithVariables.length > 0 && (
+                    <Badge variant="default" className="bg-green-600">
+                      All provided
+                    </Badge>
+                  )}
+                  <ChevronDown
+                    className={`w-5 h-5 transition-transform ${showVariables ? 'rotate-180' : ''}`}
+                  />
+                </div>
+              </div>
+            </CardHeader>
 
         {showVariables && (
           <CardContent className="space-y-4">
@@ -708,6 +715,28 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
                     </ul>
                   </div>
                 </div>
+
+                {/* Widget-local variables */}
+                {variableStatus.widgetLocalVariables.length > 0 && (
+                  <div className="bg-white p-2 rounded border border-yellow-200 mt-3">
+                    <div className="font-semibold text-yellow-900 mb-1">🔧 Widget-local variables:</div>
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {variableStatus.widgetLocalVariables.map(v => (
+                        <Badge key={v} variant="outline" className="text-xs bg-yellow-50">
+                          {v}
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="text-xs text-yellow-800">
+                      <strong>⚠️ Scope limitations:</strong>
+                      <ul className="list-disc ml-4 mt-1">
+                        <li><code>row</code>, <code>col</code>, <code>value</code>: Only in <strong>table widget</strong> link_template property</li>
+                        <li>These are <strong>NOT</strong> available in other widgets or global context</li>
+                        <li>Example: <code>link_template: "day:{'{date}'}-task:{'{row}'}"</code></li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
             </details>
 
