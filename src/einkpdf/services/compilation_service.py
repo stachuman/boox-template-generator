@@ -57,14 +57,16 @@ class PlanEnumerator:
         iteration = 0  # Track iteration for counter variables
 
         if section.generate == GenerateMode.ONCE:
-            context = self._build_context(section, index=1, iteration=iteration, parent_context=parent_context)
+            context = self._build_context(section, iteration=iteration, parent_context=parent_context)
             yield context, section.nested or []
 
         elif section.generate == GenerateMode.COUNT:
             if section.count is None:
                 raise CompilationServiceError(f"Count not specified for section {section.kind}")
             for i in range(1, section.count + 1):
-                context = self._build_context(section, index=i, total=section.count, iteration=iteration, parent_context=parent_context)
+                is_first = (i == 1)
+                is_last = (i == section.count)
+                context = self._build_context(section, iteration=iteration, is_first=is_first, is_last=is_last, parent_context=parent_context)
                 yield context, section.nested or []
                 iteration += 1
 
@@ -156,15 +158,18 @@ class PlanEnumerator:
         self,
         section: PlanSection,
         date_obj: Optional[date] = None,
-        index: Optional[int] = None,
-        total: Optional[int] = None,
         iso_week: Optional[str] = None,
         iteration: int = 0,
         is_first: bool = False,
         is_last: bool = False,
         parent_context: Optional[BindingContext] = None
     ) -> BindingContext:
-        """Build binding context for template substitution."""
+        """
+        Build binding context for template substitution.
+
+        Note: index, index_padded, and total are NO LONGER auto-generated.
+        Users must define these explicitly using Counters in their plan sections.
+        """
         # Start with parent context if provided, otherwise fresh context
         if parent_context:
             context = copy.deepcopy(parent_context)
@@ -282,13 +287,6 @@ class PlanEnumerator:
                     f"Navigation tokens (date_prev, date_next, month_prev, month_next, week, week_prev, week_next) will not be available."
                 )
 
-        # Sequence context
-        if index is not None:
-            context.index = index
-            context.index_padded = f"{index:03d}"
-        if total is not None:
-            context.total = total
-
         # Calendar context
         if iso_week:
             context.iso_week = iso_week
@@ -321,18 +319,17 @@ class PlanEnumerator:
 
                 # Automatic navigation: Add _prev and _next variants for sequential navigation
                 # Following CLAUDE.md Rule #3: Explicit behavior - only add if within bounds
-                prev_value = counter_value - step
-                if prev_value >= start:
+                if not is_first:
+                    prev_value = counter_value - step
                     # Store as same type (int or float)
                     if prev_value == int(prev_value):
                         context.custom[f'{counter_name}_prev'] = int(prev_value)
                     else:
                         context.custom[f'{counter_name}_prev'] = prev_value
-                # If prev_value < start, key doesn't exist - token replacement will return ""
+                # If at start, key doesn't exist - token replacement will return ""
 
-                # For _next, we need to know the bounds (end value)
-                # Check if this is the last iteration by checking total
-                if total is not None and iteration < total - 1:
+                # For _next, use is_last flag to determine if we're at the end
+                if not is_last:
                     next_value = counter_value + step
                     # Store as same type (int or float)
                     if next_value == int(next_value):

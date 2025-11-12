@@ -304,8 +304,26 @@ class CompilationResult(BaseModel):
 
 
 class BindingContext(BaseModel):
-    """Context for binding resolution during compilation."""
-    # Date context
+    """
+    Context for binding resolution during compilation.
+
+    Auto-generated variables (EACH_DAY, EACH_WEEK, EACH_MONTH modes):
+    - date, date_long, year, month, month_padded, month_padded3, month_name
+    - day, day_padded, weekday
+    - Navigation: date_prev, date_next, month_prev, month_next, week_prev, week_next, year_prev, year_next
+    - week, iso_week (ISO week number and identifier)
+
+    Always available:
+    - locale (language code, e.g., 'en', 'pl')
+    - subpage (for multi-page items)
+    - page, total_pages (added during PDF rendering phase)
+
+    User-defined (via Counters or Context):
+    - index, index_padded, total, and any custom variables
+    - Use Counters in plan sections to define sequential numbering
+    - Use Context in plan sections to define static values
+    """
+    # Date context (EACH_DAY, EACH_WEEK, EACH_MONTH modes only)
     date: Optional[str] = None
     date_long: Optional[str] = None
     year: Optional[int] = None
@@ -316,19 +334,17 @@ class BindingContext(BaseModel):
     day: Optional[int] = None
     day_padded: Optional[str] = None
     weekday: Optional[str] = None
-    # Locale (language code, e.g., 'en', 'pl')
+
+    # Locale (always available)
     locale: Optional[str] = None
 
-    # Sequence context
-    index: Optional[int] = None
-    index_padded: Optional[str] = None
-    total: Optional[int] = None
+    # Multi-page support (always available when pages_per_item > 1)
     subpage: Optional[int] = None
 
-    # Calendar context
+    # Calendar context (EACH_DAY, EACH_WEEK, EACH_MONTH modes only)
     iso_week: Optional[str] = None
 
-    # Custom context
+    # Custom context (user-defined via Context or Counters, plus navigation variables)
     custom: Dict[str, Any] = Field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:

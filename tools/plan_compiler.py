@@ -100,7 +100,7 @@ except ImportError:
         return f"{dest_day(d)}#{idx}"
 
     def dest_notes_index() -> str:
-        return "notes:index"
+        return "notes:{index}"
 
     def dest_notes_page(i: int) -> str:
         return f"notes:page:{i:03d}"
@@ -189,7 +189,7 @@ except ImportError:
                 if did.startswith("day:@"):
                     d = date.fromisoformat(ctx["@date"])  # e.g., @date
                     props["dest_id"] = dest_day(d)
-                elif did == "notes:index":
+                elif did == "notes:{index}":
                     props["dest_id"] = dest_notes_index()
                 elif did == "notes:page:@index_padded":
                     props["dest_id"] = dest_notes_page(int(ctx["@index"]))

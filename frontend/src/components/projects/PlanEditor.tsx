@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectItem } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, Trash2, Info, Save, AlertCircle, ChevronRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Trash2, Info, Save, AlertCircle, ChevronRight, ChevronDown } from 'lucide-react';
 import { Project, Plan, PlanSection, CalendarConfig, GenerateMode, ProjectMaster } from '@/types';
 
 interface PlanEditorProps {
@@ -94,6 +95,7 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [initialPlanJson, setInitialPlanJson] = useState(JSON.stringify(project.plan));
+  const [showVariables, setShowVariables] = useState(true);
 
   // Detect unsaved changes
   useEffect(() => {
@@ -192,6 +194,71 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
 
     setValidationErrors(errors);
   }, [plan, project.masters]);
+
+  // Calculate variable status
+  const variableStatus = useMemo(() => {
+    // Auto-generated variables - verified from compilation_service.py and token_processor.py
+    // Following CLAUDE.md Rule #3: Only variables that are CLEARLY provided by the system
+    // NOTE: index, index_padded, total are NOT auto-generated - users must define as counters
+    const AUTO_VARIABLES = new Set([
+      // PDF rendering phase (always available)
+      'page', 'total_pages',
+      // Always available (regardless of mode)
+      'locale',
+      // Date-based modes (EACH_DAY, EACH_WEEK, EACH_MONTH)
+      'date', 'date_long', 'year', 'month', 'month_padded', 'month_padded3', 'month_name',
+      'day', 'day_padded', 'weekday', 'week', 'iso_week',
+      // Navigation (date-based modes only)
+      'date_prev', 'date_next', 'month_prev', 'month_next',
+      'week_prev', 'week_next', 'year_prev', 'year_next',
+      // Multi-page support (when pages_per_item > 1)
+      'subpage'
+    ]);
+
+    // Collect all variables used in masters
+    const mastersWithVariables = project.masters
+      .filter(m => m.used_variables && m.used_variables.length > 0)
+      .map(m => ({
+        name: m.name,
+        variables: m.used_variables || []
+      }));
+
+    const allUsedVariables = new Set<string>();
+    mastersWithVariables.forEach(m => {
+      m.variables.forEach(v => allUsedVariables.add(v));
+    });
+
+    // Collect user-defined variables from all sections (including nested)
+    const definedVariables = new Set<string>();
+    const collectDefined = (sections: PlanSection[]) => {
+      sections.forEach(section => {
+        if (section.context) {
+          Object.keys(section.context).forEach(k => definedVariables.add(k));
+        }
+        if (section.counters) {
+          Object.keys(section.counters).forEach(k => definedVariables.add(k));
+        }
+        if (section.nested) {
+          collectDefined(section.nested);
+        }
+      });
+    };
+    collectDefined(plan.sections);
+
+    // Calculate missing variables (used but not provided)
+    const missingVariables = Array.from(allUsedVariables).filter(v =>
+      !AUTO_VARIABLES.has(v) && !definedVariables.has(v)
+    );
+
+    return {
+      autoVariables: Array.from(AUTO_VARIABLES).sort(),
+      mastersWithVariables,
+      definedVariables: Array.from(definedVariables).sort(),
+      missingVariables: missingVariables.sort(),
+      isVariableProvided: (varName: string) =>
+        AUTO_VARIABLES.has(varName) || definedVariables.has(varName)
+    };
+  }, [project.masters, plan.sections]);
 
   const handleCalendarChange = (calendar: CalendarConfig) => {
     setPlan({ ...plan, calendar });
@@ -370,15 +437,16 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
       {/* Instruction Legend */}
       <InstructionLegend />
 
-      {/* Locale Configuration */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Locale Settings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="locale">Locale</Label>
+      {/* Main content area with sidebar layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
+        {/* Left column - Main content */}
+        <div className="space-y-4">
+          {/* Locale Configuration */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <Label htmlFor="locale" className="text-sm font-medium min-w-fit">
+                Language for calendar/day lists:
+              </Label>
               <Select
                 value={plan.locale || 'en'}
                 onValueChange={handleLocaleChange}
@@ -393,23 +461,11 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
                 <SelectItem value="ja">日本語 (ja)</SelectItem>
                 <SelectItem value="zh">中文 (zh)</SelectItem>
               </Select>
-              <p className="text-xs text-gray-500 mt-1">Affects month/weekday names and label tokens</p>
-            </div>
-            <div>
-              <Label htmlFor="pages-per-day">Default Pages per Day</Label>
-              <Input
-                id="pages-per-day"
-                type="number"
-                min="1"
-                max="10"
-                value={plan.calendar.pages_per_day}
-                onChange={(e) => handleCalendarChange({ ...plan.calendar, pages_per_day: parseInt(e.target.value) })}
-              />
-              <p className="text-xs text-gray-500 mt-1">For multi-page daily sections</p>
+              <span className="text-xs text-blue-700">
+                Affects month/weekday names in calendar and day_list widgets
+              </span>
             </div>
           </div>
-        </CardContent>
-      </Card>
 
       {/* Plan Sections */}
       <Card>
@@ -442,6 +498,237 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({ project, onSave }) => {
           )}
         </CardContent>
       </Card>
+
+        </div>
+
+        {/* Right Sidebar - Variable Status */}
+        <div className="lg:sticky lg:top-4 lg:self-start">
+          <Card>
+            <CardHeader
+              className="cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => setShowVariables(!showVariables)}
+            >
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Variable Status</CardTitle>
+            <div className="flex items-center gap-2">
+              {variableStatus.missingVariables.length > 0 && (
+                <Badge variant="destructive" className="bg-red-600">
+                  {variableStatus.missingVariables.length} missing
+                </Badge>
+              )}
+              {variableStatus.missingVariables.length === 0 && variableStatus.mastersWithVariables.length > 0 && (
+                <Badge variant="default" className="bg-green-600">
+                  All provided
+                </Badge>
+              )}
+              <ChevronDown
+                className={`w-5 h-5 transition-transform ${showVariables ? 'rotate-180' : ''}`}
+              />
+            </div>
+          </div>
+        </CardHeader>
+
+        {showVariables && (
+          <CardContent className="space-y-4">
+            {/* Variables used in masters */}
+            {variableStatus.mastersWithVariables.length > 0 ? (
+              <div>
+                <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                  <span>📦 Used in masters:</span>
+                </h4>
+                <div className="space-y-3">
+                  {variableStatus.mastersWithVariables.map((master) => (
+                    <div key={master.name} className="bg-gray-50 p-3 rounded-lg">
+                      <div className="text-sm font-medium text-gray-700 mb-2">{master.name}</div>
+                      <div className="flex flex-wrap gap-1">
+                        {master.variables.map((v) => {
+                          const isProvided = variableStatus.isVariableProvided(v);
+                          return (
+                            <Badge
+                              key={v}
+                              variant={isProvided ? "default" : "destructive"}
+                              className={isProvided ? "bg-green-100 text-green-800 border-green-300" : "bg-red-100 text-red-800 border-red-300"}
+                            >
+                              {v} {isProvided ? '✓' : '⚠️'}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded-lg">
+                No variables used in masters yet. Variables like {'{date}'} or {'@index'} will appear here.
+              </div>
+            )}
+
+            {/* Missing variables warning */}
+            {variableStatus.missingVariables.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-red-900 mb-1">Missing Variables</h4>
+                    <p className="text-sm text-red-800">
+                      These variables are used in masters but not provided:
+                    </p>
+                    <div className="font-semibold text-red-900 mt-1">
+                      {variableStatus.missingVariables.join(', ')}
+                    </div>
+                    <p className="text-sm text-red-800 mt-2">
+                      Define them in section <strong>Context</strong> (static values) or <strong>Counters</strong> (incrementing values).
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Auto-generated variables - context-dependent */}
+            <details className="bg-blue-50 p-3 rounded-lg">
+              <summary className="text-sm font-semibold cursor-pointer hover:text-blue-700">
+                ✅ Auto-generated variables (click to see details)
+              </summary>
+              <div className="mt-3 space-y-3 text-xs">
+                <div className="bg-white p-2 rounded border border-blue-200">
+                  <div className="font-semibold text-blue-900 mb-1">✅ Always available (all modes):</div>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="outline" className="text-xs">page</Badge>
+                    <Badge variant="outline" className="text-xs">total_pages</Badge>
+                    <Badge variant="outline" className="text-xs">locale</Badge>
+                    <Badge variant="outline" className="text-xs">subpage</Badge>
+                  </div>
+                  <div className="text-xs text-blue-700 mt-1">
+                    • <code>page</code>, <code>total_pages</code> provided during PDF rendering<br/>
+                    • <code>subpage</code> only when <code>pages_per_item &gt; 1</code>
+                  </div>
+                </div>
+
+                <div className="bg-white p-2 rounded border border-gray-200">
+                  <div className="font-semibold text-gray-700 mb-1">ONCE mode:</div>
+                  <div className="text-xs text-gray-600 italic mb-1">No mode-specific variables generated</div>
+                  <div className="text-xs text-orange-700 mt-1">
+                    ⚠️ Use <strong>Counters</strong> to define: index, index_padded, page_num, etc.
+                  </div>
+                </div>
+
+                <div className="bg-white p-2 rounded border border-gray-200">
+                  <div className="font-semibold text-gray-700 mb-1">COUNT mode:</div>
+                  <div className="text-xs text-gray-600 italic mb-1">No mode-specific variables generated</div>
+                  <div className="text-xs text-orange-700 mt-1">
+                    ⚠️ Use <strong>Counters</strong> to define: index, index_padded, total, page_num, etc.
+                  </div>
+                </div>
+
+                <div className="bg-white p-2 rounded border border-green-200">
+                  <div className="font-semibold text-green-900 mb-1">✅ EACH_DAY mode generates:</div>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="outline" className="text-xs bg-green-50">date</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">date_long</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">year</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">month</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">month_padded</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">month_padded3</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">month_name</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">day</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">day_padded</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">weekday</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">week</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">iso_week</Badge>
+                  </div>
+                  <div className="text-xs text-green-700 mt-1">
+                    + Navigation: date_prev, date_next, month_prev, month_next, week_prev, week_next, year_prev, year_next
+                  </div>
+                  <div className="text-xs text-orange-700 mt-1">
+                    ⚠️ Need index? Use <strong>Counters</strong> (e.g., day_num: {'{start: 1, step: 1}'})
+                  </div>
+                </div>
+
+                <div className="bg-white p-2 rounded border border-green-200">
+                  <div className="font-semibold text-green-900 mb-1">✅ EACH_WEEK mode generates:</div>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="outline" className="text-xs bg-green-50">date</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">date_long</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">year</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">month</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">month_padded</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">month_name</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">day</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">day_padded</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">weekday</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">week</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">iso_week</Badge>
+                  </div>
+                  <div className="text-xs text-green-700 mt-1">
+                    All date variables for week start date + Navigation
+                  </div>
+                  <div className="text-xs text-orange-700 mt-1">
+                    ⚠️ Need index? Use <strong>Counters</strong> (e.g., week_num: {'{start: 1, step: 1}'})
+                  </div>
+                </div>
+
+                <div className="bg-white p-2 rounded border border-green-200">
+                  <div className="font-semibold text-green-900 mb-1">✅ EACH_MONTH mode generates:</div>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant="outline" className="text-xs bg-green-50">date</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">date_long</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">year</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">month</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">month_padded</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">month_padded3</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">month_name</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">day</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">day_padded</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">weekday</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">week</Badge>
+                    <Badge variant="outline" className="text-xs bg-green-50">iso_week</Badge>
+                  </div>
+                  <div className="text-xs text-green-700 mt-1">
+                    All date variables for 1st of month + Navigation: month_prev, month_next, year_prev, year_next
+                  </div>
+                  <div className="text-xs text-orange-700 mt-1">
+                    ⚠️ Need index? Use <strong>Counters</strong> (e.g., month_num: {'{start: 1, step: 1}'})
+                  </div>
+                </div>
+
+                <div className="text-xs text-blue-700 mt-2 p-2 bg-blue-100 rounded">
+                  💡 <strong>Key concepts:</strong>
+                  <ul className="list-disc ml-4 mt-1 space-y-1">
+                    <li><strong>Auto-generated:</strong> System provides automatically (page, date, month, etc.)</li>
+                    <li><strong>Counters:</strong> You define explicitly (index, total, custom numbering)</li>
+                    <li><strong>Context:</strong> Static values you provide (project_name, category, etc.)</li>
+                  </ul>
+                  <div className="mt-2">
+                    <strong>Special notes:</strong>
+                    <ul className="list-disc ml-4 mt-1">
+                      <li>Navigation vars (_prev, _next) are empty at section boundaries</li>
+                      <li>Nested sections inherit parent variables (useful for hierarchies)</li>
+                      <li><code>page</code>, <code>total_pages</code> generated during PDF rendering (final phase)</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </details>
+
+            {/* User-defined variables */}
+            {variableStatus.definedVariables.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold mb-2">🔧 Defined in sections:</h4>
+                <div className="flex flex-wrap gap-1">
+                  {variableStatus.definedVariables.map(v => (
+                    <Badge key={v} variant="secondary" className="bg-purple-100 text-purple-800 border-purple-300">
+                      {v}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+        </div>
+      </div>
 
       {/* Generated Sections Overview */}
       {plan.sections.length > 0 && (

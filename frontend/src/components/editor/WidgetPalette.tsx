@@ -120,7 +120,7 @@ const ALL_WIDGETS: WidgetType[] = [
         color: '#0066CC'
       },
       properties: {
-        to_dest: 'notes:index',
+        to_dest: 'notes:{index}',
         orientation: 'horizontal'
       }
     }
@@ -154,15 +154,12 @@ const ALL_WIDGETS: WidgetType[] = [
         color: '#0066CC'
       },
       properties: {
-        count: 10,
-        start_index: 1,
-        index_pad: 3,
         columns: 2,
         gap_y: 6,
         item_height: 24,
-        label_template: 'Note {index_padded}',
-        bind: 'notes:{index}',
-        orientation: 'horizontal'
+        orientation: 'horizontal',
+        labels: [],
+        destinations: []
       }
     }
   },
