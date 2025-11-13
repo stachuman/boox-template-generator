@@ -1,0 +1,18 @@
+profile:
+  name: "boox-go-color-7-portrait"
+  display:
+    screen_size: [1680, 1264]  # 7" Kaleido 3 color display (B/W: 300 PPI, Color: 150 PPI)
+    ppi: 300  # Black & white resolution PPI (color is 150 PPI)
+    aspect_ratio: "4:3"
+    physical_size: "7 inch"
+    color: true
+  pdf_settings:
+    page_size: "Custom"
+    orientation: "portrait"
+    safe_margins: [24, 24, 24, 24]
+  constraints:
+    min_font_pt: 8.0   # Smaller screen, smaller minimum
+    min_stroke_pt: 0.5
+    min_touch_target_pt: 28.0
+    grayscale_levels: 16
+    max_gray_fill_area: 0.2

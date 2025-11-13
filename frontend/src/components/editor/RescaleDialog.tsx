@@ -168,15 +168,21 @@ const RescaleDialog: React.FC<RescaleDialogProps> = ({
     const minStrokePt = deviceProfile.constraints?.min_stroke_pt || 0.75;
     const minTouchTargetPt = deviceProfile.constraints?.min_touch_target_pt || 30;
 
+    // Helper function to round to specified decimal places
+    const round = (value: number, decimals: number = 1): number => {
+      const factor = Math.pow(10, decimals);
+      return Math.round(value * factor) / factor;
+    };
+
     const scaledWidgets = template.widgets.map(widget => {
       const scaledWidget: Widget = {
         ...widget,
         position: {
           ...widget.position,
-          x: (widget.position.x || 0) * scaleX,
-          y: (widget.position.y || 0) * scaleY,
-          width: (widget.position.width || 0) * scaleX,
-          height: (widget.position.height || 0) * scaleY
+          x: round((widget.position.x || 0) * scaleX),
+          y: round((widget.position.y || 0) * scaleY),
+          width: round((widget.position.width || 0) * scaleX),
+          height: round((widget.position.height || 0) * scaleY)
         }
       };
 
@@ -190,7 +196,7 @@ const RescaleDialog: React.FC<RescaleDialogProps> = ({
           if (autoFixViolations && scaledFontSize < minFontPt) {
             scaledFontSize = minFontPt;
           }
-          scaledWidget.styling.size = scaledFontSize;
+          scaledWidget.styling.size = round(scaledFontSize, 1);
         }
 
         // Scale line width
@@ -199,7 +205,7 @@ const RescaleDialog: React.FC<RescaleDialogProps> = ({
           if (autoFixViolations && scaledLineWidth < minStrokePt) {
             scaledLineWidth = minStrokePt;
           }
-          scaledWidget.styling.line_width = scaledLineWidth;
+          scaledWidget.styling.line_width = round(scaledLineWidth, 2);
         }
       }
 
@@ -213,25 +219,19 @@ const RescaleDialog: React.FC<RescaleDialogProps> = ({
           if (autoFixViolations && scaledBoxSize < 8) {
             scaledBoxSize = 8;
           }
-          scaledWidget.properties.box_size = scaledBoxSize;
+          scaledWidget.properties.box_size = round(scaledBoxSize, 1);
         }
 
-        // Line thickness
-        if (widget.properties.line_thickness) {
-          let scaledThickness = widget.properties.line_thickness * Math.min(scaleX, scaleY);
-          if (autoFixViolations && scaledThickness < minStrokePt) {
-            scaledThickness = minStrokePt;
-          }
-          scaledWidget.properties.line_thickness = scaledThickness;
-        }
+        // Note: line_thickness is now in styling.line_width (handled above)
+        // Legacy properties.line_thickness removed after cleanup
 
         // Dot grid properties
         if (widget.type === 'dot_grid') {
           if (widget.properties.grid_cell_size) {
-            scaledWidget.properties.grid_cell_size = widget.properties.grid_cell_size * Math.min(scaleX, scaleY);
+            scaledWidget.properties.grid_cell_size = round(widget.properties.grid_cell_size * Math.min(scaleX, scaleY), 1);
           }
           if (widget.properties.dot_size) {
-            scaledWidget.properties.dot_size = widget.properties.dot_size * Math.min(scaleX, scaleY);
+            scaledWidget.properties.dot_size = round(widget.properties.dot_size * Math.min(scaleX, scaleY), 2);
           }
         }
 
@@ -241,17 +241,17 @@ const RescaleDialog: React.FC<RescaleDialogProps> = ({
           if (autoFixViolations && scaledCellSize < minTouchTargetPt) {
             scaledCellSize = minTouchTargetPt;
           }
-          scaledWidget.properties.cell_min_size = scaledCellSize;
+          scaledWidget.properties.cell_min_size = round(scaledCellSize, 1);
         }
 
         // Link list item_height
         if (widget.type === 'link_list' && widget.properties.item_height) {
-          scaledWidget.properties.item_height = widget.properties.item_height * scaleY;
+          scaledWidget.properties.item_height = round(widget.properties.item_height * scaleY, 1);
         }
 
         // Lines line_spacing
         if (widget.type === 'lines' && widget.properties.line_spacing) {
-          scaledWidget.properties.line_spacing = widget.properties.line_spacing * scaleY;
+          scaledWidget.properties.line_spacing = round(widget.properties.line_spacing * scaleY, 1);
         }
       }
 

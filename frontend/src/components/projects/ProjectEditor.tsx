@@ -583,6 +583,51 @@ const ProjectEditor: React.FC = () => {
 
   const handleChangeProfile = async (newProfile: string) => {
     if (!project || newProfile === project.metadata.device_profile) return;
+
+    // Check if dimensions changed and warn user about potential rescaling needs
+    const newProfileData = profiles.find(p => p.name === newProfile);
+    const oldProfileData = profiles.find(p => p.name === project.metadata.device_profile);
+
+    if (newProfileData && oldProfileData && project.masters.length > 0) {
+      const oldSize = oldProfileData.display?.screen_size || [0, 0];
+      const newSize = newProfileData.display?.screen_size || [0, 0];
+
+      // Check if dimensions changed significantly (more than 1px difference to avoid floating point issues)
+      const dimensionsChanged =
+        Math.abs(newSize[0] - oldSize[0]) > 1 ||
+        Math.abs(newSize[1] - oldSize[1]) > 1;
+
+      if (dimensionsChanged) {
+        const oldOrientation = oldProfileData.pdf_settings?.orientation || 'portrait';
+        const newOrientation = newProfileData.pdf_settings?.orientation || 'portrait';
+
+        // Calculate effective canvas dimensions (considering orientation)
+        const getEffectiveDims = (size: number[], orientation: string) => {
+          const isPortrait = orientation === 'portrait';
+          const isLandscape = size[0] > size[1];
+          // Swap if screen is landscape but wants portrait, or vice versa
+          if ((isLandscape && isPortrait) || (!isLandscape && !isPortrait)) {
+            return [size[1], size[0]];
+          }
+          return size;
+        };
+
+        const oldEffectiveDims = getEffectiveDims(oldSize, oldOrientation);
+        const newEffectiveDims = getEffectiveDims(newSize, newOrientation);
+
+        const message = `⚠️  Device Profile Canvas Changed\n\n` +
+          `Old Canvas: ${oldEffectiveDims[0]} × ${oldEffectiveDims[1]}px\n` +
+          `New Canvas: ${newEffectiveDims[0]} × ${newEffectiveDims[1]}px\n\n` +
+          `You have ${project.masters.length} master template(s) that may need rescaling.\n` +
+          `You can rescale each master individually after this change.\n\n` +
+          `Continue with profile change?`;
+
+        if (!confirm(message)) {
+          return; // User cancelled
+        }
+      }
+    }
+
     try {
       setSavingProfile(true);
       setError(null);
