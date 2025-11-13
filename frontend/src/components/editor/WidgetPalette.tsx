@@ -176,7 +176,7 @@ const ALL_WIDGETS: WidgetType[] = [
       properties: {
         tap_action: 'page_link',
         target_page: 2,
-        outline: true
+        outline: true  // Editor-only: visualize tap zone boundaries
       }
     }
   },
@@ -202,7 +202,8 @@ const ALL_WIDGETS: WidgetType[] = [
         first_page_number: 2,     // Start from page 2 (page 1 might be calendar index)
         pages_per_date: 1,        // One page per day
         show_weekdays: true,
-        show_month_year: true,
+        show_month_name: true,    // Replaced show_month_year with separate controls
+        show_year: true,          // Allows independent control of month name and year display
         cell_min_size: 44,        // E-ink touch target minimum
         show_grid_lines: true,
         first_day_of_week: 'monday'  // European default (Monday first)
@@ -287,9 +288,9 @@ const ALL_WIDGETS: WidgetType[] = [
     description: 'Horizontal line separator',
     defaultProps: {
       position: { width: 300, height: 2 },
-      properties: {
-        line_thickness: 1.0,
-        stroke_color: '#000000'
+      styling: {
+        stroke_color: '#000000',
+        line_width: 1.0
       }
     }
   },
@@ -301,9 +302,9 @@ const ALL_WIDGETS: WidgetType[] = [
     description: 'Vertical separator line',
     defaultProps: {
       position: { width: 2, height: 200 },
-      properties: {
-        line_thickness: 1.0,
-        stroke_color: '#000000'
+      styling: {
+        stroke_color: '#000000',
+        line_width: 1.0
       }
     }
   },

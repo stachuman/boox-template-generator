@@ -111,7 +111,8 @@ export interface WidgetProperties {
   first_page_number?: number; // Required when link_strategy = 'sequential_pages'
   pages_per_date?: number;    // Required when link_strategy = 'sequential_pages'
   show_weekdays?: boolean;
-  show_month_year?: boolean;
+  show_month_name?: boolean;  // Show month name in calendar header
+  show_year?: boolean;        // Show year in calendar header
   cell_min_size?: number;     // Minimum touch target size for e-ink
   show_grid_lines?: boolean;
   first_day_of_week?: 'sunday' | 'monday'; // Calendar locale: Sunday (US) or Monday (Europe)

@@ -6,11 +6,13 @@ Following CLAUDE.md Rule #1: No dummy implementations
 This script removes properties that are no longer used by the compilation system.
 
 Usage:
-    python cleanup_legacy_properties.py /root/eink/backend/data/projects
+    python cleanup_legacy_properties.py /root/eink/backend/data/users
 
 What it fixes:
 - link_list widgets: Removes label_template, bind, count, start_index, index_pad
 - calendar widgets: Replaces show_month_year with show_month_name and show_year
+- divider widgets: Migrates line_thickness/stroke_color from properties to styling
+- vertical_line widgets: Migrates line_thickness/stroke_color from properties to styling
 
 Processes both project.json AND masters/*.yaml files.
 Backs up original files with .backup extension before modifying.
@@ -34,6 +36,14 @@ LEGACY_PROPERTIES = {
     },
     'calendar': {
         'show_month_year'  # Split into show_month_name and show_year
+    },
+    'divider': {
+        'line_thickness',  # Should be in styling.line_width
+        'stroke_color'     # Should be in styling.stroke_color
+    },
+    'vertical_line': {
+        'line_thickness',  # Should be in styling.line_width
+        'stroke_color'     # Should be in styling.stroke_color
     }
 }
 
@@ -63,6 +73,12 @@ def clean_widget_properties(widget: Dict[str, Any], changes_log: List[str]) -> b
     changed = False
     legacy_props = LEGACY_PROPERTIES[widget_type]
 
+    # Collect values for migration before removing
+    migration_values = {}
+    for prop_name in legacy_props:
+        if prop_name in properties:
+            migration_values[prop_name] = properties[prop_name]
+
     # Remove legacy properties
     for prop_name in legacy_props:
         if prop_name in properties:
@@ -89,6 +105,31 @@ def clean_widget_properties(widget: Dict[str, Any], changes_log: List[str]) -> b
             changes_log.append(
                 f"  Added calendar.properties.show_year = True "
                 f"to widget {widget.get('id', '?')}"
+            )
+            changed = True
+
+    # Special handling for divider/vertical_line: migrate properties to styling
+    if widget_type in ['divider', 'vertical_line'] and migration_values:
+        # Ensure styling dict exists
+        if 'styling' not in widget:
+            widget['styling'] = {}
+        styling = widget['styling']
+
+        # Migrate line_thickness -> line_width
+        if 'line_thickness' in migration_values and 'line_width' not in styling:
+            styling['line_width'] = migration_values['line_thickness']
+            changes_log.append(
+                f"  Migrated {widget_type}.properties.line_thickness -> styling.line_width = {migration_values['line_thickness']!r} "
+                f"for widget {widget.get('id', '?')}"
+            )
+            changed = True
+
+        # Migrate stroke_color
+        if 'stroke_color' in migration_values and 'stroke_color' not in styling:
+            styling['stroke_color'] = migration_values['stroke_color']
+            changes_log.append(
+                f"  Migrated {widget_type}.properties.stroke_color -> styling.stroke_color = {migration_values['stroke_color']!r} "
+                f"for widget {widget.get('id', '?')}"
             )
             changed = True
 
