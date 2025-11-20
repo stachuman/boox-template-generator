@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     # Application
     APP_NAME: str = "einkpdf"
-    APP_VERSION: str = "0.7.2"
+    APP_VERSION: str = "0.7.3"
     DEBUG: bool = False
 
     # Database

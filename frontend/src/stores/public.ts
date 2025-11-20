@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { PublicAPI } from '@/services/public';
+import { PublicAPI, ListProjectsParams } from '@/services/public';
 import type { PublicProjectListResponse, PublicProject } from '@/types/public';
 import type { CloneProjectRequestPayload, Project } from '@/types';
 import { APIClientError } from '@/services/api';
@@ -10,7 +10,7 @@ interface PublicProjectsStore {
   isLoading: boolean;
   cloningId: string | null;
   error: string | null;
-  fetchProjects: () => Promise<void>;
+  fetchProjects: (params?: ListProjectsParams) => Promise<void>;
   cloneProject: (projectId: string, payload: CloneProjectRequestPayload) => Promise<Project>;
   cloneProjectBySlug: (slug: string, payload: CloneProjectRequestPayload) => Promise<Project>;
   clearError: () => void;
@@ -33,10 +33,10 @@ export const usePublicProjectsStore = create<PublicProjectsStore>((set) => ({
   cloningId: null,
   error: null,
 
-  async fetchProjects() {
+  async fetchProjects(params?: ListProjectsParams) {
     set({ isLoading: true, error: null });
     try {
-      const response: PublicProjectListResponse = await PublicAPI.listProjects();
+      const response: PublicProjectListResponse = await PublicAPI.listProjects(params);
       set({
         projects: response.projects,
         total: response.total,

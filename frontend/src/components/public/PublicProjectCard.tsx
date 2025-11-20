@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, CopyPlus, GitFork, Download, FileText } from 'lucide-react';
 import { usePublicProjectsStore } from '@/stores/public';
@@ -20,8 +20,34 @@ const PublicProjectCard = ({ project, onCloneSuccess, onView }: PublicProjectCar
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [cloneError, setCloneError] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState(false);
+  const [shouldLoadPdf, setShouldLoadPdf] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
   const cloneProject = usePublicProjectsStore((state) => state.cloneProject);
   const cloningId = usePublicProjectsStore((state) => state.cloningId);
+
+  // Lazy load PDF preview when card comes into view
+  useEffect(() => {
+    if (!cardRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !shouldLoadPdf) {
+            setShouldLoadPdf(true);
+            observer.disconnect(); // Load once and stop observing
+          }
+        });
+      },
+      {
+        rootMargin: '200px', // Start loading 200px before the card enters viewport
+        threshold: 0.01, // Trigger as soon as 1% is visible
+      }
+    );
+
+    observer.observe(cardRef.current);
+
+    return () => observer.disconnect();
+  }, [shouldLoadPdf]);
 
   const handleClone = async (payload: CloneProjectRequestPayload) => {
     try {
@@ -66,20 +92,27 @@ const PublicProjectCard = ({ project, onCloneSuccess, onView }: PublicProjectCar
 
   return (
     <div
+      ref={cardRef}
       className="flex h-full flex-col rounded-lg border border-eink-pale-gray bg-white shadow-sm transition-shadow hover:shadow-md"
     >
       {/* PDF Preview */}
       <div className="relative h-48 w-full overflow-hidden rounded-t-lg bg-eink-pale-gray">
-        {!previewError ? (
-          <iframe
-            src={pdfPreviewUrl}
-            className="h-full w-full border-0"
-            title={`Preview of ${project.metadata.name}`}
-            onError={() => setPreviewError(true)}
-          />
+        {shouldLoadPdf ? (
+          !previewError ? (
+            <iframe
+              src={pdfPreviewUrl}
+              className="h-full w-full border-0"
+              title={`Preview of ${project.metadata.name}`}
+              onError={() => setPreviewError(true)}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <FileText className="h-16 w-16 text-eink-dark-gray opacity-50" />
+            </div>
+          )
         ) : (
-          <div className="flex h-full items-center justify-center">
-            <FileText className="h-16 w-16 text-eink-dark-gray opacity-50" />
+          <div className="flex h-full items-center justify-center bg-gradient-to-br from-eink-pale-gray to-gray-100 animate-pulse">
+            <FileText className="h-12 w-12 text-eink-dark-gray opacity-30" />
           </div>
         )}
       </div>

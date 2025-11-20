@@ -5,7 +5,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, Response, status, Query
+from typing import Optional
 
 # Ensure src is on path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
@@ -24,9 +25,24 @@ pdf_service = PDFService()
 
 
 @router.get("/projects", response_model=PublicProjectListResponse)
-async def list_public_projects() -> PublicProjectListResponse:
-    """Return the public project gallery."""
-    return public_project_manager.list_public_projects()
+async def list_public_projects(
+    limit: int = Query(20, ge=1, le=50, description="Number of projects per page"),
+    offset: int = Query(0, ge=0, description="Number of projects to skip"),
+    device_profile: Optional[str] = Query(None, description="Filter by device profile"),
+    sort_by: str = Query("recent", regex="^(recent|popular|name)$", description="Sort order")
+) -> PublicProjectListResponse:
+    """
+    Return paginated public project gallery.
+
+    Pagination is required to avoid loading hundreds of PDF previews simultaneously.
+    Default page size is 20 projects (max 50) to balance UX and performance.
+    """
+    return public_project_manager.list_public_projects(
+        limit=limit,
+        offset=offset,
+        device_profile=device_profile,
+        sort_by=sort_by
+    )
 
 
 @router.get("/projects/{project_id}", response_model=PublicProjectResponse)

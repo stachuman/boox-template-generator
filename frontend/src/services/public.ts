@@ -17,10 +17,24 @@ const normalizeError = (error: unknown): APIClientError => {
   return new APIClientError({ error: 'PUBLIC_PROJECT_ERROR', message: 'Public projects request failed' });
 };
 
+export interface ListProjectsParams {
+  limit?: number;
+  offset?: number;
+  device_profile?: string;
+  sort_by?: 'recent' | 'popular' | 'name';
+}
+
 export class PublicAPI {
-  static async listProjects(): Promise<PublicProjectListResponse> {
+  static async listProjects(params?: ListProjectsParams): Promise<PublicProjectListResponse> {
     try {
-      const response: AxiosResponse<PublicProjectListResponse> = await apiClient.get('/public/projects');
+      const response: AxiosResponse<PublicProjectListResponse> = await apiClient.get('/public/projects', {
+        params: {
+          limit: params?.limit ?? 20,
+          offset: params?.offset ?? 0,
+          device_profile: params?.device_profile,
+          sort_by: params?.sort_by ?? 'recent',
+        }
+      });
       return response.data;
     } catch (error) {
       throw normalizeError(error);

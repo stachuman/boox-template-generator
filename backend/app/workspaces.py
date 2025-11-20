@@ -328,10 +328,50 @@ class PublicProjectManager:
             logger.info(f"Removing public project directory for unpublished project: {project_id}")
             shutil.rmtree(project_dir, ignore_errors=True)
 
-    def list_public_projects(self) -> PublicProjectListResponse:
-        entries = [self._build_response(entry) for entry in self._index.values()]
-        entries.sort(key=lambda item: item.created_at, reverse=True)
-        return PublicProjectListResponse(projects=entries, total=len(entries))
+    def list_public_projects(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        device_profile: Optional[str] = None,
+        sort_by: str = "recent"
+    ) -> PublicProjectListResponse:
+        """
+        List public projects with pagination and filtering.
+
+        Args:
+            limit: Number of projects to return (1-50)
+            offset: Number of projects to skip
+            device_profile: Optional device profile filter
+            sort_by: Sort order - 'recent', 'popular', or 'name'
+
+        Returns:
+            Paginated list of public projects with total count
+        """
+        # Start with all entries
+        entries = list(self._index.values())
+
+        # Apply device profile filter
+        if device_profile:
+            entries = [e for e in entries if e.metadata.get("device_profile") == device_profile]
+
+        # Apply sorting
+        if sort_by == "popular":
+            entries.sort(key=lambda e: e.clone_count, reverse=True)
+        elif sort_by == "name":
+            entries.sort(key=lambda e: e.metadata.get("name", "").lower())
+        else:  # recent (default)
+            entries.sort(key=lambda e: e.updated_at, reverse=True)
+
+        # Get total before pagination
+        total = len(entries)
+
+        # Apply pagination
+        paginated_entries = entries[offset:offset + limit]
+
+        # Build responses
+        projects = [self._build_response(entry) for entry in paginated_entries]
+
+        return PublicProjectListResponse(projects=projects, total=total)
 
     def get_public_project(self, project_id: str) -> Tuple[Project, PublicProjectIndexEntry, Path]:
         try:
