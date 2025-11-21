@@ -170,16 +170,16 @@ const BasePropertyPanel: React.FC<BasePropertyPanelProps> = ({
         )}
 
         {/* Content Input */}
-        {widget.type === 'text_block' && (
+        {['text_block', 'checkbox'].includes(widget.type) && (
           <div>
             <label className="block text-sm font-medium mb-1">
-              Content
+              {widget.type === 'checkbox' ? 'Label' : 'Content'}
             </label>
             <textarea
               value={widget.content || ''}
               onChange={(e) => onUpdate({ content: e.target.value })}
-              placeholder="Enter text content..."
-              rows={3}
+              placeholder={widget.type === 'checkbox' ? 'Enter checkbox label...' : 'Enter text content...'}
+              rows={widget.type === 'checkbox' ? 1 : 3}
               className="w-full px-3 py-2 border border-eink-pale-gray rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-eink-blue"
             />
           </div>

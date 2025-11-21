@@ -74,8 +74,32 @@ class FormRenderer(BaseWidgetRenderer):
         widget_box = self.converter.convert_position_for_drawing(pos)
 
         try:
-            # Calculate checkbox position (left side of widget)
-            checkbox_x = widget_box['x']
+            # Get text alignment for positioning the checkbox+label unit
+            text_align = styling.get('text_align', 'left')
+
+            # Calculate total width of checkbox + gap + label
+            gap = 4.0
+            label_width = 0.0
+            if content_text:
+                # Get font info for text measurement
+                font_name = styling.get('font', 'Helvetica')
+                font_size = styling.get('size', 12.0)
+                # Use TextEngine's calculate_text_dimensions for proper font resolution
+                dimensions = self.text_engine.calculate_text_dimensions(
+                    pdf_canvas, content_text, font_name, font_size
+                )
+                label_width = dimensions['width']
+
+            total_width = box_size + (gap + label_width if content_text else 0)
+
+            # Calculate checkbox X position based on text_align
+            if text_align == 'center':
+                checkbox_x = widget_box['x'] + (widget_box['width'] - total_width) / 2
+            elif text_align == 'right':
+                checkbox_x = widget_box['x'] + widget_box['width'] - total_width
+            else:  # left
+                checkbox_x = widget_box['x']
+
             checkbox_y = widget_box['y'] + (widget_box['height'] - box_size) / 2
 
             # Draw checkbox background
@@ -94,9 +118,15 @@ class FormRenderer(BaseWidgetRenderer):
 
             # Draw label if provided
             if content_text:
+                # Add orientation from properties to styling for text rendering
+                label_styling = {**styling}
+                if 'orientation' in props:
+                    label_styling['orientation'] = props['orientation']
+                # Override text_align to left since we've already positioned the unit
+                label_styling['text_align'] = 'left'
                 self._draw_checkbox_label(
-                    pdf_canvas, widget, content_text, checkbox_x + box_size + 4,
-                    checkbox_y, widget_box, styling
+                    pdf_canvas, widget, content_text, checkbox_x + box_size + gap,
+                    checkbox_y, box_size, widget_box, label_styling
                 )
 
         except Exception as e:
@@ -132,19 +162,20 @@ class FormRenderer(BaseWidgetRenderer):
             logger.warning(f"Failed to draw check mark: {e}")
 
     def _draw_checkbox_label(self, pdf_canvas: canvas.Canvas, widget: Widget, label: str,
-                           start_x: float, checkbox_y: float, widget_box: dict,
-                           styling: dict) -> None:
+                           start_x: float, checkbox_y: float, box_size: float,
+                           widget_box: dict, styling: dict) -> None:
         """Draw label text next to checkbox using TextEngine."""
         try:
             # Create text rendering options from styling
             text_options = self.text_engine.create_text_options(styling)
 
             # Calculate text box for label positioning
+            # Use box_size for height so text centers vertically with checkbox
             label_box = {
                 'x': start_x,
                 'y': checkbox_y,
                 'width': widget_box['width'] - (start_x - widget_box['x']),
-                'height': widget_box['height']
+                'height': box_size
             }
 
             # Use TextEngine for consistent text rendering
