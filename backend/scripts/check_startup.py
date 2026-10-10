@@ -77,5 +77,26 @@ def check_migrations():
             print(f"ok  migrate: {name}")
 
 
+DEV_SECRET = "dev-secret-key-change-in-production"
+
+
+def jwt_secret(tmp, **env):
+    code = f"import sys; sys.path.insert(0, {str(BACKEND)!r}); from app.config import settings; print(settings.JWT_SECRET_KEY)"
+    return run(["-c", code], Path(tmp) / "test.sqlite", env).strip()
+
+
+def check_jwt_secret():
+    with tempfile.TemporaryDirectory() as tmp:
+        secret_file = Path(tmp) / "jwt_secret.txt"
+        secret_file.write_text("from-file\n")
+        missing = str(Path(tmp) / "missing.txt")
+        # compose forwards ${JWT_SECRET_KEY:-}, so "" must mean "unset", never a usable secret
+        assert jwt_secret(tmp, JWT_SECRET_KEY="", JWT_SECRET_KEY_FILE=str(secret_file)) == "from-file"
+        assert jwt_secret(tmp, JWT_SECRET_KEY="", JWT_SECRET_KEY_FILE=missing) == DEV_SECRET
+        assert jwt_secret(tmp, JWT_SECRET_KEY="explicit", JWT_SECRET_KEY_FILE=str(secret_file)) == "explicit"
+        print("ok  jwt secret resolution")
+
+
 if __name__ == "__main__":
     check_migrations()
+    check_jwt_secret()
