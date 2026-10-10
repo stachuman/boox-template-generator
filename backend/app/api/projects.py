@@ -1,7 +1,5 @@
 """Project management API endpoints for multi-user workspaces."""
 
-from __future__ import annotations
-
 import logging
 import os
 import sys
