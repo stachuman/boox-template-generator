@@ -1,0 +1,18 @@
+profile:
+  name: "boox-go-10-3-landscape"
+  display:
+    screen_size: [2480, 1860]  # 10.3" E Ink Carta 1200, monochrome
+    ppi: 300
+    aspect_ratio: "4:3"
+    physical_size: "10.3 inch"
+    color: false
+  pdf_settings:
+    page_size: "Custom"  # 2480x1860 doesn't match standard sizes
+    orientation: "landscape"
+    safe_margins: [36, 36, 36, 36]  # 0.5" safe area
+  constraints:
+    min_font_pt: 9.0   # High PPI allows smaller text
+    min_stroke_pt: 0.5
+    min_touch_target_pt: 30.0
+    grayscale_levels: 16
+    max_gray_fill_area: 0.2

@@ -83,7 +83,7 @@ def profiles():
     # Placeholder data - will be populated when device profiles are implemented
     table.add_row("Boox-Note-Air-4C", "1872×1404", "227", "Not Implemented")
     table.add_row("Boox-Tab-Ultra-C", "2200×1650", "300", "Not Implemented")
-    table.add_row("Boox-Go-10.3", "1872×1404", "227", "Not Implemented")
+    table.add_row("Boox-Go-10-3", "2480×1860", "300", "Not Implemented")
     
     console.print(table)
     console.print("\n[red]Device profiles not yet implemented in Phase 1[/red]")
