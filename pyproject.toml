@@ -33,7 +33,8 @@ dependencies = [
     "PyMuPDF==1.23.26",              # Ground truth preview (AGPL licensed)
     
     # Data validation and parsing
-    "pydantic==2.5.3",               # Schema validation
+    "pydantic==2.14.0",              # Schema validation
+    "pydantic-settings==2.15.0",     # Settings from env (backend/app/config.py)
     "PyYAML==6.0.1",                 # Template parsing
     
     # Image processing for e-ink optimization
@@ -56,6 +57,10 @@ dependencies = [
     "python-jose[cryptography]==3.3.0",  # JWT token handling
     "bcrypt==5.0.0",                      # Password hashing
     "email-validator==2.3.0",             # Email validation for pydantic
+
+    # Database
+    "SQLAlchemy==2.1.4",             # ORM
+    "alembic==1.20.0",               # Schema migrations
 ]
 
 [project.optional-dependencies]

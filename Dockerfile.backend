@@ -27,13 +27,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir --only-binary=:all: . || \
     (echo "ERROR: Some packages don't have wheels, need compilers" && exit 1)
 
-# Install additional runtime dependencies
-RUN pip install --no-cache-dir --only-binary=:all: \
-    pydantic-settings \
-    sqlalchemy \
-    alembic || \
-    (echo "ERROR: Runtime deps need compilers" && exit 1)
-
 # SAFE cleanup
 RUN find /opt/venv -type d -name "tests" -o -name "test" -o -name "__pycache__" | xargs rm -rf 2>/dev/null || true && \
     find /opt/venv -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete && \
