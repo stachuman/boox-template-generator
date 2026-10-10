@@ -27,3 +27,18 @@ services:
       - EINK_SMTP_USERNAME=${EMAIL_FROM}
       - EINK_SMTP_PASSWORD=${EMAIL_PASSWORD}
       - EINK_SMTP_FROM=${EMAIL_FROM}
+
+# Optional: attach to an existing reverse-proxy network (Traefik, nginx-proxy,
+# ...) created beforehand with `docker network create proxy`. List `default`
+# too, or the services lose the network they use to reach each other.
+# Merge the `networks:` entries into the existing `frontend:`/`backend:`
+# blocks above; do not add a second `backend:` key under `services:`.
+#
+#  frontend:
+#    networks: [default, proxy]
+#  backend:
+#    networks: [default, proxy]
+#
+#networks:
+#  proxy:
+#    external: true

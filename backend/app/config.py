@@ -124,6 +124,10 @@ class Settings(BaseSettings):
         JWT_SECRET_KEY env value always wins — file resolution is only the
         fallback for the dev default.
         """
+        # An empty or whitespace-only value (e.g. compose's ${JWT_SECRET_KEY:-}) means "unset":
+        # fall back to the file, and keep assert_production_safe effective.
+        if not self.JWT_SECRET_KEY.strip():
+            object.__setattr__(self, "JWT_SECRET_KEY", self._DEV_JWT_SECRET_KEY)
         if self.JWT_SECRET_KEY != self._DEV_JWT_SECRET_KEY:
             return self
 

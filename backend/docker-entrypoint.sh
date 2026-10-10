@@ -1,36 +1,17 @@
 #!/bin/bash
 set -e
 
+# Generate a JWT secret on first run unless one is supplied directly.
+# An existing file (e.g. from earlier deployments) is always reused.
+if [ -z "${JWT_SECRET_KEY:-}" ] && [ -n "${JWT_SECRET_KEY_FILE:-}" ] && [ ! -s "$JWT_SECRET_KEY_FILE" ]; then
+    mkdir -p "$(dirname "$JWT_SECRET_KEY_FILE")"
+    (umask 077 && python3 -c 'import secrets; print(secrets.token_hex(32))' > "$JWT_SECRET_KEY_FILE")
+    chmod 600 "$JWT_SECRET_KEY_FILE"
+    echo "Generated JWT secret at $JWT_SECRET_KEY_FILE"
+fi
+
 echo "Running database migrations..."
-
-# Run migration: Add is_admin column if it doesn't exist
-python3 << 'PYTHON_SCRIPT'
-import sys
-from pathlib import Path
-
-# Add backend to path
-sys.path.insert(0, str(Path('/app/backend')))
-
-from app.db import get_db_context
-from sqlalchemy import text
-
-print("Checking database schema...")
-
-with get_db_context() as db:
-    # Check if is_admin column exists
-    result = db.execute(text('PRAGMA table_info(users)'))
-    columns = [row[1] for row in result.fetchall()]
-
-    if 'is_admin' not in columns:
-        print('  - Adding is_admin column to users table...')
-        db.execute(text('ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0'))
-        db.commit()
-        print('  ✓ Migration completed successfully')
-    else:
-        print('  ✓ Database schema is up to date')
-
-print("Database migrations complete!")
-PYTHON_SCRIPT
+python3 /app/backend/scripts/migrate.py
 
 echo "Starting application..."
 exec "$@"
