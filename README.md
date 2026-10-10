@@ -95,7 +95,7 @@ Portrait and landscape variants available. Easy to add custom profiles.
 FRONTEND_PORT=3000              # Web interface port
 DATA_DIR=./data                 # Host dir mounted as backend data (DB, assets, JWT secret)
 EINK_CLEANUP_TTL_DAYS=14        # Auto-cleanup (0 to disable)
-JWT_SECRET_KEY=your-secret-key  # Optional; generated into DATA_DIR/users/jwt_secret.txt if unset
+# JWT_SECRET_KEY=               # Optional; leave unset to auto-generate DATA_DIR/users/jwt_secret.txt
 ```
 
 ### Docker Compose Override

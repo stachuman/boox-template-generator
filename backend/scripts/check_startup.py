@@ -92,6 +92,7 @@ def check_jwt_secret():
         missing = str(Path(tmp) / "missing.txt")
         # compose forwards ${JWT_SECRET_KEY:-}, so "" must mean "unset", never a usable secret
         assert jwt_secret(tmp, JWT_SECRET_KEY="", JWT_SECRET_KEY_FILE=str(secret_file)) == "from-file"
+        assert jwt_secret(tmp, JWT_SECRET_KEY="   ", JWT_SECRET_KEY_FILE=str(secret_file)) == "from-file"
         assert jwt_secret(tmp, JWT_SECRET_KEY="", JWT_SECRET_KEY_FILE=missing) == DEV_SECRET
         assert jwt_secret(tmp, JWT_SECRET_KEY="explicit", JWT_SECRET_KEY_FILE=str(secret_file)) == "explicit"
         print("ok  jwt secret resolution")
