@@ -93,9 +93,9 @@ Portrait and landscape variants available. Easy to add custom profiles.
 ### Environment Variables
 ```bash
 FRONTEND_PORT=3000              # Web interface port
-EINK_DATA_DIR=/app/backend/data # User data storage
+DATA_DIR=./data                 # Host dir mounted as backend data (DB, assets, JWT secret)
 EINK_CLEANUP_TTL_DAYS=14        # Auto-cleanup (0 to disable)
-JWT_SECRET_KEY=your-secret-key  # Auto-generated if not set
+JWT_SECRET_KEY=your-secret-key  # Optional; generated into DATA_DIR/users/jwt_secret.txt if unset
 ```
 
 ### Docker Compose Override
@@ -106,6 +106,8 @@ services:
     ports:
       - "8080:80"  # Custom port
 ```
+
+To attach the stack to an existing reverse-proxy network, see `docker-compose.override.yml.example`.
 
 ---
 

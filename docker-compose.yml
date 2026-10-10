@@ -11,10 +11,9 @@ services:
       # JWT secret. Provide ONE of:
       #   JWT_SECRET_KEY      — the secret value itself (set in your .env)
       #   JWT_SECRET_KEY_FILE — path inside the container to a file holding it
-      # The default points at the file the legacy auth code auto-generates on
-      # first run, so a fresh deployment Just Works with no .env-supplied
-      # secret. Override JWT_SECRET_KEY in your .env if you'd rather rotate via
-      # config than via a file on the data volume.
+      # If JWT_SECRET_KEY is unset, docker-entrypoint.sh generates the file
+      # below on first run, so a fresh deployment needs no secret configured.
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-}
       - JWT_SECRET_KEY_FILE=/app/backend/data/users/jwt_secret.txt
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-43200}  # 30 days
 
@@ -53,10 +52,8 @@ services:
     # Backend isn't published to the host; reach it through the frontend
     # nginx proxy or your reverse proxy of choice.
     restart: unless-stopped
-    networks:
-      - proxy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health > /dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -74,14 +71,8 @@ services:
       # Same-origin API: the frontend's nginx proxies /api -> http://backend:8000.
       - VITE_API_BASE_URL=/api
     restart: unless-stopped
-    networks:
-      - proxy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/ || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ > /dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
-
-networks:
-  proxy:
-    external: true
